@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.log
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor/IDE metadata
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+
+# Caches
+.cache/
+
