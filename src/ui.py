@@ -34,33 +34,53 @@ def build_dashboard():
     layout["header"].update(title)
 
     # TABLE VIEW
-    table = Table(show_header=True, header_style="bold yellow", border_style="bright_black")
+    table = Table(show_header=True, header_style="bold yellow", border_style="bright_black", expand=True)
     table.add_column("STATE", style="cyan", width=12)
-    table.add_column("REMOTE", style="magenta", width=22)
+    table.add_column("REMOTE (DOMAIN/IP)", style="magenta")
     table.add_column("LOCAL", style="green", width=22)
-    table.add_column("PID", style="white", width=6)
-    table.add_column("PROCESS", style="white", width=12)
-    table.add_column("GEOIP", style="bright_blue")
+    table.add_column("PID/PROCESS", style="white")
+    table.add_column("SECURITY STATUS & GEOIP", style="bright_blue")
 
-    conns_sorted = sorted(conns, key=lambda x: x["state"])
+    conns_sorted = sorted(conns, key=lambda x: (x["state"] != "ESTABLISHED", x["state"]))
 
-    for c in conns_sorted[:22]:  # show first 22, scrolling later
+    for c in conns_sorted[:25]:  # show more rows
+        remote_display = f"[bold]{c['domain']}[/bold]\n{c['remote_ip']}:{c['remote_port']}" if c['domain'] else f"{c['remote_ip']}:{c['remote_port']}"
+        
+        # Color coding based on state
+        state_style = "cyan"
+        if c["state"] == "ESTABLISHED": state_style = "bold green"
+        elif c["state"] == "LISTEN": state_style = "yellow"
+        elif "WAIT" in c["state"]: state_style = "dim"
+        
+        process_display = f"[bold]{c['pid']}[/bold] {c['pname']}" if c['pname'] else f"{c['pid']}"
+        
         table.add_row(
-            c["state"],
-            f"{c['remote_ip']}:{c['remote_port']}",
+            f"[{state_style}]{c['state']}[/{state_style}]",
+            remote_display,
             f"{c['local_ip']}:{c['local_port']}",
-            str(c['pid']),
-            c['pname'],
-            c["geo"]
+            process_display,
+            f"{c['geo']}"
         )
 
     layout["body"].update(table)
 
     # FOOTER ALERTS & METRICS
-    alerts_text = "\n".join(alerts[:6]) if alerts else "No recent security alerts"
+    alerts_text = "\n".join(alerts[:6]) if alerts else "[green]✅ No active threats detected[/green]"
+    
+    # Calculate some quick stats
+    established = len([c for c in conns if c["state"] == "ESTABLISHED"])
+    listening = len([c for c in conns if c["state"] == "LISTEN"])
+    
+    footer_content = (
+        f"[bold red]Security Alerts:[/bold red]\n{alerts_text}\n\n"
+        f"[bold cyan]Stats:[/bold cyan] {established} Established | {listening} Listening | "
+        f"Tracking {len(conns)} total sockets"
+    )
+    
     footer = Panel(
-        f"[bold red]Alerts:[/bold red]\n{alerts_text}",
-        border_style="red"
+        footer_content,
+        border_style="red" if alerts else "green",
+        title="[bold]Security Status[/bold]"
     )
     layout["footer"].update(footer)
 

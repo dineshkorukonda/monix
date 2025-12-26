@@ -7,7 +7,7 @@ from datetime import datetime
 from threading import Thread
 from .state import state
 from .processes import get_process_map
-from .geo import geo_lookup
+from .geo import geo_lookup, reverse_dns
 
 TCP_STATES = {
     "01": "ESTABLISHED",
@@ -46,11 +46,15 @@ port_activity = defaultdict(lambda: defaultdict(float))
 
 def detect_attacks(conns):
     syn_count = defaultdict(int)
+    conn_count = defaultdict(int)
     now = time.time()
 
     for c in conns:
         if c["state"] == "SYN_RECV":
             syn_count[c["remote_ip"]] += 1
+        
+        if c["state"] == "ESTABLISHED":
+            conn_count[c["remote_ip"]] += 1
 
         ip = c["remote_ip"]
         port = c["local_port"]
@@ -61,6 +65,11 @@ def detect_attacks(conns):
     for ip, count in syn_count.items():
         if count >= 100:
             state.add_alert(f"🚨 SYN_FLOOD {ip} (half-open={count})", key=f"syn_{ip}")
+    
+    # High Connection Count Alerts
+    for ip, count in conn_count.items():
+        if count >= 50:
+            state.add_alert(f"⚠️ HIGH_CONN {ip} (total={count})", key=f"high_conn_{ip}")
 
     # Port Scan Alerts
     for ip, ports in port_activity.items():
@@ -102,6 +111,7 @@ def collector_loop():
                 conn["pname"] = pname or ""
 
                 conn["geo"] = geo_lookup(conn["remote_ip"])
+                conn["domain"] = reverse_dns(conn["remote_ip"])
                 conns.append(conn)
 
         state.update_connections(conns)
