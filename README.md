@@ -1,6 +1,8 @@
 # Monarx Sentinel
 
-Monarx Sentinel watches live TCP connections and reveals attack patterns in real time in the shell
+Next-Gen Intrusion Monitoring & Defense for Linux Servers
+Monarx Sentinel is an open-source host-level security tool that provides real-time threat monitoring, connection intelligence, and behavior-based attack detection — built for modern Linux servers.
+Designed as part of the Monarx Security Suite ecosystem, Sentinel brings visibility + protection into one lightweight CLI interface.
 
 ## Setup
 
