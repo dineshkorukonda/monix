@@ -18,10 +18,3 @@ def get_process_map():
     except Exception:
         pass
     return process_map
-
-
-def resolve_process(local_ip, local_port, remote_ip, remote_port):
-    # This is kept for backward compatibility if needed, 
-    # but the monitor should use get_process_map for efficiency.
-    for c in psutil.net_connections(kind="tcp"):
-        # ... (rest of old code if still used)
