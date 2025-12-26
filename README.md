@@ -1,13 +1,13 @@
-# Monarx servers
+# Monarx Sentinel
 
-Monarx servers watches live TCP connections and reveals attack patterns in real time in the shell
+Monarx Sentinel watches live TCP connections and reveals attack patterns in real time in the shell
 
 ## Setup
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/monarx-servers.git
-cd monarx-servers
+git clone https://github.com/yourusername/monarx-Sentinel.git
+cd monarx-Sentinel
 
 # Create virtual environment
 python3 -m venv .venv
