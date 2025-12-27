@@ -10,8 +10,15 @@ from cli.commands import monitor, status, watch, connections, alerts, scan
 
 @click.group(invoke_without_command=True)
 @click.option('--version', '-v', is_flag=True, help='Show version information')
+@click.option('--monitor', '-m', 'run_monitor', is_flag=True, help='Quick system snapshot')
+@click.option('--status', '-s', 'run_status', is_flag=True, help='One-line health check')
+@click.option('--watch', '-w', 'run_watch', is_flag=True, help='Live security dashboard')
+@click.option('--connections', '-c', 'run_connections', is_flag=True, help='List active connections')
+@click.option('--alerts', '-a', 'run_alerts', is_flag=True, help='Show security alerts')
+@click.option('--scan', 'run_scan', is_flag=True, help='Quick security scan')
+@click.option('--json', 'output_json', is_flag=True, help='Output in JSON format (with --monitor)')
 @click.pass_context
-def cli(ctx, version):
+def cli(ctx, version, run_monitor, run_status, run_watch, run_connections, run_alerts, run_scan, output_json):
     """
     🛡️ Monarx Sentinel - Next-Gen Intrusion Monitoring & Defense
     
@@ -21,11 +28,39 @@ def cli(ctx, version):
     \b
     Quick Start:
       monarx-sentinel --monitor     Quick system snapshot
+      monarx-sentinel --status      One-line health check  
       monarx-sentinel --watch       Live dashboard
-      monarx-sentinel --status      One-line health check
+      monarx-sentinel --connections List connections
+      monarx-sentinel --alerts      Show alerts
+      monarx-sentinel --scan        Security scan
     """
     if version:
         click.echo(f"Monarx Sentinel v{__version__}")
+        return
+    
+    # Handle flag-based commands
+    if run_monitor:
+        monitor.run(output_json=output_json)
+        return
+    
+    if run_status:
+        status.run()
+        return
+    
+    if run_watch:
+        watch.run()
+        return
+    
+    if run_connections:
+        connections.run(output_json=output_json)
+        return
+    
+    if run_alerts:
+        alerts.run()
+        return
+    
+    if run_scan:
+        scan.run()
         return
     
     if ctx.invoked_subcommand is None:
