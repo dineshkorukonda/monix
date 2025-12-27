@@ -3,15 +3,10 @@ Alerts Command - Show recent security alerts
 """
 
 from datetime import datetime
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
 
 from cli.core.collector import collect_connections
 from cli.core.analyzer import detect_threats
-
-
-console = Console()
+from cli.utils.logger import log_info, log_warn
 
 
 def run(limit=10):
@@ -20,46 +15,28 @@ def run(limit=10):
     connections = collect_connections()
     threats = detect_threats(connections)
     
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     if not threats:
-        console.print()
-        console.print(Panel(
-            "[bold green]✅ No security alerts[/bold green]\n\n"
-            "[dim]Your system appears to be secure. No suspicious activity detected.[/dim]",
-            title="[bold]Security Alerts[/bold]",
-            border_style="green"
-        ))
-        console.print()
+        log_info("No security alerts detected")
         return
     
-    # Show alerts
-    table = Table(
-        title=f"[bold red]🚨 Security Alerts[/bold red] [dim]({len(threats)} detected)[/dim]",
-        show_header=True,
-        header_style="bold red",
-        border_style="red"
-    )
-    
-    table.add_column("TIME", style="dim", width=10)
-    table.add_column("TYPE", style="yellow", width=15)
-    table.add_column("DETAILS", style="white")
-    
-    now = datetime.now().strftime("%H:%M:%S")
+    print()
+    print(f"[{timestamp}] Security Alerts ({len(threats)} detected)")
+    print("-" * 70)
     
     for threat in threats[:limit]:
-        # Parse threat message
+        # Determine alert type
         if "SYN_FLOOD" in threat:
-            alert_type = "SYN FLOOD"
+            alert_type = "SYN_FLOOD"
         elif "PORT_SCAN" in threat:
-            alert_type = "PORT SCAN"
+            alert_type = "PORT_SCAN"
         elif "HIGH_CONN" in threat:
-            alert_type = "HIGH CONN"
+            alert_type = "HIGH_CONN"
         else:
             alert_type = "ALERT"
         
-        table.add_row(now, f"[bold red]{alert_type}[/bold red]", threat)
+        print(f"[{timestamp}] WARN: [{alert_type}] {threat}")
     
-    console.print()
-    console.print(table)
-    console.print()
-    console.print("[dim]💡 Tip: Use 'monarx-sentinel scan --deep' for detailed analysis[/dim]")
-    console.print()
+    print("-" * 70)
+    print()

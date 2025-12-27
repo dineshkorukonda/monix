@@ -16,17 +16,14 @@ from cli.commands import monitor, status, watch, connections, alerts, scan
 @click.option('--connections', '-c', 'run_connections', is_flag=True, help='List active connections')
 @click.option('--alerts', '-a', 'run_alerts', is_flag=True, help='Show security alerts')
 @click.option('--scan', 'run_scan', is_flag=True, help='Quick security scan')
-@click.option('--json', 'output_json', is_flag=True, help='Output in JSON format (with --monitor)')
+@click.option('--json', 'output_json', is_flag=True, help='Output in JSON format')
 @click.pass_context
 def cli(ctx, version, run_monitor, run_status, run_watch, run_connections, run_alerts, run_scan, output_json):
     """
-    🛡️ Monarx Sentinel - Next-Gen Intrusion Monitoring & Defense
-    
-    Real-time threat monitoring, connection intelligence, and 
-    behavior-based attack detection for Linux servers.
+    Monarx Sentinel - Intrusion Monitoring & Defense for Linux Servers
     
     \b
-    Quick Start:
+    Usage:
       monarx-sentinel --monitor     Quick system snapshot
       monarx-sentinel --status      One-line health check  
       monarx-sentinel --watch       Live dashboard
@@ -35,10 +32,9 @@ def cli(ctx, version, run_monitor, run_status, run_watch, run_connections, run_a
       monarx-sentinel --scan        Security scan
     """
     if version:
-        click.echo(f"Monarx Sentinel v{__version__}")
+        click.echo(f"monarx-sentinel v{__version__}")
         return
     
-    # Handle flag-based commands
     if run_monitor:
         monitor.run(output_json=output_json)
         return
@@ -67,24 +63,23 @@ def cli(ctx, version, run_monitor, run_status, run_watch, run_connections, run_a
         click.echo(ctx.get_help())
 
 
-# Register commands as options for convenience
 @cli.command('monitor')
 @click.option('--json', 'output_json', is_flag=True, help='Output in JSON format')
 def monitor_cmd(output_json):
-    """📊 Quick snapshot of system status"""
+    """Quick snapshot of system status"""
     monitor.run(output_json=output_json)
 
 
 @cli.command('status')
 def status_cmd():
-    """✅ One-line health check"""
+    """One-line health check"""
     status.run()
 
 
 @cli.command('watch')
 @click.option('--refresh', '-r', default=3, help='Refresh interval in seconds')
 def watch_cmd(refresh):
-    """👁️ Live security dashboard"""
+    """Live security dashboard"""
     watch.run(refresh_interval=refresh)
 
 
@@ -93,21 +88,21 @@ def watch_cmd(refresh):
 @click.option('--limit', '-l', default=20, help='Number of connections to show')
 @click.option('--json', 'output_json', is_flag=True, help='Output in JSON format')
 def connections_cmd(state, limit, output_json):
-    """🔗 List active connections"""
+    """List active connections"""
     connections.run(state_filter=state, limit=limit, output_json=output_json)
 
 
 @cli.command('alerts')
 @click.option('--limit', '-l', default=10, help='Number of alerts to show')
 def alerts_cmd(limit):
-    """🚨 Show recent security alerts"""
+    """Show recent security alerts"""
     alerts.run(limit=limit)
 
 
 @cli.command('scan')
 @click.option('--deep', is_flag=True, help='Perform deep security scan')
 def scan_cmd(deep):
-    """🔍 Quick security scan"""
+    """Quick security scan"""
     scan.run(deep=deep)
 
 
