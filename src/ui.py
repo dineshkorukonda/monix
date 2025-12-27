@@ -27,7 +27,7 @@ def build_dashboard():
     # HEADER
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     title = Panel(
-        f"[bold yellow]Monarx servers — {hostname}[/bold yellow]\n"
+        f"[bold yellow]Monarx Sentinel — {hostname}[/bold yellow]\n"
         f"[gray]Live Security Dashboard | Location: {location} | Time: {now}[/gray]",
         border_style="bright_black"
     )
@@ -65,7 +65,7 @@ def build_dashboard():
     layout["body"].update(table)
 
     # FOOTER ALERTS & METRICS
-    alerts_text = "\n".join(alerts[:6]) if alerts else "[green]✅ No active threats detected[/green]"
+    alerts_text = "\n".join(alerts[:6]) if alerts else "[green]No active threats detected[/green]"
     
     # Calculate some quick stats
     established = len([c for c in conns if c["state"] == "ESTABLISHED"])

@@ -12,7 +12,7 @@ from cli.commands import monitor, status, watch, connections, alerts, scan
 @click.option('--version', '-v', is_flag=True, help='Show version information')
 @click.option('--monitor', '-m', 'run_monitor', is_flag=True, help='Quick system snapshot')
 @click.option('--status', '-s', 'run_status', is_flag=True, help='One-line health check')
-@click.option('--watch', '-w', 'run_watch', is_flag=True, help='Live security dashboard')
+@click.option('--watch', 'run_watch', is_flag=True, help='Live security dashboard')
 @click.option('--connections', '-c', 'run_connections', is_flag=True, help='List active connections')
 @click.option('--alerts', '-a', 'run_alerts', is_flag=True, help='Show security alerts')
 @click.option('--scan', 'run_scan', is_flag=True, help='Quick security scan')

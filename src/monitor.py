@@ -64,18 +64,18 @@ def detect_attacks(conns):
     # SYN Flood Alerts
     for ip, count in syn_count.items():
         if count >= 100:
-            state.add_alert(f"🚨 SYN_FLOOD {ip} (half-open={count})", key=f"syn_{ip}")
+            state.add_alert(f"SYN_FLOOD from {ip} (half-open={count})", key=f"syn_{ip}")
     
     # High Connection Count Alerts
     for ip, count in conn_count.items():
         if count >= 50:
-            state.add_alert(f"⚠️ HIGH_CONN {ip} (total={count})", key=f"high_conn_{ip}")
+            state.add_alert(f"HIGH_CONN from {ip} (total={count})", key=f"high_conn_{ip}")
 
     # Port Scan Alerts
     for ip, ports in port_activity.items():
         recent = [p for p, ts in ports.items() if now - ts <= PORT_SCAN_WINDOW]
         if len(recent) >= PORT_SCAN_THRESHOLD:
-            state.add_alert(f"🚨 PORT_SCAN {ip} ports={recent}", key=f"scan_{ip}")
+            state.add_alert(f"PORT_SCAN from {ip} (ports: {recent})", key=f"scan_{ip}")
 
 
 def collector_loop():
