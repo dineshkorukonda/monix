@@ -12,6 +12,7 @@ Monarx Sentinel is an open-source host-level security tool that provides real-ti
 - Process tracking
 - Security scanning
 - Clean CLI interface
+- Live dashboard UI
 
 ## Quick Start
 
@@ -51,14 +52,10 @@ monarx-sentinel --scan
 monarx-sentinel scan --deep
 ```
 
-## Example Output
+Or run the dashboard directly:
 
-```
-[2025-12-28 00:15:01] INFO: Initializing connection collector...
-[2025-12-28 00:15:02] INFO: Threat detection engine active.
-[2025-12-28 00:15:02] INFO: Live TCP connections: 24 | Established: 18 | Listening: 6
-[2025-12-28 00:15:02] INFO: Top processes: nginx(12), node(6), sshd(4)
-[2025-12-28 00:15:02] INFO: Status: SECURE | Host: my-server
+```bash
+python app.py
 ```
 
 ## Commands
@@ -89,30 +86,27 @@ monarx-sentinel watch --refresh 5
 monarx-sentinel scan --deep
 ```
 
+## Example Output
+
+```
+[2025-12-28 00:15:01] INFO: Initializing connection collector...
+[2025-12-28 00:15:02] INFO: Threat detection engine active.
+[2025-12-28 00:15:02] INFO: Live TCP connections: 24 | Established: 18 | Listening: 6
+[2025-12-28 00:15:02] INFO: Top processes: nginx(12), node(6), sshd(4)
+[2025-12-28 00:15:02] INFO: Status: SECURE | Host: my-server
+```
+
 ## Project Structure
 
 ```
 monarx-sentinel/
-├── cli/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── commands/
-│   │   ├── monitor.py
-│   │   ├── status.py
-│   │   ├── watch.py
-│   │   ├── connections.py
-│   │   ├── alerts.py
-│   │   └── scan.py
-│   ├── core/
-│   │   ├── collector.py
-│   │   ├── analyzer.py
-│   │   └── scanner.py
-│   └── utils/
-│       ├── display.py
-│       ├── geo.py
-│       └── logger.py
+├── core/              # Core functionality (collector, analyzer, scanner, monitor, state)
+├── shared/            # Shared utilities (network, geo, processes)
+├── utils/             # CLI utilities (logger, display)
+├── cli/               # CLI commands
+├── dashboard/         # Dashboard UI
+├── app.py             # Dashboard launcher
 ├── pyproject.toml
-├── requirements.txt
 └── README.md
 ```
 
@@ -133,6 +127,13 @@ The `scan --deep` command performs:
 - Python 3.8+
 - Linux (primary) / macOS (limited support)
 - Root/sudo for full process visibility
+
+## Docker
+
+```bash
+docker-compose up -d
+docker exec -it monarx_sandbox bash
+```
 
 ## License
 

@@ -52,7 +52,7 @@ Repository = "https://github.com/monarx/monarx-sentinel"
 Issues = "https://github.com/monarx/monarx-sentinel/issues"
 
 [tool.setuptools.packages.find]
-include = ["cli*"]
+include = ["cli*", "core*", "shared*", "utils*", "dashboard*"]
 
 [tool.black]
 line-length = 100

@@ -1,48 +1,19 @@
 import os
-import socket
-import struct
+import sys
 import time
 from collections import defaultdict
-from datetime import datetime
 from threading import Thread
-from .state import state
-from .processes import get_process_map
-from .geo import geo_lookup, reverse_dns
 
-TCP_STATES = {
-    "01": "ESTABLISHED",
-    "02": "SYN_SENT",
-    "03": "SYN_RECV",
-    "04": "FIN_WAIT1",
-    "05": "FIN_WAIT2",
-    "06": "TIME_WAIT",
-    "07": "CLOSE",
-    "08": "CLOSE_WAIT",
-    "09": "LAST_ACK",
-    "0A": "LISTEN",
-    "0B": "CLOSING",
-}
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def hex_ip(h):
-    if len(h) == 8:  # IPv4
-        return socket.inet_ntoa(struct.pack("<L", int(h, 16)))
-    else:  # IPv6
-        # IPv6 in /proc is 4 32-bit hex words in host byte order
-        addr_bytes = struct.pack("<IIII", 
-            int(h[0:8], 16), 
-            int(h[8:16], 16), 
-            int(h[16:24], 16), 
-            int(h[24:32], 16)
-        )
-        return socket.inet_ntop(socket.AF_INET6, addr_bytes)
-
-def hex_port(h): return int(h, 16)
-
+from core.state import state
+from shared.network import TCP_STATES, hex_ip, hex_port
+from shared.geo import geo_lookup, reverse_dns
+from shared.processes import get_process_map
 
 PORT_SCAN_WINDOW = 10
 PORT_SCAN_THRESHOLD = 5
 port_activity = defaultdict(lambda: defaultdict(float))
-
 
 def detect_attacks(conns):
     syn_count = defaultdict(int)
@@ -61,29 +32,24 @@ def detect_attacks(conns):
         if ip not in ["127.0.0.1", "0.0.0.0", "::1", "::"]:
             port_activity[ip][port] = now
 
-    # SYN Flood Alerts
     for ip, count in syn_count.items():
         if count >= 100:
             state.add_alert(f"SYN_FLOOD from {ip} (half-open={count})", key=f"syn_{ip}")
     
-    # High Connection Count Alerts
     for ip, count in conn_count.items():
         if count >= 50:
             state.add_alert(f"HIGH_CONN from {ip} (total={count})", key=f"high_conn_{ip}")
 
-    # Port Scan Alerts
     for ip, ports in port_activity.items():
         recent = [p for p, ts in ports.items() if now - ts <= PORT_SCAN_WINDOW]
         if len(recent) >= PORT_SCAN_THRESHOLD:
             state.add_alert(f"PORT_SCAN from {ip} (ports: {recent})", key=f"scan_{ip}")
-
 
 def collector_loop():
     while True:
         conns = []
         process_map = get_process_map()
         
-        # Read both IPv4 and IPv6
         for proc_file in ["/proc/net/tcp", "/proc/net/tcp6"]:
             if not os.path.exists(proc_file):
                 continue
@@ -105,7 +71,6 @@ def collector_loop():
                     "state": TCP_STATES.get(p[3], "UNKNOWN"),
                 }
 
-                # O(1) process lookup
                 pid, pname = process_map.get((conn["local_ip"], conn["local_port"]), (None, None))
                 conn["pid"] = pid or "-"
                 conn["pname"] = pname or ""
@@ -117,7 +82,6 @@ def collector_loop():
         state.update_connections(conns)
         detect_attacks(conns)
         time.sleep(1)
-
 
 def start_monitor():
     t = Thread(target=collector_loop, daemon=True)

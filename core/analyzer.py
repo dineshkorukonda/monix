@@ -1,14 +1,6 @@
-"""
-Connection Analyzer - Analyzes connections and detects threats
-"""
-
 from collections import defaultdict, Counter
 
-
 def analyze_connections(connections):
-    """
-    Analyze connections and return statistics
-    """
     stats = {
         "total": len(connections),
         "established": 0,
@@ -38,32 +30,24 @@ def analyze_connections(connections):
         else:
             stats["other"] += 1
         
-        # Track processes
         if conn.get("pname"):
             process_counts[conn["pname"]] += 1
         elif conn.get("pid") and conn["pid"] != "-":
             process_counts[f"PID:{conn['pid']}"] += 1
         
-        # Track remote IPs
         remote_ip = conn.get("remote_ip", "")
         if remote_ip and remote_ip not in ["127.0.0.1", "0.0.0.0", "::1", "::"]:
             remote_ip_counts[remote_ip] += 1
     
-    # Get top processes
     stats["top_processes"] = process_counts.most_common(10)
     stats["top_remote_ips"] = remote_ip_counts.most_common(10)
     
-    # Calculate alerts
     threats = detect_threats(connections)
     stats["alerts_count"] = len(threats)
     
     return stats
 
-
 def detect_threats(connections):
-    """
-    Detect potential security threats in connections
-    """
     threats = []
     
     syn_count = defaultdict(int)
@@ -75,7 +59,6 @@ def detect_threats(connections):
         remote_ip = conn.get("remote_ip", "")
         local_port = conn.get("local_port", 0)
         
-        # Skip local addresses
         if remote_ip in ["127.0.0.1", "0.0.0.0", "::1", "::"]:
             continue
         
@@ -85,20 +68,16 @@ def detect_threats(connections):
         if state == "ESTABLISHED":
             conn_count[remote_ip] += 1
         
-        # Track port activity per IP
         port_activity[remote_ip].add(local_port)
     
-    # SYN Flood Detection
     for ip, count in syn_count.items():
         if count >= 50:
             threats.append(f"🚨 SYN_FLOOD from {ip} (half-open connections: {count})")
     
-    # High Connection Count Detection
     for ip, count in conn_count.items():
         if count >= 30:
             threats.append(f"⚠️ HIGH_CONN from {ip} (total connections: {count})")
     
-    # Port Scan Detection
     for ip, ports in port_activity.items():
         if len(ports) >= 5:
             ports_list = sorted(list(ports))[:10]

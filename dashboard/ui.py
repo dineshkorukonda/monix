@@ -1,3 +1,5 @@
+import os
+import sys
 import socket
 import time
 from rich.console import Console
@@ -6,8 +8,11 @@ from rich.panel import Panel
 from rich.layout import Layout
 from rich.live import Live
 from datetime import datetime
-from .state import state
-from .geo import get_my_location
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from core.state import state
+from shared.geo import get_my_location
 
 console = Console()
 hostname = socket.gethostname()
@@ -24,7 +29,6 @@ def build_dashboard():
         Layout(name="footer", size=10)
     )
 
-    # HEADER
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     title = Panel(
         f"[bold yellow]Monarx Sentinel — {hostname}[/bold yellow]\n"
@@ -33,7 +37,6 @@ def build_dashboard():
     )
     layout["header"].update(title)
 
-    # TABLE VIEW
     table = Table(show_header=True, header_style="bold yellow", border_style="bright_black", expand=True)
     table.add_column("STATE", style="cyan", width=12)
     table.add_column("REMOTE (DOMAIN/IP)", style="magenta")
@@ -43,10 +46,9 @@ def build_dashboard():
 
     conns_sorted = sorted(conns, key=lambda x: (x["state"] != "ESTABLISHED", x["state"]))
 
-    for c in conns_sorted[:25]:  # show more rows
+    for c in conns_sorted[:25]:
         remote_display = f"[bold]{c['domain']}[/bold]\n{c['remote_ip']}:{c['remote_port']}" if c['domain'] else f"{c['remote_ip']}:{c['remote_port']}"
         
-        # Color coding based on state
         state_style = "cyan"
         if c["state"] == "ESTABLISHED": state_style = "bold green"
         elif c["state"] == "LISTEN": state_style = "yellow"
@@ -64,10 +66,8 @@ def build_dashboard():
 
     layout["body"].update(table)
 
-    # FOOTER ALERTS & METRICS
     alerts_text = "\n".join(alerts[:6]) if alerts else "[green]No active threats detected[/green]"
     
-    # Calculate some quick stats
     established = len([c for c in conns if c["state"] == "ESTABLISHED"])
     listening = len([c for c in conns if c["state"] == "LISTEN"])
     
@@ -85,7 +85,6 @@ def build_dashboard():
     layout["footer"].update(footer)
 
     return layout
-
 
 def start_ui():
     with Live(refresh_per_second=0.3, screen=True) as live:

@@ -1,8 +1,3 @@
-"""
-CLI Commands Module
-Each command is organized in its own file for maintainability
-"""
-
 from cli.commands import monitor
 from cli.commands import status
 from cli.commands import watch

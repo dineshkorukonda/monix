@@ -1,24 +1,20 @@
-"""
-Scan Command - Security scan
-"""
-
+import os
+import sys
 from datetime import datetime
 
-from cli.core.collector import collect_connections
-from cli.core.analyzer import analyze_connections, detect_threats
-from cli.core.scanner import run_security_checks
-from cli.utils.logger import log_info, log_warn, log_success, Colors as C
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from core.collector import collect_connections
+from core.analyzer import analyze_connections, detect_threats
+from core.scanner import run_security_checks
+from utils.logger import log_info, log_warn, log_success, Colors as C
 
 def run(deep=False):
-    """Execute the scan command"""
-    
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     print()
     log_info("Starting security scan...")
     
-    # Collect data
     log_info("Collecting connection data...")
     connections = collect_connections()
     
@@ -47,14 +43,12 @@ def run(deep=False):
     
     print(f"{C.DIM}{'─' * 50}{C.RESET}")
     
-    # Show threats
     if threats:
         print()
         log_warn(f"Threats found: {len(threats)}")
         for threat in threats[:10]:
             print(f"  {C.RED}>{C.RESET} {threat}")
     
-    # Deep scan results
     if deep and "security_checks" in results:
         print()
         print(f"{C.BOLD}Deep Security Checks{C.RESET}")
@@ -72,7 +66,6 @@ def run(deep=False):
         
         print(f"{C.DIM}{'─' * 70}{C.RESET}")
     
-    # Final status
     print()
     if threats:
         log_warn(f"Scan complete: {len(threats)} threat(s) detected")

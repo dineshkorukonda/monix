@@ -1,17 +1,14 @@
-"""
-Alerts Command - Show recent security alerts
-"""
-
+import os
+import sys
 from datetime import datetime
 
-from cli.core.collector import collect_connections
-from cli.core.analyzer import detect_threats
-from cli.utils.logger import log_info, log_warn, Colors as C
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from core.collector import collect_connections
+from core.analyzer import detect_threats
+from utils.logger import log_info, log_warn, Colors as C
 
 def run(limit=10):
-    """Execute the alerts command"""
-    
     connections = collect_connections()
     threats = detect_threats(connections)
     
@@ -26,7 +23,6 @@ def run(limit=10):
     print(f"{C.DIM}{'─' * 70}{C.RESET}")
     
     for threat in threats[:limit]:
-        # Determine alert type and color
         if "SYN_FLOOD" in threat:
             alert_type = f"{C.RED}SYN_FLOOD{C.RESET}"
         elif "PORT_SCAN" in threat:

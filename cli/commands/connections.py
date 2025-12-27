@@ -1,25 +1,20 @@
-"""
-Connections Command - List active connections
-"""
-
 import json
+import os
+import sys
 from datetime import datetime
 
-from cli.core.collector import collect_connections
-from cli.utils.logger import log_info, Colors as C
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from core.collector import collect_connections
+from utils.logger import log_info, Colors as C
 
 def run(state_filter=None, limit=20, output_json=False):
-    """Execute the connections command"""
-    
     connections = collect_connections()
     
-    # Filter by state if specified
     if state_filter:
         state_filter = state_filter.upper()
         connections = [c for c in connections if c["state"] == state_filter]
     
-    # Limit results
     connections = connections[:limit]
     
     if output_json:
@@ -39,7 +34,6 @@ def run(state_filter=None, limit=20, output_json=False):
     print(f"{C.DIM}{'─' * 90}{C.RESET}")
     
     for conn in connections:
-        # Color based on state
         if conn['state'] == 'ESTABLISHED':
             state_color = C.GREEN
         elif conn['state'] == 'LISTEN':

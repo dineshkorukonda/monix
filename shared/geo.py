@@ -1,21 +1,11 @@
-"""
-Geo Utilities - GeoIP lookups and DNS resolution
-"""
-
 import socket
 import requests
 
-
-# Caches for performance
 _geo_cache = {}
 _dns_cache = {}
 _location_cache = {}
 
-
 def reverse_dns(ip):
-    """
-    Perform reverse DNS lookup for an IP address
-    """
     if ip in ["127.0.0.1", "0.0.0.0", "::1", "::"]:
         return ""
     
@@ -30,11 +20,7 @@ def reverse_dns(ip):
         _dns_cache[ip] = ""
         return ""
 
-
 def geo_lookup(ip):
-    """
-    Lookup GeoIP information for an IP address
-    """
     if not ip or ip.startswith("127.") or ip in ["0.0.0.0", "::1", "::"]:
         return ""
     
@@ -59,11 +45,7 @@ def geo_lookup(ip):
         _geo_cache[ip] = ""
         return ""
 
-
 def get_my_location():
-    """
-    Get the current server's location
-    """
     if "self" in _location_cache:
         return _location_cache["self"]
     
@@ -76,11 +58,7 @@ def get_my_location():
         _location_cache["self"] = "Unknown Location"
         return "Unknown Location"
 
-
 def get_ip_info(ip):
-    """
-    Get detailed info for an IP address
-    """
     info = {
         "ip": ip,
         "geo": geo_lookup(ip),
