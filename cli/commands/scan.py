@@ -7,7 +7,7 @@ from datetime import datetime
 from cli.core.collector import collect_connections
 from cli.core.analyzer import analyze_connections, detect_threats
 from cli.core.scanner import run_security_checks
-from cli.utils.logger import log_info, log_warn, log_error, log_action
+from cli.utils.logger import log_info, log_warn, log_success, Colors as C
 
 
 def run(deep=False):
@@ -34,40 +34,49 @@ def run(deep=False):
         results["security_checks"] = run_security_checks(connections)
     
     print()
-    print(f"[{timestamp}] Scan Results")
-    print("-" * 50)
-    print(f"  Total Connections:  {analysis['total']}")
-    print(f"  Established:        {analysis['established']}")
-    print(f"  Listening:          {analysis['listening']}")
-    print(f"  Threats Detected:   {len(threats)}")
-    print("-" * 50)
+    print(f"{C.DIM}[{timestamp}]{C.RESET} {C.BOLD}Scan Results{C.RESET}")
+    print(f"{C.DIM}{'─' * 50}{C.RESET}")
+    print(f"  {C.DIM}Total Connections:{C.RESET}  {C.WHITE}{analysis['total']}{C.RESET}")
+    print(f"  {C.DIM}Established:{C.RESET}        {C.GREEN}{analysis['established']}{C.RESET}")
+    print(f"  {C.DIM}Listening:{C.RESET}          {C.YELLOW}{analysis['listening']}{C.RESET}")
+    
+    if len(threats) > 0:
+        print(f"  {C.DIM}Threats Detected:{C.RESET}   {C.RED}{C.BOLD}{len(threats)}{C.RESET}")
+    else:
+        print(f"  {C.DIM}Threats Detected:{C.RESET}   {C.GREEN}0{C.RESET}")
+    
+    print(f"{C.DIM}{'─' * 50}{C.RESET}")
     
     # Show threats
     if threats:
         print()
         log_warn(f"Threats found: {len(threats)}")
         for threat in threats[:10]:
-            print(f"  - {threat}")
+            print(f"  {C.RED}>{C.RESET} {threat}")
     
     # Deep scan results
     if deep and "security_checks" in results:
         print()
-        print("Deep Security Checks:")
-        print("-" * 50)
-        print(f"  {'CHECK':<30} {'STATUS':<8} {'DETAILS'}")
-        print("-" * 50)
+        print(f"{C.BOLD}Deep Security Checks{C.RESET}")
+        print(f"{C.DIM}{'─' * 70}{C.RESET}")
+        print(f"{C.DIM}  {'CHECK':<30} {'STATUS':<8} {'DETAILS'}{C.RESET}")
+        print(f"{C.DIM}{'─' * 70}{C.RESET}")
         
         for check in results["security_checks"]:
-            status = "PASS" if check["passed"] else "FAIL"
-            print(f"  {check['name']:<30} {status:<8} {check.get('details', '')}")
+            if check["passed"]:
+                status = f"{C.GREEN}PASS{C.RESET}"
+            else:
+                status = f"{C.RED}FAIL{C.RESET}"
+            
+            print(f"  {check['name']:<30} {status:<17} {C.DIM}{check.get('details', '')}{C.RESET}")
         
-        print("-" * 50)
+        print(f"{C.DIM}{'─' * 70}{C.RESET}")
     
     # Final status
     print()
     if threats:
         log_warn(f"Scan complete: {len(threats)} threat(s) detected")
     else:
-        log_info("Scan complete: No threats detected")
+        log_success("Scan complete: No threats detected")
     
     print()

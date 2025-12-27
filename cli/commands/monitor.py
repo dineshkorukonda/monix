@@ -8,7 +8,7 @@ from datetime import datetime
 
 from cli.core.collector import collect_connections
 from cli.core.analyzer import analyze_connections
-from cli.utils.logger import log_info, log_warn, log_error, log_action
+from cli.utils.logger import log_info, log_warn, log_success, header, divider, Colors as C
 from cli.utils.geo import get_my_location
 
 
@@ -46,16 +46,23 @@ def run(output_json=False):
     if analysis["alerts_count"] > 0:
         log_warn(f"Active threats detected: {analysis['alerts_count']}")
     
-    # Connection summary
-    log_info(f"Live TCP connections: {analysis['total']} | Established: {analysis['established']} | Listening: {analysis['listening']}")
+    # Connection summary with colors
+    total = f"{C.BOLD}{C.WHITE}{analysis['total']}{C.RESET}"
+    established = f"{C.GREEN}{analysis['established']}{C.RESET}"
+    listening = f"{C.YELLOW}{analysis['listening']}{C.RESET}"
+    
+    log_info(f"Live TCP connections: {total} | Established: {established} | Listening: {listening}")
     
     # Top processes
     if analysis["top_processes"]:
-        procs = ", ".join([f"{p[0]}({p[1]})" for p in analysis["top_processes"][:5]])
+        procs = ", ".join([
+            f"{C.CYAN}{p[0]}{C.RESET}({C.DIM}{p[1]}{C.RESET})" 
+            for p in analysis["top_processes"][:5]
+        ])
         log_info(f"Top processes: {procs}")
     
     # Status
     if analysis["alerts_count"] == 0:
-        log_info(f"Status: SECURE | Host: {hostname}")
+        log_success(f"Status: SECURE | Host: {hostname}")
     else:
         log_warn(f"Status: ALERT | Host: {hostname} | Threats: {analysis['alerts_count']}")
