@@ -1,18 +1,23 @@
 version: "3.9"
 
 services:
+  # Main Monix service - only runs when explicitly started
+  # Usage: docker-compose run monix monix --watch
   monix:
     image: python:3.11-slim
     container_name: monix
     working_dir: /app
     volumes:
       - ./:/app
-    command: bash -c "pip install -e . && monix --watch"
     network_mode: host
     privileged: true
     stdin_open: true
     tty: true
+    profiles:
+      - production  # Only start with --profile production
+    # No default command - must specify when running
 
+  # Development sandbox for testing
   sandbox:
     build:
       context: .
@@ -22,4 +27,20 @@ services:
     volumes:
       - ./:/app
     tty: true
+    stdin_open: true
     command: /bin/bash
+    # Keep container running but don't auto-start
+    restart: "no"
+
+  # Test environment with pytest and testing tools
+  test:
+    image: python:3.11-slim
+    container_name: monix_test
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: bash -c "pip install -e . && pip install pytest pytest-cov && /bin/bash"
+    tty: true
+    stdin_open: true
+    environment:
+      - PYTHONUNBUFFERED=1

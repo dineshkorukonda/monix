@@ -1,9 +1,11 @@
 # Dockerfile.sandbox
 FROM ubuntu:22.04
 
-# Install dependencies
+# Install dependencies including Python and network testing tools
 RUN apt-get update && apt-get install -y \
-    zsh git curl \
+    zsh git curl python3 python3-pip \
+    netcat-openbsd tcpdump iputils-ping net-tools \
+    procps lsof \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Oh My Zsh + autosuggestions + syntax highlighting

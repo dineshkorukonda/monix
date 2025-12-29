@@ -130,9 +130,57 @@ The `scan --deep` command performs:
 
 ## Docker
 
+### Services
+
+**Sandbox (Development Environment)**
+Interactive development and testing environment with network tools.
+
 ```bash
-docker-compose up -d
-docker exec -it monix_sandbox bash
+# Start sandbox (interactive shell)
+docker-compose up sandbox
+
+# Or run in background and exec into it
+docker-compose up -d sandbox
+docker exec -it monix_sandbox zsh
+```
+
+**Test Environment**
+Environment with pytest and testing dependencies.
+
+```bash
+# Start test environment
+docker-compose up test
+
+# Run tests
+docker-compose run test pytest
+
+# Interactive shell
+docker-compose run test /bin/bash
+```
+
+**Monix Service (Production)**
+Run Monix commands on-demand (doesn't run continuously).
+
+```bash
+# Run Monix watch dashboard
+docker-compose run monix bash -c "pip install -e . && monix --watch"
+
+# Run other commands
+docker-compose run monix bash -c "pip install -e . && monix --status"
+docker-compose run monix bash -c "pip install -e . && monix --scan"
+```
+
+### Quick Commands
+
+```bash
+# Start sandbox for testing
+docker-compose up sandbox
+
+# Stop all containers
+docker-compose down
+
+# Rebuild sandbox image
+docker-compose build sandbox
 ```
 
 ## License
