@@ -14,7 +14,9 @@ services:
     tty: true
 
   sandbox:
-    image: ubuntu:22.04
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox
     container_name: monarx_sandbox
     working_dir: /app
     volumes:
