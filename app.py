@@ -12,7 +12,7 @@ def check_compatibility():
     is_macos = system == 'darwin'
     
     print("=" * 70)
-    print("Monarx Sentinel - Intrusion Monitoring & Defense")
+    print("Monix - Intrusion Monitoring & Defense")
     print("=" * 70)
     print()
     
@@ -26,12 +26,12 @@ def check_compatibility():
     print()
     print("Available Commands (after 'pip install -e .'):")
     print()
-    print("  monarx-sentinel --monitor      Quick system snapshot")
-    print("  monarx-sentinel --status       One-line health check")
-    print("  monarx-sentinel --watch        Live security dashboard")
-    print("  monarx-sentinel --connections  List active connections")
-    print("  monarx-sentinel --alerts       Show security alerts")
-    print("  monarx-sentinel --scan         Security scan")
+    print("  monix --monitor      Quick system snapshot")
+    print("  monix --status       One-line health check")
+    print("  monix --watch        Live security dashboard")
+    print("  monix --connections  List active connections")
+    print("  monix --alerts       Show security alerts")
+    print("  monix --scan         Security scan")
     print()
     print("Or run dashboard directly:")
     print("  python app.py")
@@ -45,7 +45,7 @@ def main():
     response = input("Start dashboard now? [Y/n]: ").strip().lower()
     
     if response and response not in ['y', 'yes', '']:
-        print("Exiting. Use 'monarx-sentinel --watch' for dashboard.")
+        print("Exiting. Use 'monix --watch' for dashboard.")
         return
     
     print()

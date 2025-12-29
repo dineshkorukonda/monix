@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "monarx-sentinel"
+name = "monix"
 version = "1.0.0"
 description = "Next-Gen Intrusion Monitoring & Defense for Linux Servers"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Monarx Team"}
+    {name = "Monix Team"}
 ]
 keywords = ["security", "monitoring", "intrusion-detection", "network", "linux"]
 classifiers = [
@@ -43,13 +43,13 @@ dev = [
 ]
 
 [project.scripts]
-monarx-sentinel = "cli.main:main"
+monix = "cli.main:main"
 
 [project.urls]
-Homepage = "https://github.com/monarx/monarx-sentinel"
-Documentation = "https://github.com/monarx/monarx-sentinel#readme"
-Repository = "https://github.com/monarx/monarx-sentinel"
-Issues = "https://github.com/monarx/monarx-sentinel/issues"
+Homepage = "https://github.com/dinexh/monix"
+Documentation = "https://github.com/dinexh/monix#readme"
+Repository = "https://github.com/dinexh/monix"
+Issues = "https://github.com/dinexh/monix/issues"
 
 [tool.setuptools.packages.find]
 include = ["cli*", "core*", "shared*", "utils*", "dashboard*"]

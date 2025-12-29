@@ -1,8 +1,8 @@
-# Monarx Sentinel
+# Monix
 
 Intrusion Monitoring & Defense for Linux Servers
 
-Monarx Sentinel is an open-source host-level security tool that provides real-time threat monitoring, connection intelligence, and behavior-based attack detection for modern Linux servers.
+Monix is an open-source host-level security tool that provides real-time threat monitoring, connection intelligence, and behavior-based attack detection for modern Linux servers.
 
 ## Features
 
@@ -18,8 +18,8 @@ Monarx Sentinel is an open-source host-level security tool that provides real-ti
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourusername/monarx-sentinel.git
-cd monarx-sentinel
+git clone https://github.com/dinexh/monix.git
+cd monix
 
 # Create virtual environment
 python3 -m venv .venv
@@ -33,23 +33,23 @@ pip install -e .
 
 ```bash
 # Quick system snapshot
-monarx-sentinel --monitor
+monix --monitor
 
 # One-line health check
-monarx-sentinel --status
+monix --status
 
 # Live security dashboard
-monarx-sentinel --watch
+monix --watch
 
 # List connections
-monarx-sentinel --connections
+monix --connections
 
 # Show alerts
-monarx-sentinel --alerts
+monix --alerts
 
 # Security scan
-monarx-sentinel --scan
-monarx-sentinel scan --deep
+monix --scan
+monix scan --deep
 ```
 
 Or run the dashboard directly:
@@ -73,17 +73,17 @@ python app.py
 
 ```bash
 # JSON output
-monarx-sentinel --monitor --json
+monix --monitor --json
 
 # Filter connections by state
-monarx-sentinel connections --state ESTABLISHED
-monarx-sentinel connections --state LISTEN --limit 50
+monix connections --state ESTABLISHED
+monix connections --state LISTEN --limit 50
 
 # Custom refresh interval
-monarx-sentinel watch --refresh 5
+monix watch --refresh 5
 
 # Deep security scan
-monarx-sentinel scan --deep
+monix scan --deep
 ```
 
 ## Example Output
@@ -99,7 +99,7 @@ monarx-sentinel scan --deep
 ## Project Structure
 
 ```
-monarx-sentinel/
+monix/
 ├── core/              # Core functionality (collector, analyzer, scanner, monitor, state)
 ├── shared/            # Shared utilities (network, geo, processes)
 ├── utils/             # CLI utilities (logger, display)
@@ -132,7 +132,7 @@ The `scan --deep` command performs:
 
 ```bash
 docker-compose up -d
-docker exec -it monarx_sandbox bash
+docker exec -it monix_sandbox bash
 ```
 
 ## License

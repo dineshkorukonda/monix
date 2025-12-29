@@ -31,7 +31,7 @@ def build_dashboard():
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     title = Panel(
-        f"[bold yellow]Monarx Sentinel — {hostname}[/bold yellow]\n"
+        f"[bold yellow]Monix — {hostname}[/bold yellow]\n"
         f"[gray]Live Security Dashboard | Location: {location} | Time: {now}[/gray]",
         border_style="bright_black"
     )
