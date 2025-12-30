@@ -2,7 +2,7 @@
 
 import click
 from cli import __version__
-from cli.commands import monitor, status, watch, connections, alerts, scan
+from cli.commands import monitor, status, watch, connections, alerts, scan, traffic
 
 @click.group(invoke_without_command=True)
 @click.option('--version', '-v', is_flag=True, help='Show version information')
@@ -12,9 +12,10 @@ from cli.commands import monitor, status, watch, connections, alerts, scan
 @click.option('--connections', '-c', 'run_connections', is_flag=True, help='List active connections')
 @click.option('--alerts', '-a', 'run_alerts', is_flag=True, help='Show security alerts')
 @click.option('--scan', 'run_scan', is_flag=True, help='Quick security scan')
+@click.option('--traffic', '-t', 'run_traffic', is_flag=True, help='Analyze suspicious web traffic')
 @click.option('--json', 'output_json', is_flag=True, help='Output in JSON format')
 @click.pass_context
-def cli(ctx, version, run_monitor, run_status, run_watch, run_connections, run_alerts, run_scan, output_json):
+def cli(ctx, version, run_monitor, run_status, run_watch, run_connections, run_alerts, run_scan, run_traffic, output_json):
     if version:
         click.echo(f"monix v{__version__}")
         return
@@ -41,6 +42,10 @@ def cli(ctx, version, run_monitor, run_status, run_watch, run_connections, run_a
     
     if run_scan:
         scan.run()
+        return
+    
+    if run_traffic:
+        traffic.run(output_json=output_json)
         return
     
     if ctx.invoked_subcommand is None:
@@ -76,6 +81,14 @@ def alerts_cmd(limit):
 @click.option('--deep', is_flag=True, help='Perform deep security scan')
 def scan_cmd(deep):
     scan.run(deep=deep)
+
+@cli.command('traffic')
+@click.option('--log', '-l', default='/var/log/nginx/access.log', help='Path to Nginx access log')
+@click.option('--window', '-w', default=10, help='Time window in minutes (default: 10)')
+@click.option('--limit', default=15, help='Max number of IPs to display')
+@click.option('--json', 'output_json', is_flag=True, help='Output in JSON format')
+def traffic_cmd(log, window, limit, output_json):
+    traffic.run(log_path=log, window=window, limit=limit, output_json=output_json)
 
 def main():
     cli()

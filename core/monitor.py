@@ -7,6 +7,7 @@ from threading import Thread
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.state import state
+from core.traffic import get_traffic_summary, DEFAULT_LOG_PATH
 from shared.network import TCP_STATES, hex_ip, hex_port
 from shared.geo import geo_lookup, reverse_dns
 from shared.processes import get_process_map
@@ -81,6 +82,15 @@ def collector_loop():
 
         state.update_connections(conns)
         detect_attacks(conns)
+        
+        # Update traffic analysis every 5 seconds to reduce I/O
+        if int(time.time()) % 5 == 0:
+            try:
+                traffic_summary = get_traffic_summary(DEFAULT_LOG_PATH, window_minutes=10)
+                state.update_traffic(traffic_summary)
+            except Exception:
+                pass  # Log file may not be accessible
+        
         time.sleep(1)
 
 def start_monitor():
