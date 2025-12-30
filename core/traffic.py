@@ -146,11 +146,30 @@ def parse_log_line(line: str) -> Optional[LogEntry]:
         groups = match.groupdict()
         
         # Parse timestamp (format: 30/Dec/2025:14:23:45 +0000)
+        # We parse the full timestamp including timezone for accurate comparison
         timestamp_str = groups["timestamp"]
-        timestamp = datetime.strptime(
-            timestamp_str.split()[0], 
-            "%d/%b/%Y:%H:%M:%S"
-        )
+        
+        # Try parsing with timezone first
+        try:
+            # Format: 30/Dec/2025:14:23:45 +0000
+            from datetime import timezone as tz
+            dt_part, tz_part = timestamp_str.rsplit(' ', 1)
+            timestamp = datetime.strptime(dt_part, "%d/%b/%Y:%H:%M:%S")
+            
+            # Parse timezone offset (e.g., +0000, -0500)
+            tz_sign = 1 if tz_part[0] == '+' else -1
+            tz_hours = int(tz_part[1:3])
+            tz_mins = int(tz_part[3:5])
+            tz_offset = timedelta(hours=tz_hours, minutes=tz_mins) * tz_sign
+            
+            # Convert to UTC for consistent comparison
+            timestamp = timestamp - tz_offset
+        except (ValueError, IndexError):
+            # Fallback: parse without timezone
+            timestamp = datetime.strptime(
+                timestamp_str.split()[0], 
+                "%d/%b/%Y:%H:%M:%S"
+            )
         
         size = int(groups["size"]) if groups["size"] != "-" else 0
         
@@ -187,7 +206,8 @@ def read_recent_logs(
         return []
     
     entries: List[LogEntry] = []
-    cutoff_time = datetime.now() - timedelta(minutes=window_minutes)
+    # Use UTC for consistent comparison with parsed log timestamps
+    cutoff_time = datetime.utcnow() - timedelta(minutes=window_minutes)
     
     try:
         with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
