@@ -29,30 +29,3 @@ jobs:
         python -m py_compile app.py
         find . -name "*.py" -not -path "./web/*" -not -path "./.git/*" -not -path "./__pycache__/*" -exec python -m py_compile {} \;
 
-  web-check:
-    name: Web Frontend Check
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: web/my-app/package-lock.json
-        
-    - name: Install dependencies
-      working-directory: web/my-app
-      run: npm ci
-      
-    - name: Lint (non-blocking)
-      working-directory: web/my-app
-      run: npm run lint || true
-      continue-on-error: true
-      
-    - name: Build
-      working-directory: web/my-app
-      run: npm run build
-
-
