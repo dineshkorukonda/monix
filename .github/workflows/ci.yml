@@ -7,9 +7,9 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  test:
+  core-test:
+    name: Core CLI & API Tests
     runs-on: ubuntu-latest
-    
     steps:
     - uses: actions/checkout@v3
     
@@ -23,8 +23,33 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Check code
+    - name: Check Python Code
       run: |
+        # Check core files and API
         python -m py_compile app.py
-        find . -name "*.py" -not -path "./.git/*" -not -path "./__pycache__/*" -not -path "./.github/*" -exec python -m py_compile {} \;
+        find . -name "*.py" -not -path "./web/*" -not -path "./.git/*" -not -path "./__pycache__/*" -exec python -m py_compile {} \;
+
+  web-check:
+    name: Web Frontend Check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: web/my-app/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: web/my-app
+      run: npm ci
+      
+    - name: Lint and Build
+      working-directory: web/my-app
+      run: |
+        npm run lint
+        npm run build
+
 
