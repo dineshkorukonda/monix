@@ -13,6 +13,8 @@ Monix is an open-source host-level security tool that provides real-time threat 
 - Security scanning
 - Clean CLI interface
 - Live dashboard UI
+- **Web Security Analyzer** (Modern Next.js interface)
+- **Comprehensive URL Scanning** (SSL, DNS, Headers, Ports, Cookies)
 
 ## Quick Start
 
@@ -58,6 +60,24 @@ Or run the dashboard directly:
 python app.py
 ```
 
+### Web Security Analyzer (Next.js)
+
+Monix now includes a modern web-based security analyzer.
+
+1. **Start the API Server**:
+   ```bash
+   python api/server.py
+   ```
+   *The API runs on `http://localhost:3030`*
+
+2. **Start the Web UI**:
+   ```bash
+   cd web/my-app
+   npm install
+   npm run dev
+   ```
+   *The interface is available at `http://localhost:3000`*
+
 ## Commands
 
 | Command | Description |
@@ -100,11 +120,13 @@ monix scan --deep
 
 ```
 monix/
-├── core/              # Core functionality (collector, analyzer, scanner, monitor, state)
+├── core/              # Core logic (collector, analyzer, web_checker, etc.)
 ├── shared/            # Shared utilities (network, geo, processes)
 ├── utils/             # CLI utilities (logger, display)
 ├── cli/               # CLI commands
-├── dashboard/         # Dashboard UI
+├── api/               # Flask REST API for web interface
+├── web/               # Next.js frontend application
+├── dashboard/         # Terminal-based dashboard UI
 ├── app.py             # Dashboard launcher
 ├── pyproject.toml
 └── README.md
@@ -112,10 +134,16 @@ monix/
 
 ## Security Checks
 
-The `scan --deep` command performs:
+The `scan --deep` command and Web UI perform:
 
 | Check | Description |
 |-------|-------------|
+| SSL Certificate | Full validation, expiry, and issuer details |
+| DNS Records | A, AAAA, MX, NS, TXT record analysis |
+| Security Headers | HSTS, CSP, X-Frame-Options scoring |
+| Port Scanning | Common service discovery (HTTP, SSH, DB) |
+| Technology Stack | Server, CMS, and Framework detection |
+| Geographic Info | Precise server location and provider mapping |
 | SSH Port | Warns if SSH runs on default port 22 |
 | Dangerous Ports | Detects FTP, Telnet, SMB, RDP, VNC |
 | Listening Count | Warns if too many ports are open |
