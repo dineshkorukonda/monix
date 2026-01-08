@@ -1,11 +1,13 @@
 "use client";
 
-import MapLibreGL, { type PopupOptions, type MarkerOptions } from "maplibre-gl";
+import MapLibreGL, { type MarkerOptions, type PopupOptions } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { Loader2, Locate, Maximize, Minus, Plus, X } from "lucide-react";
 import { useTheme } from "next-themes";
-import {
+import React, {
   createContext,
   forwardRef,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -14,13 +16,10 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import React from "react";
 
 type MapContextValue = {
   map: MapLibreGL.Map | null;
@@ -65,9 +64,10 @@ const DefaultLoader = () => (
   </div>
 );
 
+// biome-ignore lint/suspicious/noShadowRestrictedNames: Map is a standard component name for map libraries
 const Map = forwardRef<MapRef, MapProps>(function Map(
   { children, styles, ...props },
-  ref
+  ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<MapLibreGL.Map | null>(null);
@@ -81,7 +81,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       dark: styles?.dark ?? defaultStyles.dark,
       light: styles?.light ?? defaultStyles.light,
     }),
-    [styles]
+    [styles],
   );
 
   useImperativeHandle(ref, () => mapInstance as MapLibreGL.Map, [mapInstance]);
@@ -118,8 +118,10 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       setIsStyleLoaded(false);
       setMapInstance(null);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Note: props are only used for initial map creation. Changes to props after mount
+    // should be handled via map.set* methods in separate effects, not by recreating the map.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: props object changes on every render, but map should only initialize once
+  }, [resolvedTheme, mapStyles.dark, mapStyles.light]);
 
   useEffect(() => {
     if (!mapInstance || !resolvedTheme) return;
@@ -146,7 +148,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       map: mapInstance,
       isLoaded: isLoaded && isStyleLoaded,
     }),
-    [mapInstance, isLoaded, isStyleLoaded]
+    [mapInstance, isLoaded, isStyleLoaded],
   );
 
   return (
@@ -248,8 +250,7 @@ function MapMarker({
     markerInstance.on("dragend", handleDragEnd);
 
     return markerInstance;
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Marker should only be created once, event handlers are stable
   }, []);
 
   useEffect(() => {
@@ -260,8 +261,7 @@ function MapMarker({
     return () => {
       marker.remove();
     };
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: marker is stable from useMemo
   }, [map]);
 
   if (
@@ -314,7 +314,7 @@ function MarkerContent({ children, className }: MarkerContentProps) {
     <div className={cn("relative cursor-pointer", className)}>
       {children || <DefaultMarkerIcon />}
     </div>,
-    marker.getElement()
+    marker.getElement(),
   );
 }
 
@@ -353,7 +353,7 @@ function MarkerPopup({
       .setDOMContent(container);
 
     return popupInstance;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Popup should only be created once, container and popupOptions are stable
   }, []);
 
   useEffect(() => {
@@ -365,7 +365,7 @@ function MarkerPopup({
     return () => {
       marker.setPopup(null);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: popup and marker are stable from useMemo
   }, [map]);
 
   if (popup.isOpen()) {
@@ -387,7 +387,7 @@ function MarkerPopup({
     <div
       className={cn(
         "relative rounded-md border bg-popover p-3 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
-        className
+        className,
       )}
     >
       {closeButton && (
@@ -403,7 +403,7 @@ function MarkerPopup({
       )}
       {children}
     </div>,
-    container
+    container,
   );
 }
 
@@ -473,12 +473,12 @@ function MarkerTooltip({
     <div
       className={cn(
         "rounded-md bg-foreground px-2 py-1 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95",
-        className
+        className,
       )}
     >
       {children}
     </div>,
-    container
+    container,
   );
 }
 
@@ -507,7 +507,7 @@ function MarkerLabel({
         "absolute left-1/2 -translate-x-1/2 whitespace-nowrap",
         "text-[10px] font-medium text-foreground",
         positionClasses[position],
-        className
+        className,
       )}
     >
       {children}
@@ -565,7 +565,7 @@ function ControlButton({
       type="button"
       className={cn(
         "flex items-center justify-center size-8 hover:bg-accent dark:hover:bg-accent/40 transition-colors",
-        disabled && "opacity-50 pointer-events-none cursor-not-allowed"
+        disabled && "opacity-50 pointer-events-none cursor-not-allowed",
       )}
       disabled={disabled}
     >
@@ -618,7 +618,7 @@ function MapControls({
         (error) => {
           console.error("Error getting location:", error);
           setWaitingForLocation(false);
-        }
+        },
       );
     }
   }, [map, onLocate]);
@@ -640,7 +640,7 @@ function MapControls({
       className={cn(
         "absolute z-10 flex flex-col gap-1.5",
         positionClasses[position],
-        className
+        className,
       )}
     >
       {showZoom && (
@@ -716,7 +716,10 @@ function CompassButton({ onClick }: { onClick: () => void }) {
         viewBox="0 0 24 24"
         className="size-5 transition-transform duration-200"
         style={{ transformStyle: "preserve-3d" }}
+        role="img"
+        aria-label="Compass indicating map rotation"
       >
+        <title>Compass indicating map rotation</title>
         <path d="M12 2L16 12H12V2Z" className="fill-red-500" />
         <path d="M12 2L8 12H12V2Z" className="fill-red-300" />
         <path d="M12 22L16 12H12V22Z" className="fill-muted-foreground/60" />
@@ -813,7 +816,7 @@ function MapPopup({
     <div
       className={cn(
         "relative rounded-md border bg-popover p-3 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
-        className
+        className,
       )}
     >
       {closeButton && (
@@ -829,7 +832,7 @@ function MapPopup({
       )}
       {children}
     </div>,
-    container
+    container,
   );
 }
 
@@ -975,7 +978,7 @@ function MapRoute({
 }
 
 type MapClusterLayerProps<
-  P extends GeoJSON.GeoJsonProperties = GeoJSON.GeoJsonProperties
+  P extends GeoJSON.GeoJsonProperties = GeoJSON.GeoJsonProperties,
 > = {
   /** GeoJSON FeatureCollection data or URL to fetch GeoJSON from */
   data: string | GeoJSON.FeatureCollection<GeoJSON.Point, P>;
@@ -992,18 +995,18 @@ type MapClusterLayerProps<
   /** Callback when an unclustered point is clicked */
   onPointClick?: (
     feature: GeoJSON.Feature<GeoJSON.Point, P>,
-    coordinates: [number, number]
+    coordinates: [number, number],
   ) => void;
   /** Callback when a cluster is clicked. If not provided, zooms into the cluster */
   onClusterClick?: (
     clusterId: number,
     coordinates: [number, number],
-    pointCount: number
+    pointCount: number,
   ) => void;
 };
 
 function MapClusterLayer<
-  P extends GeoJSON.GeoJsonProperties = GeoJSON.GeoJsonProperties
+  P extends GeoJSON.GeoJsonProperties = GeoJSON.GeoJsonProperties,
 >({
   data,
   clusterMaxZoom = 14,
@@ -1175,7 +1178,7 @@ function MapClusterLayer<
     const handleClusterClick = async (
       e: MapLibreGL.MapMouseEvent & {
         features?: MapLibreGL.MapGeoJSONFeature[];
-      }
+      },
     ) => {
       const features = map.queryRenderedFeatures(e.point, {
         layers: [clusterLayerId],
@@ -1187,7 +1190,7 @@ function MapClusterLayer<
       const pointCount = feature.properties?.point_count as number;
       const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [
         number,
-        number
+        number,
       ];
 
       if (onClusterClick) {
@@ -1207,7 +1210,7 @@ function MapClusterLayer<
     const handlePointClick = (
       e: MapLibreGL.MapMouseEvent & {
         features?: MapLibreGL.MapGeoJSONFeature[];
-      }
+      },
     ) => {
       if (!onPointClick || !e.features?.length) return;
 
@@ -1223,7 +1226,7 @@ function MapClusterLayer<
 
       onPointClick(
         feature as unknown as GeoJSON.Feature<GeoJSON.Point, P>,
-        coordinates
+        coordinates,
       );
     };
 

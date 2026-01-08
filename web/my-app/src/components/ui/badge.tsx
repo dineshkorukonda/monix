@@ -1,4 +1,4 @@
-import * as React from "react";
+import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -21,7 +21,7 @@ function Badge({ className, variant = "default", ...props }: BadgeProps) {
           "border-transparent bg-green-500 text-white hover:bg-green-600":
             variant === "success",
         },
-        className
+        className,
       )}
       {...props}
     />
@@ -29,4 +29,3 @@ function Badge({ className, variant = "default", ...props }: BadgeProps) {
 }
 
 export { Badge };
-

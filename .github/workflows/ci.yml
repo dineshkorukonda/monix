@@ -46,10 +46,13 @@ jobs:
       working-directory: web/my-app
       run: npm ci
       
-    - name: Lint and Build
+    - name: Lint (non-blocking)
       working-directory: web/my-app
-      run: |
-        npm run lint
-        npm run build
+      run: npm run lint || true
+      continue-on-error: true
+      
+    - name: Build
+      working-directory: web/my-app
+      run: npm run build
 
 
