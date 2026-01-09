@@ -127,13 +127,18 @@ def start_nextjs_server(port: int = 3500) -> subprocess.Popen:
             return None
     
     # Start Next.js server
+    # IMPORTANT: Use -H 0.0.0.0 to bind to all network interfaces
+    # This makes the server accessible from other machines via IP address
     env = os.environ.copy()
     env["PORT"] = str(port)
+    env["HOSTNAME"] = "0.0.0.0"
     
     try:
-        # Next.js dev server with port flag
+        # Next.js dev server with hostname and port flags
+        # -H 0.0.0.0 binds to all network interfaces (accessible from IP)
+        # -p sets the port
         process = subprocess.Popen(
-            ["npx", "next", "dev", "-p", str(port)],
+            ["npx", "next", "dev", "-H", "0.0.0.0", "-p", str(port)],
             cwd=web_dir,
             env=env,
             stdout=subprocess.PIPE,
@@ -144,7 +149,7 @@ def start_nextjs_server(port: int = 3500) -> subprocess.Popen:
         # Fallback to npm run dev if npx not available
         try:
             process = subprocess.Popen(
-                ["npm", "run", "dev", "--", "-p", str(port)],
+                ["npm", "run", "dev", "--", "-H", "0.0.0.0", "-p", str(port)],
                 cwd=web_dir,
                 env=env,
                 stdout=subprocess.PIPE,
@@ -194,7 +199,7 @@ def run(port: int = 3030, nextjs_port: int = 3500, auto_open: bool = True):
     if nextjs_running:
         print(f"{C.YELLOW}Next.js server already running on port {nextjs_port}{C.RESET}")
     else:
-        print(f"{C.GREEN}Starting Next.js server on port {nextjs_port}...{C.RESET}")
+        print(f"{C.GREEN}Starting Next.js server on port {nextjs_port} (binding to 0.0.0.0)...{C.RESET}")
         nextjs_process = start_nextjs_server(nextjs_port)
         if nextjs_process:
             time.sleep(5)  # Give Next.js time to start
