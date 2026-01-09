@@ -12,7 +12,7 @@ downloads/
 eggs/
 .eggs/
 lib/
-!web/my-app/src/lib/    
+!web/src/lib/    
 lib64/
 parts/
 sdist/
@@ -42,5 +42,5 @@ ENV/
 Thumbs.db
 
 # Project specific
-web/my-app/.next/
-web/my-app/node_modules/
+web/.next/
+web/node_modules/

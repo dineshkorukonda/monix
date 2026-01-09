@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import Navigation from "@/components/Navigation";
 
 export default function Home() {
@@ -15,9 +16,19 @@ export default function Home() {
             <div className="inline-block border border-white/20 px-3 py-1 text-[10px] font-bold tracking-[0.3em] mb-8">
               CORE_SYSTEM_ACTIVE
             </div>
-            <h1 className="text-7xl md:text-8xl font-black tracking-tighter mb-8 uppercase leading-none">
-              MONIX
-            </h1>
+            <div className="flex items-center gap-6 mb-8">
+              <Image
+                src="/logo.png"
+                alt="MONIX"
+                width={80}
+                height={80}
+                className="object-contain"
+                priority
+              />
+              <h1 className="text-7xl md:text-8xl font-black tracking-tighter uppercase leading-none">
+                MONIX
+              </h1>
+            </div>
             <p className="text-xl md:text-2xl text-white/60 mb-12 max-w-2xl leading-relaxed uppercase">
               Real-time intrusion monitoring and autonomous defense for Linux infrastructure.
               High-density connection intelligence.
@@ -142,11 +153,20 @@ SYN_RECV     45.33.32.156:59321      :443            [THREAT]
       <footer className="border-t border-white/10 py-16 bg-white/[0.01]">
         <div className="container mx-auto px-6 max-w-[1600px]">
           <div className="flex flex-col md:flex-row items-center justify-between gap-12">
-            <div className="flex flex-col gap-4">
-              <span className="text-2xl font-black tracking-tighter">MONIX</span>
-              <span className="text-[10px] text-white/40 tracking-[0.4em]">
-                OPEN_SOURCE_SERVER_SECURITY
-              </span>
+            <div className="flex items-center gap-4">
+              <Image
+                src="/logo.png"
+                alt="MONIX"
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+              <div className="flex flex-col gap-1">
+                <span className="text-2xl font-black tracking-tighter">MONIX</span>
+                <span className="text-[10px] text-white/40 tracking-[0.4em]">
+                  OPEN_SOURCE_SERVER_SECURITY
+                </span>
+              </div>
             </div>
             <div className="flex flex-wrap justify-center gap-12">
               {[

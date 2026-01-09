@@ -84,7 +84,7 @@ monix --web
 
 # Or manually:
 python api/server.py  # In one terminal
-cd web/my-app && npm run dev -p 3500  # In another terminal
+cd web && npm run dev -p 3500  # In another terminal
 # Then visit http://localhost:3500/monix
 ```
 
@@ -153,13 +153,12 @@ monix/
 ├── cli/               # CLI commands (monitor, status, watch, web, etc.)
 ├── api/               # Flask REST API for web interface
 ├── web/               # Next.js frontend application
-│   └── my-app/
-│       └── src/
-│           ├── app/
-│           │   ├── page.tsx      # URL Analyzer (home page)
-│           │   └── monix/
-│           │       └── page.tsx  # Server Dashboard
-│           └── components/       # React components
+│   └── src/
+│       ├── app/
+│       │   ├── page.tsx      # URL Analyzer (home page)
+│       │   └── web/
+│       │       └── page.tsx  # Server Dashboard
+│       └── components/       # React components
 ├── dashboard/         # Terminal-based dashboard UI
 ├── app.py             # Dashboard launcher
 ├── pyproject.toml

@@ -91,7 +91,7 @@ def check_port_in_use(port: int) -> bool:
 
 def start_nextjs_server(port: int = 3500) -> subprocess.Popen:
     """Start the Next.js development server."""
-    web_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web", "my-app")
+    web_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web")
     
     if not os.path.exists(web_dir):
         print(f"{C.YELLOW}Warning: Next.js app directory not found at {web_dir}{C.RESET}")
