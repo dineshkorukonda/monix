@@ -22,15 +22,28 @@ from core.traffic import (
     is_malicious_bot,
     HIGH_RISK_ENDPOINTS,
     MALICIOUS_BOT_SIGNATURES,
-    classify_threat_level
+    classify_threat_level,
+    get_traffic_summary,
+    DEFAULT_LOG_PATH
 )
 from shared.geo import geo_lookup, reverse_dns, get_ip_info
 from core.analyzer import detect_threats
 from core.scanner import run_security_checks
 from core.web_checker import analyze_web_security
+from core.collector import collect_connections
+from core.state import state
+from core.system_monitor import get_system_stats, get_top_processes
+from core.monitor import start_monitor
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js frontend
+
+# Start background monitoring when API server starts
+# This ensures state is continuously updated
+try:
+    start_monitor()
+except Exception:
+    pass  # Monitor may already be running
 
 
 def analyze_url(url: str) -> dict:
@@ -296,6 +309,159 @@ def threat_info():
         "malicious_bot_signatures": MALICIOUS_BOT_SIGNATURES[:20],
         "status": "success"
     })
+
+
+@app.route("/api/connections", methods=["GET"])
+def connections_endpoint():
+    """
+    Get current network connections.
+    
+    Returns:
+        JSON response with list of active connections
+    """
+    try:
+        connections = collect_connections()
+        return jsonify({
+            "status": "success",
+            "connections": connections,
+            "count": len(connections)
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/alerts", methods=["GET"])
+def alerts_endpoint():
+    """
+    Get current security alerts.
+    
+    Returns:
+        JSON response with list of security alerts
+    """
+    try:
+        _, alerts = state.snapshot()
+        return jsonify({
+            "status": "success",
+            "alerts": alerts,
+            "count": len(alerts)
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/system-stats", methods=["GET"])
+def system_stats_endpoint():
+    """
+    Get current system statistics.
+    
+    Returns:
+        JSON response with system resource usage statistics
+    """
+    try:
+        stats = get_system_stats()
+        return jsonify({
+            "status": "success",
+            **stats
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/processes", methods=["GET"])
+def processes_endpoint():
+    """
+    Get top processes by CPU usage.
+    
+    Query params:
+        limit: Maximum number of processes to return (default: 10)
+    
+    Returns:
+        JSON response with top processes
+    """
+    try:
+        limit = request.args.get("limit", 10, type=int)
+        processes = get_top_processes(limit=limit)
+        return jsonify({
+            "status": "success",
+            "processes": processes,
+            "count": len(processes)
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/dashboard", methods=["GET"])
+def dashboard_endpoint():
+    """
+    Get comprehensive dashboard data.
+    
+    Returns:
+        JSON response with all dashboard data including:
+        - connections
+        - alerts
+        - system_stats
+        - traffic_summary
+    """
+    try:
+        # Get connections
+        connections = collect_connections()
+        
+        # Get alerts
+        _, alerts = state.snapshot()
+        
+        # Get system stats
+        system_stats = get_system_stats()
+        
+        # Get traffic summary
+        try:
+            traffic_summary = get_traffic_summary(DEFAULT_LOG_PATH, window_minutes=10)
+        except Exception:
+            traffic_summary = {
+                "total_requests": 0,
+                "unique_ips": 0,
+                "total_404s": 0,
+                "high_risk_hits": 0,
+                "suspicious_ips": [],
+                "log_exists": False
+            }
+        
+        return jsonify({
+            "status": "success",
+            "connections": connections,
+            "alerts": alerts,
+            "system_stats": system_stats,
+            "traffic_summary": {
+                "total_requests": traffic_summary.get("total_requests", 0),
+                "unique_ips": traffic_summary.get("unique_ips", 0),
+                "total_404s": traffic_summary.get("total_404s", 0),
+                "high_risk_hits": traffic_summary.get("high_risk_hits", 0),
+                "suspicious_ips": [
+                    {
+                        "ip": ip.ip,
+                        "threat_score": ip.threat_score,
+                        "total_hits": ip.total_hits
+                    }
+                    for ip in traffic_summary.get("suspicious_ips", [])[:10]
+                ]
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
 
 
 if __name__ == "__main__":

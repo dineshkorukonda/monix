@@ -52,6 +52,11 @@ monix --alerts
 # Security scan
 monix --scan
 monix scan --deep
+
+# Open web interface
+monix --web
+# or
+monix web
 ```
 
 Or run the dashboard directly:
@@ -60,23 +65,40 @@ Or run the dashboard directly:
 python app.py
 ```
 
-### Web Security Analyzer (Next.js)
+### Web Interface
 
-Monix now includes a modern web-based security analyzer.
+Monix includes a comprehensive web-based interface with two main features:
 
-1. **Start the API Server**:
-   ```bash
-   python api/server.py
-   ```
-   *The API runs on `http://localhost:3030`*
+#### 1. Server Dashboard (`/monix`)
 
-2. **Start the Web UI**:
-   ```bash
-   cd web/my-app
-   npm install
-   npm run dev
-   ```
-   *The interface is available at `http://localhost:3000`*
+Real-time monitoring dashboard showing:
+- **System Statistics**: CPU, memory, disk usage, network I/O, uptime
+- **Active Connections**: Live network connections with geo-location
+- **Security Alerts**: Real-time threat detection alerts
+- **Traffic Analysis**: Web traffic patterns and suspicious IP detection
+
+**Quick Start**:
+```bash
+# Start API server and open dashboard
+monix --web
+
+# Or manually:
+python api/server.py  # In one terminal
+cd web/my-app && npm run dev  # In another terminal
+# Then visit http://localhost:3000/monix
+```
+
+#### 2. URL Security Analyzer (`/`)
+
+Modern security scanner for analyzing URLs and web applications:
+- SSL certificate validation
+- DNS record analysis
+- Security headers assessment
+- Port scanning
+- Technology stack detection
+- Geographic intelligence
+
+**Access**: Visit `http://localhost:3000` (or your server IP)
 
 ## Commands
 
@@ -88,6 +110,7 @@ Monix now includes a modern web-based security analyzer.
 | `--connections` / `-c` | List active connections |
 | `--alerts` / `-a` | Show security alerts |
 | `--scan` | Security scan |
+| `--web` | Open web interface (starts API server and opens browser) |
 
 ## Options
 
@@ -104,6 +127,10 @@ monix watch --refresh 5
 
 # Deep security scan
 monix scan --deep
+
+# Web interface options
+monix web --port 3030 --nextjs-port 3000
+monix web --no-open  # Don't open browser automatically
 ```
 
 ## Example Output
@@ -120,12 +147,19 @@ monix scan --deep
 
 ```
 monix/
-├── core/              # Core logic (collector, analyzer, web_checker, etc.)
+├── core/              # Core logic (collector, analyzer, web_checker, system_monitor, etc.)
 ├── shared/            # Shared utilities (network, geo, processes)
 ├── utils/             # CLI utilities (logger, display)
-├── cli/               # CLI commands
+├── cli/               # CLI commands (monitor, status, watch, web, etc.)
 ├── api/               # Flask REST API for web interface
 ├── web/               # Next.js frontend application
+│   └── my-app/
+│       └── src/
+│           ├── app/
+│           │   ├── page.tsx      # URL Analyzer (home page)
+│           │   └── monix/
+│           │       └── page.tsx  # Server Dashboard
+│           └── components/       # React components
 ├── dashboard/         # Terminal-based dashboard UI
 ├── app.py             # Dashboard launcher
 ├── pyproject.toml
