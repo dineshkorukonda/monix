@@ -17,7 +17,7 @@ import requests
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.traffic import (
+from core.analyzers.traffic import (
     is_suspicious_url,
     is_malicious_bot,
     HIGH_RISK_ENDPOINTS,
@@ -26,14 +26,14 @@ from core.traffic import (
     get_traffic_summary,
     DEFAULT_LOG_PATH
 )
-from shared.geo import geo_lookup, reverse_dns, get_ip_info
-from core.analyzer import detect_threats
-from core.scanner import run_security_checks
-from core.web_checker import analyze_web_security
-from core.collector import collect_connections
-from core.state import state
-from core.system_monitor import get_system_stats, get_top_processes
-from core.monitor import start_monitor
+from utils.geo import geo_lookup, reverse_dns, get_ip_info
+from core.analyzers.threat import detect_threats
+from core.scanners.security import run_security_checks
+from core.scanners.web import analyze_web_security
+from core.collectors.connection import collect_connections
+from core.monitoring.state import state
+from core.collectors.system import get_system_stats, get_top_processes
+from core.monitoring.engine import start_monitor
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js frontend

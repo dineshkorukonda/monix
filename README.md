@@ -59,11 +59,6 @@ monix --web
 monix web
 ```
 
-Or run the dashboard directly:
-
-```bash
-python app.py
-```
 
 ### Web Interface
 
@@ -147,10 +142,15 @@ monix web --no-open  # Don't open browser automatically
 
 ```
 monix/
-├── core/              # Core logic (collector, analyzer, web_checker, system_monitor, etc.)
-├── shared/            # Shared utilities (network, geo, processes)
-├── utils/             # CLI utilities (logger, display)
-├── cli/               # CLI commands (monitor, status, watch, web, etc.)
+├── core/              # Core logic modules
+│   ├── collectors/    # Data collection (connections, system stats)
+│   ├── analyzers/    # Analysis and threat detection
+│   ├── scanners/     # Security scanning (system checks, web analysis)
+│   └── monitoring/   # Monitoring engine and state management
+├── utils/             # Utilities (logger, display, geo, network, processes)
+├── cli/               # CLI commands and UI
+│   ├── commands/     # CLI commands (monitor, status, watch, web, etc.)
+│   └── ui.py         # Terminal-based watch dashboard UI
 ├── api/               # Flask REST API for web interface
 ├── web/               # Next.js frontend application
 │   └── src/
@@ -159,8 +159,7 @@ monix/
 │       │   └── web/
 │       │       └── page.tsx  # Server Dashboard
 │       └── components/       # React components
-├── dashboard/         # Terminal-based dashboard UI
-├── app.py             # Dashboard launcher
+├── app.py             # Compatibility checker
 ├── pyproject.toml
 └── README.md
 ```
@@ -188,61 +187,6 @@ The `scan --deep` command and Web UI perform:
 - Python 3.8+
 - Linux (primary) / macOS (limited support)
 - Root/sudo for full process visibility
-
-## Docker
-
-### Services
-
-**Sandbox (Development Environment)**
-Interactive development and testing environment with network tools.
-
-```bash
-# Start sandbox (interactive shell)
-docker-compose up sandbox
-
-# Or run in background and exec into it
-docker-compose up -d sandbox
-docker exec -it monix_sandbox zsh
-```
-
-**Test Environment**
-Environment with pytest and testing dependencies.
-
-```bash
-# Start test environment
-docker-compose up test
-
-# Run tests
-docker-compose run test pytest
-
-# Interactive shell
-docker-compose run test /bin/bash
-```
-
-**Monix Service (Production)**
-Run Monix commands on-demand (doesn't run continuously).
-
-```bash
-# Run Monix watch dashboard
-docker-compose run monix bash -c "pip install -e . && monix --watch"
-
-# Run other commands
-docker-compose run monix bash -c "pip install -e . && monix --status"
-docker-compose run monix bash -c "pip install -e . && monix --scan"
-```
-
-### Quick Commands
-
-```bash
-# Start sandbox for testing
-docker-compose up sandbox
-
-# Stop all containers
-docker-compose down
-
-# Rebuild sandbox image
-docker-compose build sandbox
-```
 
 ## License
 

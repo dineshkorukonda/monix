@@ -5,8 +5,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.collector import collect_connections
-from core.analyzer import analyze_connections
+from core.collectors.connection import collect_connections
+from core.analyzers.threat import analyze_connections
 from utils.logger import Colors as C
 
 def run():

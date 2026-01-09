@@ -49,7 +49,7 @@ class GlobalState:
         Update the traffic analysis summary.
         
         Args:
-            summary: Traffic analysis results from core.traffic
+            summary: Traffic analysis results from core.analyzers.traffic
         """
         with self.lock:
             self.traffic_summary = summary

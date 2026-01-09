@@ -130,7 +130,7 @@ SYN_RECV     45.33.32.156:59321      :443            [THREAT]
             },
             {
               title: "CORE_KERNEL",
-              items: ["EBPF_SUPPORT", "PROC_NET_PARSING", "DOCKER_ISOLATION", "LINUX_MAC_COMPAT"]
+              items: ["EBPF_SUPPORT", "PROC_NET_PARSING", "LINUX_MAC_COMPAT"]
             }
           ].map((section, i) => (
             <div key={i} className="border border-white/10 p-8 hover:border-white transition-colors">

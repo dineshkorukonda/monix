@@ -6,10 +6,10 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.collector import collect_connections
-from core.analyzer import analyze_connections
+from core.collectors.connection import collect_connections
+from core.analyzers.threat import analyze_connections
 from utils.logger import log_info, log_warn, log_success, Colors as C
-from shared.geo import get_my_location
+from utils.geo import get_my_location
 
 def run(output_json=False):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

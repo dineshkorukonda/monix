@@ -2,11 +2,11 @@ import os
 import sys
 import psutil
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from shared.geo import geo_lookup, reverse_dns
-from shared.network import TCP_STATES, hex_ip, hex_port
-from shared.processes import get_process_map
+from utils.geo import geo_lookup, reverse_dns
+from utils.network import TCP_STATES, hex_ip, hex_port
+from utils.processes import get_process_map
 
 def collect_connections():
     connections = []

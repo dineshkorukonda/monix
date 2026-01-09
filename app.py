@@ -33,30 +33,11 @@ def check_compatibility():
     print("  monix --alerts       Show security alerts")
     print("  monix --scan         Security scan")
     print()
-    print("Or run dashboard directly:")
-    print("  python app.py")
-    print()
     print("=" * 70)
     print()
 
 def main():
     check_compatibility()
-    
-    response = input("Start dashboard now? [Y/n]: ").strip().lower()
-    
-    if response and response not in ['y', 'yes', '']:
-        print("Exiting. Use 'monix --watch' for dashboard.")
-        return
-    
-    print()
-    print("Starting dashboard... Press Ctrl+C to exit")
-    print()
-    
-    from core.monitor import start_monitor
-    from dashboard.ui import start_ui
-    
-    start_monitor()
-    start_ui()
 
 if __name__ == "__main__":
     main()

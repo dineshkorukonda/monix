@@ -4,13 +4,13 @@ import time
 from collections import defaultdict
 from threading import Thread
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.state import state
-from core.traffic import get_traffic_summary, DEFAULT_LOG_PATH
-from shared.network import TCP_STATES, hex_ip, hex_port
-from shared.geo import geo_lookup, reverse_dns
-from shared.processes import get_process_map
+from core.monitoring.state import state
+from core.analyzers.traffic import get_traffic_summary, DEFAULT_LOG_PATH
+from utils.network import TCP_STATES, hex_ip, hex_port
+from utils.geo import geo_lookup, reverse_dns
+from utils.processes import get_process_map
 
 PORT_SCAN_WINDOW = 10
 PORT_SCAN_THRESHOLD = 5
