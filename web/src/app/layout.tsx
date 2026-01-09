@@ -9,8 +9,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MONIX | AUTONOMOUS_SERVER_DEFENSE",
-  description: "REAL-TIME INTRUSION MONITORING AND WEB SECURITY ANALYSIS",
+  title: "monix",
+  description: "Real-time intrusion monitoring and autonomous defense for Linux infrastructure. High-density connection intelligence.",
 };
 
 export default function RootLayout({

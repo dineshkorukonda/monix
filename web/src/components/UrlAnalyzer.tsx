@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { analyzeUrl, type WebSecurityAnalysis } from "@/lib/api";
 import { Map, MapMarker, MarkerContent } from "@/components/ui/map";
 
@@ -150,11 +151,8 @@ export default function UrlAnalyzer() {
             </button>
           </div>
           {loading && (
-            <div className="h-[2px] w-full bg-white/5 overflow-hidden">
-              <div 
-                className="h-full bg-white transition-all duration-300" 
-                style={{ width: `${progress}%` }}
-              />
+            <div className="px-4 pb-4">
+              <Progress value={progress} />
             </div>
           )}
         </div>

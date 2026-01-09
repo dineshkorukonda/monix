@@ -1,91 +1,36 @@
-# Monix Web Interface
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Web-based UI for Monix security analysis tool. This interface allows users to analyze URLs for security threats through a clean, modern web interface.
+## Getting Started
 
-## Architecture
+First, run the development server:
 
-- **Backend**: Python Flask API server (`api/server.py`) that exposes Monix core functionality
-- **Frontend**: Next.js React application with TypeScript
-- **Separation of Concerns**: All security logic remains in Monix core modules. The web interface is purely a UI layer.
-
-## Setup
-
-### Backend API Server
-
-1. Install Python dependencies:
-```bash
-cd /path/to/monix
-pip install -r requirements.txt
-```
-
-2. Start the API server:
-```bash
-python api/server.py
-```
-
-The API server will run on `http://localhost:3030` by default.
-
-### Frontend
-
-1. Navigate to the Next.js app:
-```bash
-cd web/my-app
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Set environment variable (optional, defaults to localhost:3030):
-```bash
-# Create .env.local file
-echo "NEXT_PUBLIC_API_URL=http://localhost:3030" > .env.local
-```
-
-4. Start the development server:
 ```bash
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-The web interface will be available at `http://localhost:3000`.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Usage
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-1. Open the web interface in your browser
-2. Enter a URL to analyze (e.g., `https://example.com/admin`)
-3. Click "Analyze" to check for security threats
-4. View results including:
-   - Threat level and score
-   - Domain and IP information
-   - Geolocation data
-   - Map visualization of threat location
-   - Detected suspicious patterns
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## API Endpoints
+## Learn More
 
-- `GET /api/health` - Health check
-- `POST /api/analyze-url` - Analyze a URL for threats
-  - Body: `{ "url": "https://example.com/path" }`
-- `POST /api/analyze-ip` - Analyze an IP address
-  - Body: `{ "ip": "192.168.1.1" }`
-- `GET /api/threat-info` - Get threat pattern information
+To learn more about Next.js, take a look at the following resources:
 
-## Features
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-- **URL Analysis**: Detects high-risk endpoints and suspicious patterns
-- **Threat Scoring**: Calculates threat scores based on multiple factors
-- **Geolocation**: Shows IP geolocation information
-- **Map Visualization**: Displays threat locations on an interactive map
-- **Real-time Analysis**: Fast, responsive analysis interface
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Development
+## Deploy on Vercel
 
-The codebase follows strict separation of concerns:
-- Security logic: `core/` modules
-- API layer: `api/server.py`
-- UI components: `web/my-app/src/components/`
-- API client: `web/my-app/src/lib/api.ts`
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-All security analysis logic remains in the Python core modules and is never reimplemented in the frontend.
-
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
