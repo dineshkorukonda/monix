@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -23,6 +24,7 @@ export default function RootLayout({
         className={`${geistMono.variable} font-mono antialiased bg-black text-white`}
       >
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );

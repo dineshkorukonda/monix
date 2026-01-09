@@ -1,7 +1,7 @@
 # Monix Development Rules
 
 ## Purpose
-These rules ensure all contributors and tools maintain consistency, correctness, and security across the Monix project.
+These rules ensure all LLMS contributors and tools maintain consistency, correctness, and security across the Monix project.
 
 ---
 
