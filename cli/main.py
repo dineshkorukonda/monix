@@ -97,7 +97,7 @@ def traffic_cmd(log, window, limit, output_json):
 
 @cli.command('web')
 @click.option('--port', '-p', default=3030, help='API server port (default: 3030)')
-@click.option('--nextjs-port', '-n', default=3000, help='Next.js frontend port (default: 3000)')
+@click.option('--nextjs-port', '-n', default=3500, help='Next.js frontend port (default: 3500)')
 @click.option('--no-open', is_flag=True, help='Do not open browser automatically')
 def web_cmd(port, nextjs_port, no_open):
     web.run(port=port, nextjs_port=nextjs_port, auto_open=not no_open)

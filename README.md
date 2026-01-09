@@ -84,8 +84,8 @@ monix --web
 
 # Or manually:
 python api/server.py  # In one terminal
-cd web/my-app && npm run dev  # In another terminal
-# Then visit http://localhost:3000/monix
+cd web/my-app && npm run dev -p 3500  # In another terminal
+# Then visit http://localhost:3500/monix
 ```
 
 #### 2. URL Security Analyzer (`/`)
@@ -98,7 +98,7 @@ Modern security scanner for analyzing URLs and web applications:
 - Technology stack detection
 - Geographic intelligence
 
-**Access**: Visit `http://localhost:3000` (or your server IP)
+**Access**: Visit `http://localhost:3500` (or your server IP)
 
 ## Commands
 
@@ -129,7 +129,7 @@ monix watch --refresh 5
 monix scan --deep
 
 # Web interface options
-monix web --port 3030 --nextjs-port 3000
+monix web --port 3030 --nextjs-port 3500
 monix web --no-open  # Don't open browser automatically
 ```
 
