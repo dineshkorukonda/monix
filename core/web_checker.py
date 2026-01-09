@@ -564,7 +564,8 @@ def analyze_web_security(url: str) -> Dict:
     
     # Get HTTP headers first
     http_headers_result = check_http_headers(url)
-    headers_dict = http_headers_result.get("headers", {})
+    # Normalize headers to lowercase for analysis
+    headers_dict = {k.lower(): v for k, v in http_headers_result.get("headers", {}).items()}
     
     # Perform all checks
     results = {
