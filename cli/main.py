@@ -96,14 +96,22 @@ def traffic_cmd(log, window, limit, output_json):
     traffic.run(log_path=log, window=window, limit=limit, output_json=output_json)
 
 @cli.command('web')
+@click.argument('url', required=False)
 @click.option('--port', '-p', default=3030, help='API server port (default: 3030)')
 @click.option('--nextjs-port', '-n', default=3500, help='Next.js frontend port (default: 3500)')
 @click.option('--no-open', is_flag=True, help='Do not open browser automatically')
-def web_cmd(port, nextjs_port, no_open):
-    web.run(port=port, nextjs_port=nextjs_port, auto_open=not no_open)
+def web_cmd(url, port, nextjs_port, no_open):
+    web.run(port=port, nextjs_port=nextjs_port, auto_open=not no_open, url=url)
 
 def main():
     cli()
+
+def main_web():
+    """Standalone entry point for monix-web."""
+    import sys
+    # If no args, just launch web interface. If arg, analyze URL.
+    url = sys.argv[1] if len(sys.argv) > 1 else None
+    web.run(url=url)
 
 if __name__ == '__main__':
     main()
