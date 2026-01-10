@@ -101,17 +101,30 @@ def traffic_cmd(log, window, limit, output_json):
 @click.option('--nextjs-port', '-n', default=3500, help='Next.js frontend port (default: 3500)')
 @click.option('--no-open', is_flag=True, help='Do not open browser automatically')
 def web_cmd(url, port, nextjs_port, no_open):
-    web.run(port=port, nextjs_port=nextjs_port, auto_open=not no_open, url=url)
+    if url:
+        web.run_analysis(url)
+    else:
+        web.run(port=port, nextjs_port=nextjs_port, auto_open=not no_open)
+
+def monix_web_main():
+    """Standalone entry point for monix-web <url>"""
+    import sys
+    # Handle the case where someone might pass arguments
+    if len(sys.argv) > 1:
+        url = sys.argv[1]
+        # If it looks like an option, just run the default web command
+        if url.startswith('-'):
+            from cli.commands import web
+            web.run()
+        else:
+            from cli.commands import web
+            web.run_analysis(url)
+    else:
+        from cli.commands import web
+        web.run()
 
 def main():
     cli()
-
-def main_web():
-    """Standalone entry point for monix-web."""
-    import sys
-    # If no args, just launch web interface. If arg, analyze URL.
-    url = sys.argv[1] if len(sys.argv) > 1 else None
-    web.run(url=url)
 
 if __name__ == '__main__':
     main()

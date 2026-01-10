@@ -18,25 +18,140 @@ import webbrowser
 import subprocess
 import time
 from threading import Thread
-from typing import Dict, Any
-
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
 from rich.columns import Columns
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.text import Text
+from rich.live import Live
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from utils.logger import Colors as C
-from core.scanners.web import get_enriched_web_analysis
-
+from core.scanners.web import analyze_web_security
 
 console = Console()
 
+def run_analysis(url: str):
+    """
+    Perform and display web security analysis in the terminal.
+    """
+    console.print(Panel(
+        Text(f"MONIX WEB ANALYSIS: {url}", style="bold white", justify="center"),
+        border_style="white",
+        padding=(1, 2)
+    ))
 
-def get_local_ip() -> str:
+    with Progress(
+        SpinnerColumn(style="white"),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=None, style="dim white", complete_style="white"),
+        TaskProgressColumn(),
+        console=console
+    ) as progress:
+        task = progress.add_task("EXECUTING_SCAN...", total=100)
+        
+        # Simulate progress for better UX
+        import time
+        for i in range(4):
+            time.sleep(0.3)
+            progress.update(task, advance=15)
+            
+        try:
+            result = analyze_web_security(url)
+            progress.update(task, completed=100)
+        except Exception as e:
+            console.print(f"\n[bold red]CRITICAL_FAILURE: {str(e)}[/bold red]")
+            return
+
+    if result.get("status") == "error":
+        console.print(f"\n[bold red]ANALYSIS_FAILED: {result.get('error')}[/bold red]")
+        return
+
+    # --- Summary Bar ---
+    threat_level = result.get("threat_level", "UNKNOWN")
+    threat_score = result.get("threat_score", 0)
+    threat_color = "red" if threat_score >= 50 else "yellow" if threat_score >= 30 else "cyan" if threat_score >= 15 else "white"
+
+    summary_table = Table(show_header=False, box=None, padding=(0, 2))
+    summary_table.add_row(
+        Panel(f"[bold {threat_color}]{threat_level}[/bold {threat_color}]\n[dim white]{threat_score}%[/dim white]", title="[01] STATUS", border_style="dim white"),
+        Panel(f"[bold white]{result.get('ip_address', '---')}[/bold white]", title="[02] TARGET_IP", border_style="dim white"),
+        Panel(f"[bold white]{result.get('technologies', {}).get('server', 'UNKNOWN')}[/bold white]", title="[03] INFRA", border_style="dim white"),
+        Panel(f"[bold white]{'VALID' if result.get('ssl_certificate', {}).get('valid') else 'INVALID'}[/bold white]", title="[04] SSL", border_style="dim white")
+    )
+    console.print(summary_table)
+
+    # --- Content Grid ---
+    # Row 1: Geo and Hardening
+    row1 = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+    
+    # Geo Info
+    loc = result.get("server_location", {})
+    geo_text = Text()
+    geo_text.append(f"PROVIDER: {loc.get('org', '---')}\n", style="white")
+    geo_text.append(f"LOCATION: {loc.get('city', '')}, {loc.get('region', '')}\n", style="white")
+    geo_text.append(f"TIMEZONE: {loc.get('timezone', '---')}\n", style="white")
+    if loc.get('coordinates'):
+        geo_text.append(f"COORDS:   {loc['coordinates']['latitude']}, {loc['coordinates']['longitude']}", style="white")
+    
+    geo_panel = Panel(geo_text, title="GEO_INTEL", border_style="dim white", expand=True)
+    
+    # Hardening (Security Headers)
+    hardening = result.get("security_headers_analysis", {})
+    hardening_text = Text()
+    hardening_text.append(f"SCORE: {hardening.get('percentage', 0)}% SECURED\n\n", style="bold white")
+    
+    for header, data in list(hardening.get('headers', {}).items())[:5]:
+        status = "[+]" if data.get('present') else "[-]"
+        color = "white" if data.get('present') else "dim white"
+        hardening_text.append(f"{status} {header[:25]:<25}\n", style=color)
+        
+    hardening_panel = Panel(hardening_text, title="HARDENING", border_style="dim white", expand=True)
+    
+    row1.add_row(geo_panel, hardening_panel)
+    console.print(row1)
+
+    # Row 2: Tech Stack and DNS
+    row2 = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+    
+    # Tech Stack
+    tech = result.get("technologies", {})
+    tech_text = Text()
+    tech_text.append(f"SERVER: {tech.get('server', '---')}\n", style="white")
+    tech_text.append(f"CMS:    {tech.get('cms', '---')}\n", style="white")
+    tech_text.append(f"CDN:    {tech.get('cdn', '---')}\n", style="white")
+    if tech.get('languages'):
+        tech_text.append(f"LANGS:  {', '.join(tech['languages'])}", style="white")
+    
+    tech_panel = Panel(tech_text, title="TECH_STACK", border_style="dim white", expand=True)
+    
+    # DNS Map
+    dns = result.get("dns_records", {})
+    dns_text = Text()
+    if dns.get('a'):
+        dns_text.append("A_RECORDS:\n", style="dim white")
+        for a in dns['a'][:2]:
+            dns_text.append(f"  {a}\n", style="white")
+    if dns.get('ns'):
+        dns_text.append("NS_RECORDS:\n", style="dim white")
+        for ns in dns['ns'][:2]:
+            dns_text.append(f"  {ns}\n", style="white")
+            
+    dns_panel = Panel(dns_text, title="DNS_MAP", border_style="dim white", expand=True)
+    
+    row2.add_row(tech_panel, dns_panel)
+    console.print(row2)
+
+    # Threats if any
+    if result.get("threats"):
+        threat_text = Text()
+        for threat in result["threats"]:
+            threat_text.append(f"! {threat}\n", style=f"bold {threat_color}")
+        console.print(Panel(threat_text, title="THREAT_VECTORS", border_style=threat_color))
+
+def run(port: int = 3030, nextjs_port: int = 3500, auto_open: bool = True):
     """Get the local IP address of the machine."""
     try:
         # Connect to a remote address to determine local IP
@@ -176,135 +291,15 @@ def start_nextjs_server(port: int = 3500) -> subprocess.Popen:
         return None
 
 
-def run_analysis(url: str):
+def run(port: int = 3030, nextjs_port: int = 3500, auto_open: bool = True):
     """
-    Perform and display web security analysis in the terminal.
-    """
-    console.print(f"\n[bold white]MONIX WEB INTELLIGENCE[/bold white]")
-    console.print(f"[dim]{'=' * 50}[/dim]\n")
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        transient=True,
-    ) as progress:
-        progress.add_task(description=f"ANALYZING: {url}...", total=None)
-        result = get_enriched_web_analysis(url)
-
-    if result["status"] == "error":
-        console.print(f"[bold red]! CRITICAL_NOTICE[/bold red]")
-        console.print(f"[red]ANALYSIS_FAILED: {result.get('error', 'UNKNOWN_ERROR')}[/red]\n")
-        return
-
-    # Summary Grid
-    summary_table = Table.grid(expand=True)
-    summary_table.add_column(ratio=1)
-    summary_table.add_column(ratio=1)
-    summary_table.add_column(ratio=1)
-    summary_table.add_column(ratio=1)
-
-    def make_stat_panel(title, value, subvalue=None):
-        content = Text()
-        content.append(f"{value}\n", style="bold white")
-        if subvalue:
-            content.append(f"{subvalue}", style="dim")
-        return Panel(
-            content,
-            title=f"[dim]{title}[/dim]",
-            title_align="left",
-            border_style="bright_black",
-        )
-
-    threat_level = result.get("threat_level", "UNKNOWN")
-    threat_score = f"{result.get('threat_score', 0)}%"
-    
-    summary_table.add_row(
-        make_stat_panel("[01] STATUS_LEVEL", threat_level, threat_score),
-        make_stat_panel("[02] TARGET_IP", result.get("ip_address", "---")),
-        make_stat_panel("[03] INFRASTRUCTURE", result.get("technologies", {}).get("server", "UNKNOWN")),
-        make_stat_panel("[04] SSL_AUTH", "VALID" if result.get("ssl_certificate", {}).get("valid") else "INVALID")
-    )
-
-    console.print(summary_table)
-    console.print()
-
-    # Main Details
-    details_table = Table(show_header=False, box=None, expand=True)
-    details_table.add_column(width=20)
-    details_table.add_column()
-
-    # Geo Intel
-    geo = result.get("server_location", {})
-    if geo and geo.get("org"):
-        console.print("[bold white][G] GEO_INTEL[/bold white]")
-        geo_table = Table(show_header=False, box=None, padding=(0, 2))
-        geo_table.add_row("[dim]PROVIDER[/dim]", geo.get("org"))
-        geo_table.add_row("[dim]LOCATION[/dim]", f"{geo.get('city', '')}, {geo.get('region', '')}, {geo.get('country', '')}")
-        geo_table.add_row("[dim]TIMEZONE[/dim]", geo.get("timezone"))
-        if geo.get("coordinates"):
-            coords = geo["coordinates"]
-            geo_table.add_row("[dim]COORDINATES[/dim]", f"{coords.get('latitude')}, {coords.get('longitude')}")
-        console.print(Panel(geo_table, border_style="bright_black"))
-        console.print()
-
-    # Hardening (Security Headers)
-    headers_analysis = result.get("security_headers_analysis", {})
-    if headers_analysis and headers_analysis.get("headers"):
-        console.print("[bold white][H] HARDENING[/bold white]")
-        headers_table = Table(show_header=False, box=None, padding=(0, 2))
-        for header, data in list(headers_analysis["headers"].items())[:6]:
-            status_mark = "[white][+][/white]" if data.get("present") else "[dim][-][/dim]"
-            headers_table.add_row(f"[dim]{header.upper()}[/dim]", status_mark)
-        
-        console.print(Panel(
-            Columns([
-                Text(f"{headers_analysis.get('percentage', 0)}% SECURED", style="bold white"),
-                headers_table
-            ]),
-            border_style="bright_black"
-        ))
-        console.print()
-
-    # DNS records
-    dns = result.get("dns_records", {})
-    if dns and (dns.get("a") or dns.get("ns")):
-        console.print("[bold white][D] DNS_MAP[/bold white]")
-        dns_content = []
-        if dns.get("a"):
-            dns_content.append("[dim]A_RECORDS[/dim]")
-            for ip in dns["a"]:
-                dns_content.append(f"  {ip}")
-        if dns.get("ns"):
-            dns_content.append("\n[dim]NS_RECORDS[/dim]")
-            for ns in dns["ns"]:
-                dns_content.append(f"  {ns}")
-        
-        console.print(Panel("\n".join(dns_content), border_style="bright_black"))
-        console.print()
-
-    # Threats
-    threats = result.get("threats", [])
-    if threats:
-        console.print("[bold red][!] THREAT_FOUND[/bold red]")
-        threat_list = "\n".join([f"• {t}" for t in threats])
-        console.print(Panel(threat_list, border_style="red"))
-        console.print()
-
-
-def run(port: int = 3030, nextjs_port: int = 3500, auto_open: bool = True, url: str = None):
-    """
-    Launch the Monix web interface or analyze a URL.
+    Launch the Monix web interface.
     
     Args:
         port: Port for the Flask API server (default: 3030)
         nextjs_port: Port for the Next.js frontend (default: 3500)
         auto_open: Whether to automatically open the browser
-        url: Optional URL to analyze directly in terminal
     """
-    if url:
-        run_analysis(url)
-        return
-
     print(f"{C.CYAN}Monix Web Interface{C.RESET}")
     print(f"{C.DIM}{'=' * 50}{C.RESET}")
     

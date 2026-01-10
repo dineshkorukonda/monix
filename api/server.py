@@ -29,7 +29,7 @@ from core.analyzers.traffic import (
 from utils.geo import geo_lookup, reverse_dns, get_ip_info
 from core.analyzers.threat import detect_threats
 from core.scanners.security import run_security_checks
-from core.scanners.web import analyze_web_security, get_enriched_web_analysis
+from core.scanners.web import analyze_web_security
 from core.collectors.connection import collect_connections
 from core.monitoring.state import state
 from core.collectors.system import get_system_stats, get_top_processes
@@ -44,6 +44,104 @@ try:
     start_monitor()
 except Exception:
     pass  # Monitor may already be running
+
+
+def analyze_url(url: str) -> dict:
+    """
+    Analyze a URL for security threats.
+    
+    This function checks:
+    - If URL path matches high-risk endpoints
+    - If URL structure indicates suspicious patterns
+    - Domain/IP information and geolocation
+    
+    Args:
+        url: URL string to analyze
+        
+    Returns:
+        Dictionary containing analysis results
+    """
+    try:
+        parsed = urlparse(url)
+        path = parsed.path or "/"
+        domain = parsed.netloc.split(":")[0] if parsed.netloc else ""
+        
+        # Check if path is suspicious
+        suspicious = is_suspicious_url(path)
+        
+        # Get IP from domain if possible
+        ip_address = None
+        geo_info = ""
+        hostname = ""
+        coordinates = None
+        
+        if domain:
+            try:
+                ip_address = socket.gethostbyname(domain)
+                ip_info = get_ip_info(ip_address)
+                geo_info = ip_info.get("geo", "")
+                hostname = ip_info.get("hostname", "")
+                
+                # Get coordinates from ipinfo.io
+                try:
+                    geo_response = requests.get(
+                        f"https://ipinfo.io/{ip_address}/json",
+                        timeout=2
+                    ).json()
+                    loc_str = geo_response.get("loc", "")
+                    if loc_str:
+                        lat, lon = map(float, loc_str.split(","))
+                        coordinates = {"latitude": lat, "longitude": lon}
+                except:
+                    pass
+            except (socket.gaierror, socket.herror):
+                pass
+        
+        # Calculate threat score
+        threat_score = 0
+        threats = []
+        
+        if suspicious:
+            threat_score += 25
+            threats.append("High-risk endpoint detected")
+        
+        # Check for suspicious patterns in path
+        suspicious_patterns = [
+            "..", "//", "eval", "exec", "cmd", "shell",
+            ".env", ".git", ".htaccess", "passwd", "shadow"
+        ]
+        
+        path_lower = path.lower()
+        for pattern in suspicious_patterns:
+            if pattern in path_lower:
+                threat_score += 10
+                threats.append(f"Suspicious pattern in path: {pattern}")
+                break
+        
+        # Classify threat level
+        level_name, level_color = classify_threat_level(threat_score)
+        
+        return {
+            "url": url,
+            "domain": domain,
+            "path": path,
+            "ip_address": ip_address,
+            "geo_info": geo_info,
+            "hostname": hostname,
+            "coordinates": coordinates,
+            "suspicious": suspicious,
+            "threat_score": threat_score,
+            "threat_level": level_name,
+            "threat_color": level_color,
+            "threats": threats,
+            "status": "success"
+        }
+    except Exception as e:
+        return {
+            "url": url,
+            "status": "error",
+            "error": str(e)
+        }
 
 
 @app.route("/api/health", methods=["GET"])
@@ -63,7 +161,7 @@ def analyze_url_endpoint():
         }
     
     Returns:
-        JSON response with complete security analysis.
+        JSON response with complete security analysis
     """
     data = request.get_json()
     
@@ -76,12 +174,8 @@ def analyze_url_endpoint():
     url = data["url"]
     
     try:
-        # Use shared enrichment logic
-        result = get_enriched_web_analysis(url)
-        
-        if result["status"] == "error":
-            return jsonify(result), 500
-            
+        # Perform comprehensive web security analysis
+        result = analyze_web_security(url)
         return jsonify(result)
         
     except Exception as e:
