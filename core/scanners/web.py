@@ -27,6 +27,13 @@ from core.analyzers.traffic import (
     classify_threat_level
 )
 
+# Global configuration for scanner requests
+DEFAULT_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
 # DNS resolver - optional dependency
 try:
     import dns.resolver
@@ -218,7 +225,7 @@ def check_http_headers(url: str) -> Dict:
     }
     
     try:
-        response = requests.get(url, timeout=10, allow_redirects=True, verify=True)
+        response = requests.get(url, headers=DEFAULT_HEADERS, timeout=10, allow_redirects=True, verify=True)
         result["headers"] = dict(response.headers)
         
         # Check for security headers
@@ -268,7 +275,7 @@ def check_security_txt(url: str) -> Dict:
         # Check /.well-known/security.txt
         security_txt_url = f"{base_url}/.well-known/security.txt"
         try:
-            response = requests.get(security_txt_url, timeout=5, allow_redirects=True)
+            response = requests.get(security_txt_url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True)
             if response.status_code == 200:
                 result["present"] = True
                 result["content"] = response.text
@@ -280,7 +287,7 @@ def check_security_txt(url: str) -> Dict:
         # Check /security.txt as fallback
         security_txt_url = f"{base_url}/security.txt"
         try:
-            response = requests.get(security_txt_url, timeout=5, allow_redirects=True)
+            response = requests.get(security_txt_url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True)
             if response.status_code == 200:
                 result["present"] = True
                 result["content"] = response.text
@@ -403,7 +410,7 @@ def detect_technologies(url: str) -> Dict:
     }
     
     try:
-        response = requests.get(url, timeout=5, allow_redirects=True, verify=True)
+        response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True, verify=True)
         headers = response.headers
         
         # Detect server
@@ -498,7 +505,7 @@ def check_cookies(url: str) -> Dict:
     """Analyze cookies and their security attributes."""
     result = {"cookies": [], "error": None}
     try:
-        response = requests.get(url, timeout=5, allow_redirects=True)
+        response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True)
         for cookie in response.cookies:
             result["cookies"].append({
                 "name": cookie.name,
@@ -518,7 +525,7 @@ def check_redirects(url: str) -> Dict:
     """Track the redirect chain."""
     result = {"chain": [], "final_url": url, "error": None}
     try:
-        response = requests.get(url, timeout=5, allow_redirects=True)
+        response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True)
         result["final_url"] = response.url
         for resp in response.history:
             result["chain"].append({
@@ -534,7 +541,7 @@ def check_page_metadata(url: str) -> Dict:
     """Extract basic page metadata."""
     result = {"title": "", "description": "", "error": None}
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5)
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(response.text, 'html.parser')
         result["title"] = soup.title.string if soup.title else ""

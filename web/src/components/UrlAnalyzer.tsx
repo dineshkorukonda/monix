@@ -38,20 +38,39 @@ interface SectionProps {
   children: React.ReactNode;
   className?: string;
   hasData?: boolean;
+  helpText?: string;
 }
 
-const Section = ({ title, symbol, children, className = "", hasData = true }: SectionProps) => {
+const Section = ({ title, symbol, children, className = "", hasData = true, helpText }: SectionProps) => {
+  const [showHelp, setShowHelp] = useState(false);
   if (!hasData) return null;
   return (
     <div
-      className={`rounded-none border border-white/10 bg-black transition-colors ${className}`}
+      className={`rounded-none border border-white/10 bg-black transition-colors relative group ${className}`}
     >
       <div className="px-4 py-2 border-b border-white/10 flex items-center justify-between bg-white/5">
         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] flex items-center gap-2 text-white">
           <span className="text-white/40">[{symbol}]</span>
           {title}
         </h3>
+        {helpText && (
+          <button 
+            onClick={() => setShowHelp(!showHelp)}
+            className="text-[10px] text-white/20 hover:text-white font-bold transition-colors"
+          >
+            [?]
+          </button>
+        )}
       </div>
+      {showHelp && helpText && (
+        <div className="absolute inset-x-0 top-[37px] z-20 bg-white text-black p-4 text-[10px] font-bold leading-relaxed uppercase animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex justify-between items-start mb-2 border-b border-black/10 pb-1">
+            <span>METHODOLOGY_INFO</span>
+            <button onClick={() => setShowHelp(false)} className="hover:opacity-60">[X]</button>
+          </div>
+          {helpText}
+        </div>
+      )}
       <div className="p-4">{children}</div>
     </div>
   );
@@ -65,6 +84,7 @@ export default function UrlAnalyzer() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<WebSecurityAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   const handleAnalyze = async () => {
     if (!url.trim()) {
@@ -121,24 +141,33 @@ export default function UrlAnalyzer() {
       <div className="sticky top-0 z-50 bg-black border-b border-white/10">
         <div className="container mx-auto px-6 max-w-[1600px]">
           <div className="flex items-center justify-between h-20 gap-8">
-            <div className="flex-1 relative group">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 font-bold">
-                $
-              </span>
-              <input
-                type="text"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="ENTER_TARGET_URL..."
-                className="w-full pl-10 pr-4 py-3 bg-black border border-white/10 text-sm focus:outline-none focus:border-white transition-all font-mono uppercase placeholder:text-white/20"
-                disabled={loading}
-              />
-              {loading && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold animate-pulse text-white/40">
-                  RUNNING...
-                </div>
-              )}
+            <div className="flex-1 relative group flex items-center gap-4">
+              <div className="relative flex-1">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 font-bold">
+                  $
+                </span>
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="ENTER_TARGET_URL..."
+                  className="w-full pl-10 pr-4 py-3 bg-black border border-white/10 text-sm focus:outline-none focus:border-white transition-all font-mono uppercase placeholder:text-white/20"
+                  disabled={loading}
+                />
+                {loading && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold animate-pulse text-white/40">
+                    RUNNING...
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setShowInfo(true)}
+                className="text-white/40 hover:text-white border border-white/10 hover:border-white px-3 py-3 transition-all text-xs font-bold shrink-0"
+                title="How it works"
+              >
+                [i]
+              </button>
             </div>
 
             <button
@@ -218,6 +247,7 @@ export default function UrlAnalyzer() {
                 symbol="G" 
                 className="xl:col-span-2"
                 hasData={!!result.server_location && !!result.server_location.org}
+                helpText="RESOLVES TARGET IP TO PHYSICAL SERVER LOCATION, ISP, AND AUTONOMOUS SYSTEM (ASN) DATA VIA EXTERNAL INTEL PROVIDERS."
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-1">
@@ -257,6 +287,7 @@ export default function UrlAnalyzer() {
                 title="HARDENING" 
                 symbol="H"
                 hasData={!!result.security_headers_analysis && result.security_headers_analysis.percentage > 0}
+                helpText="EVALUATES HTTP SECURITY HEADERS (CSP, HSTS, X-FRAME-OPTIONS) TO MEASURE PROACTIVE DEFENSE AGAINST COMMON WEB ATTACK VECTORS."
               >
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col items-center justify-center py-6 border border-white/5 bg-white/[0.02]">
@@ -280,6 +311,7 @@ export default function UrlAnalyzer() {
                 title="TECH_STACK" 
                 symbol="T"
                 hasData={!!result.technologies && (!!result.technologies.server || !!result.technologies.cms || (result.technologies.languages?.length ?? 0) > 0)}
+                helpText="FINGERPRINTS UNDERLYING SERVER SOFTWARE, CONTENT MANAGEMENT SYSTEMS, AND BACKEND LANGUAGES VIA HTTP RESPONSE PATTERNS."
               >
                 <div className="space-y-4">
                   <DataItem label="SERVER" value={result.technologies?.server} />
@@ -304,6 +336,7 @@ export default function UrlAnalyzer() {
                 title="NET_PORTS" 
                 symbol="P"
                 hasData={!!result.port_scan && (result.port_scan.open_ports?.length ?? 0) > 0}
+                helpText="SCANS COMMON INFRASTRUCTURE PORTS (SSH, HTTP, SQL) TO IDENTIFY EXPOSED SERVICES AND POTENTIAL NETWORK ENTRY POINTS."
               >
                 <div className="grid grid-cols-4 gap-2">
                   {[80, 443, 22, 21, 25, 53, 3306, 8080].map((port) => {
@@ -322,6 +355,7 @@ export default function UrlAnalyzer() {
                 title="ENCRYPTION" 
                 symbol="E"
                 hasData={!!result.ssl_certificate && !!result.ssl_certificate.subject}
+                helpText="VALIDATES SSL/TLS CERTIFICATE AUTHENTICITY, ISSUER TRUST, AND EXPIRATION DATA VIA SECURE SOCKET HANDSHAKES."
               >
                 <div className="space-y-1">
                   <DataItem label="SUBJECT" value={getSubjectName(result.ssl_certificate?.subject)} />
@@ -339,6 +373,7 @@ export default function UrlAnalyzer() {
                 title="REDIRECTS" 
                 symbol="R"
                 hasData={!!result.redirects && (result.redirects.chain?.length ?? 0) > 0}
+                helpText="TRACKS HTTP STATUS CODES (301, 302) TO MAP THE FULL REQUEST PATH FROM SOURCE TO FINAL DESTINATION."
               >
                 <div className="space-y-3">
                   <div className="text-[10px] flex items-center gap-2">
@@ -360,6 +395,7 @@ export default function UrlAnalyzer() {
                 title="DNS_MAP" 
                 symbol="D"
                 hasData={!!result.dns_records && ((result.dns_records.a?.length ?? 0) > 0 || (result.dns_records.ns?.length ?? 0) > 0)}
+                helpText="QUERIES AUTHORITATIVE NAME SERVERS FOR A, MX, AND TXT RECORDS TO UNCOVER DOMAIN ARCHITECTURE AND MAIL CONFIGURATION."
               >
                 <div className="space-y-6">
                   { (result.dns_records?.a?.length ?? 0) > 0 && (
@@ -393,6 +429,7 @@ export default function UrlAnalyzer() {
                 title="THREAT_VECTORS" 
                 symbol="!"
                 hasData={!!result.threats && result.threats.length > 0}
+                helpText="IDENTIFIES POTENTIAL SECURITY VULNERABILITIES BASED ON MISSING DEFENSIVE HEADERS, SUSPICIOUS PATH PATTERNS, AND SSL WEAKNESSES."
                 className="border-white/20"
               >
                 <div className="space-y-3">
@@ -410,6 +447,89 @@ export default function UrlAnalyzer() {
           </div>
         )}
       </div>
+      
+      {showInfo && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 animate-in fade-in duration-300">
+          <div className="max-w-2xl w-full border border-white/20 bg-black p-8 relative">
+            <button 
+              onClick={() => setShowInfo(false)}
+              className="absolute top-4 right-4 text-white/40 hover:text-white text-xs font-bold tracking-widest"
+            >
+              [CLOSE_X]
+            </button>
+            
+            <div className="mb-8">
+              <div className="text-[10px] font-bold text-white/40 tracking-[0.4em] mb-2 uppercase">
+                [SYSTEM_OPERATIONS_01]
+              </div>
+              <h2 className="text-3xl font-black tracking-tighter uppercase">SCAN_METHODOLOGY</h2>
+            </div>
+            
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-4 custom-scrollbar">
+              <div className="space-y-2">
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">[01] SSL_VALIDATION</h4>
+                <p className="text-[11px] text-white/60 leading-relaxed uppercase">
+                  VERIFIES CERTIFICATE CHAIN, EXPIRATION, ISSUER AUTHENTICITY, AND ENCRYPTION STRENGTH VIA SSL/TLS HANDSHAKE.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">[02] DNS_RECON</h4>
+                <p className="text-[11px] text-white/60 leading-relaxed uppercase">
+                  PERFORMS DEEP QUERIES FOR A, AAAA, MX, NS, AND TXT RECORDS TO MAP THE DOMAIN'S ARCHITECTURE.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">[03] HEADER_ANALYSIS</h4>
+                <p className="text-[11px] text-white/60 leading-relaxed uppercase">
+                  EVALUATES SECURITY POLICIES (CSP, HSTS, XSS-PROTECTION) TO MEASURE FRONT-END HARDENING LEVELS.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">[04] GEO_INTELLIGENCE</h4>
+                <p className="text-[11px] text-white/60 leading-relaxed uppercase">
+                  RESOLVES TARGET IP TO PHYSICAL SERVER LOCATION, ISP, AND AUTONOMOUS SYSTEM (ASN) INFORMATION.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">[05] TECH_STACK_ID</h4>
+                <p className="text-[11px] text-white/60 leading-relaxed uppercase">
+                  FINGERPRINTS SERVER SOFTWARE, CMS, CDNS, AND BACKEND LANGUAGES VIA HTTP FINGERPRINTING.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">[06] PORT_SURVEY</h4>
+                <p className="text-[11px] text-white/60 leading-relaxed uppercase">
+                  SCANS COMMON SERVICE PORTS (80, 443, 22, ETC.) TO IDENTIFY EXPOSED INFRASTRUCTURE COMPONENTS.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">[07] THREAT_SCORING</h4>
+                <p className="text-[11px] text-white/60 leading-relaxed uppercase">
+                  USES MONIX CORE ANALYZERS TO CALCULATE RISK BASED ON ENDPOINT SUSPICION AND PATH PATTERNS.
+                </p>
+              </div>
+            </div>
+            
+            <div className="mt-10 pt-6 border-t border-white/10 flex justify-between items-center">
+              <span className="text-[9px] font-bold text-white/20 tracking-widest uppercase italic">
+                ! AUTONOMOUS_SCANNER_v2.0
+              </span>
+              <button 
+                onClick={() => setShowInfo(false)}
+                className="bg-white text-black px-6 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/80 transition-all"
+              >
+                UNDERSTOOD
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 2px; }

@@ -39,6 +39,24 @@ export default function DocsPage() {
         { name: "PORT_SCAN", desc: "IDENTIFIES_RAPID_PORT_PROBING" },
         { name: "HIGH_CONN", desc: "MONITORS_CONNECTION_EXHAUSTION_PATTERNS" }
       ]
+    },
+    {
+      id: "analysis_logic",
+      title: "ANALYSIS_LOGIC",
+      infoBoxes: [
+        {
+          title: "SCORING_SYSTEM",
+          content: "MONIX CALCULATES A THREAT_SCORE FROM 0 TO 100. LOWER SCORES INDICATE BETTER SECURITY HYGIENE. POINTS ARE ADDED FOR MISSING SECURITY HEADERS, SUSPICIOUS PATHS, AND SSL CONFIGURATION WEAKNESSES."
+        },
+        {
+          title: "BOT_VS_BROWSER",
+          content: "SOME HIGH-TRAFFIC DOMAINS (E.G. GOOGLE.COM) MAY SHOW MISSING HEADERS IN SCANS. THIS IS OFTEN DUE TO BOT-DETECTION MECHANISMS THAT SERVE DIFFERENT HEADERS TO SCRIPTS VS REAL BROWSERS TO OPTIMIZE BANDWIDTH AND SECURITY."
+        },
+        {
+          title: "THREAT_LEVELS",
+          content: "[LOW: 0-14] - [MEDIUM: 15-29] - [HIGH: 30-49] - [CRITICAL: 50+]. EACH LEVEL TRIGGERS DIFFERENT ALERT PRIORITIES IN THE MONIX ENGINE."
+        }
+      ]
     }
   ];
 
@@ -145,6 +163,21 @@ export default function DocsPage() {
                           </h3>
                           <p className="text-[10px] text-white/40 font-bold tracking-widest uppercase">
                             {threat.desc}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {section.infoBoxes && (
+                    <div className="space-y-6">
+                      {section.infoBoxes.map((box, i) => (
+                        <div key={i} className="border border-white/10 p-8 bg-white/[0.02]">
+                          <h3 className="text-sm font-black tracking-widest mb-4 uppercase border-b border-white/10 pb-4">
+                            [{box.title}]
+                          </h3>
+                          <p className="text-[11px] text-white/60 leading-relaxed uppercase">
+                            {box.content}
                           </p>
                         </div>
                       ))}
