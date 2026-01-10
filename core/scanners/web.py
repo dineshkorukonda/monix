@@ -354,7 +354,7 @@ def scan_ports(host: str, ports: List[int] = None) -> Dict:
         Dictionary with open ports information
     """
     if ports is None:
-        ports = [80, 443, 22, 21, 25, 53, 110, 143, 993, 995, 3306, 5432, 8080, 8443]
+        ports = [80, 443, 22, 21, 25, 53, 3306, 5432, 8080, 8443]
     
     result = {
         "open_ports": [],
@@ -547,13 +547,6 @@ def check_page_metadata(url: str) -> Dict:
     return result
 
 
-from core.analyzers.traffic import (
-    is_suspicious_url,
-    classify_threat_level
-)
-
-# ... existing code ...
-
 def analyze_web_security(url: str) -> Dict:
     """
     Perform comprehensive web security analysis.
@@ -655,4 +648,3 @@ def analyze_web_security(url: str) -> Dict:
     })
     
     return results
-

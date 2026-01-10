@@ -12,6 +12,7 @@ Monix is an open-source host-level security tool that provides real-time threat 
 - Process tracking
 - Security scanning
 - Clean CLI interface
+- **monix-web <url>** (Instant CLI web security analysis)
 - Live dashboard UI
 - **Web Security Analyzer** (Modern Next.js interface)
 - **Comprehensive URL Scanning** (SSL, DNS, Headers, Ports, Cookies)
@@ -57,6 +58,11 @@ monix scan --deep
 monix --web
 # or
 monix web
+
+# CLI Web Analysis
+monix-web dineshkorkonda.in
+# or
+monix web mycrux.in
 ```
 
 

@@ -63,6 +63,7 @@ export default function Home() {
                   { cmd: "monix --monitor", desc: "SYSTEM_SNAPSHOT_REALTIME" },
                   { cmd: "monix --watch", desc: "INTERACTIVE_WATCH_MODE" },
                   { cmd: "monix --scan", desc: "AUTONOMOUS_THREAT_SCAN" },
+                  { cmd: "monix-web <url>", desc: "INSTANT_WEB_ANALYSIS" },
                 ].map((item, i) => (
                   <div key={i} className="flex flex-col gap-1 border-l border-white/20 pl-6 py-2">
                     <code className="text-sm font-bold text-white">{item.cmd}</code>

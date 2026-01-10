@@ -17,13 +17,8 @@ import socket
 import webbrowser
 import subprocess
 import time
+from datetime import datetime
 from threading import Thread
-import socket
-import sys
-import os
-import webbrowser
-import subprocess
-import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -114,7 +109,7 @@ def run_analysis(url: str):
     print(f"{C.DIM}{'─' * 60}{C.RESET}")
     print()
 
-def run(port: int = 3030, nextjs_port: int = 3500, auto_open: bool = True):
+def get_local_ip() -> str:
     """Get the local IP address of the machine."""
     try:
         # Connect to a remote address to determine local IP
