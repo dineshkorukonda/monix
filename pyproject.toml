@@ -44,6 +44,7 @@ dev = [
 
 [project.scripts]
 monix = "cli.main:main"
+monix-web = "cli.main:monix_web_main"
 
 [project.urls]
 Homepage = "https://github.com/dinexh/monix"

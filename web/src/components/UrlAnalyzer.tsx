@@ -388,6 +388,24 @@ export default function UrlAnalyzer() {
                   )}
                 </div>
               </Section>
+
+              <Section 
+                title="THREAT_VECTORS" 
+                symbol="!"
+                hasData={!!result.threats && result.threats.length > 0}
+                className="border-white/20"
+              >
+                <div className="space-y-3">
+                  {result.threats?.map((threat, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-white/5 border border-white/10">
+                      <span className="text-white font-bold text-xs mt-0.5">!</span>
+                      <span className="text-[11px] uppercase font-bold tracking-tight text-white/80 leading-relaxed">
+                        {threat}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Section>
             </div>
           </div>
         )}

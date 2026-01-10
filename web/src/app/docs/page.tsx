@@ -27,7 +27,8 @@ export default function DocsPage() {
         { cmd: "monix --watch", desc: "LIVE_INTERACTIVE_DASHBOARD" },
         { cmd: "monix --scan", desc: "SECURITY_ANALYSIS_SCAN" },
         { cmd: "monix --alerts", desc: "LIST_SECURITY_NOTIFICATIONS" },
-        { cmd: "monix --status", desc: "ONE_LINE_HEALTH_CHECK" }
+        { cmd: "monix --status", desc: "ONE_LINE_HEALTH_CHECK" },
+        { cmd: "monix-web <url>", desc: "INSTANT_WEB_SECURITY_SCAN" }
       ]
     },
     {

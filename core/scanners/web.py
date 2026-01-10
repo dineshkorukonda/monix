@@ -22,6 +22,11 @@ from urllib.parse import urlparse
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
+from core.analyzers.traffic import (
+    is_suspicious_url,
+    classify_threat_level
+)
+
 # DNS resolver - optional dependency
 try:
     import dns.resolver
@@ -349,7 +354,7 @@ def scan_ports(host: str, ports: List[int] = None) -> Dict:
         Dictionary with open ports information
     """
     if ports is None:
-        ports = [80, 443, 22, 21, 25, 53, 110, 143, 993, 995, 3306, 5432, 8080, 8443]
+        ports = [80, 443, 22, 21, 25, 53, 3306, 5432, 8080, 8443]
     
     result = {
         "open_ports": [],
@@ -552,8 +557,13 @@ def analyze_web_security(url: str) -> Dict:
     Returns:
         Dictionary with complete security analysis
     """
+    # Ensure URL has scheme
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
     parsed = urlparse(url)
     domain = parsed.netloc.split(":")[0] if parsed.netloc else ""
+    path = parsed.path or "/"
     
     # Get IP address
     ip_address = None
@@ -584,6 +594,57 @@ def analyze_web_security(url: str) -> Dict:
         "redirects": check_redirects(url),
         "metadata": check_page_metadata(url),
     }
+
+    # Add threat analysis using Monix core
+    suspicious = is_suspicious_url(path)
+    
+    threat_score = 0
+    threats = []
+    
+    if suspicious:
+        threat_score += 25
+        threats.append("High-risk endpoint detected")
+    
+    # Check for suspicious patterns
+    suspicious_patterns = [
+        "..", "//", "eval", "exec", "cmd", "shell",
+        ".env", ".git", ".htaccess", "passwd", "shadow"
+    ]
+    
+    path_lower = path.lower()
+    for pattern in suspicious_patterns:
+        if pattern in path_lower:
+            threat_score += 10
+            threats.append(f"Suspicious pattern in path: {pattern}")
+            break
+    
+    # Check security headers
+    security_headers = results.get("http_headers", {}).get("security_headers", {})
+    missing_security_headers = []
+    for header in ["strict-transport-security", "x-frame-options", "content-security-policy"]:
+        if not security_headers.get(header):
+            missing_security_headers.append(header)
+            threat_score += 5
+    
+    if missing_security_headers:
+        threats.append(f"Missing security headers: {', '.join(missing_security_headers)}")
+    
+    # Check SSL
+    ssl_info = results.get("ssl_certificate", {})
+    if not ssl_info.get("valid") and ssl_info.get("error") != "Not HTTPS":
+        threat_score += 30
+        threats.append("SSL certificate issue detected")
+    
+    # Classify threat level
+    level_name, level_color = classify_threat_level(threat_score)
+    
+    # Combine results
+    results.update({
+        "status": "success",
+        "threat_score": threat_score,
+        "threat_level": level_name,
+        "threat_color": level_color,
+        "threats": threats
+    })
     
     return results
-

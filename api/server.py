@@ -161,13 +161,7 @@ def analyze_url_endpoint():
         }
     
     Returns:
-        JSON response with complete security analysis including:
-        - SSL certificate information
-        - DNS records
-        - HTTP headers
-        - Security.txt check
-        - Server location
-        - Threat analysis
+        JSON response with complete security analysis
     """
     data = request.get_json()
     
@@ -179,82 +173,9 @@ def analyze_url_endpoint():
     
     url = data["url"]
     
-    # Ensure URL has scheme
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
-    
     try:
         # Perform comprehensive web security analysis
-        analysis = analyze_web_security(url)
-        
-        # Add threat analysis using Monix core
-        parsed = urlparse(url)
-        path = parsed.path or "/"
-        suspicious = is_suspicious_url(path)
-        
-        threat_score = 0
-        threats = []
-        
-        if suspicious:
-            threat_score += 25
-            threats.append("High-risk endpoint detected")
-        
-        # Check for suspicious patterns
-        suspicious_patterns = [
-            "..", "//", "eval", "exec", "cmd", "shell",
-            ".env", ".git", ".htaccess", "passwd", "shadow"
-        ]
-        
-        path_lower = path.lower()
-        for pattern in suspicious_patterns:
-            if pattern in path_lower:
-                threat_score += 10
-                threats.append(f"Suspicious pattern in path: {pattern}")
-                break
-        
-        # Check security headers
-        security_headers = analysis.get("http_headers", {}).get("security_headers", {})
-        missing_security_headers = []
-        for header in ["strict-transport-security", "x-frame-options", "content-security-policy"]:
-            if not security_headers.get(header):
-                missing_security_headers.append(header)
-                threat_score += 5
-        
-        if missing_security_headers:
-            threats.append(f"Missing security headers: {', '.join(missing_security_headers)}")
-        
-        # Check SSL
-        ssl_info = analysis.get("ssl_certificate", {})
-        if not ssl_info.get("valid") and ssl_info.get("error") != "Not HTTPS":
-            threat_score += 30
-            threats.append("SSL certificate issue detected")
-        
-        # Classify threat level
-        level_name, level_color = classify_threat_level(threat_score)
-        
-        # Combine all results
-        result = {
-            "status": "success",
-            "url": url,
-            "domain": analysis.get("domain", ""),
-            "ip_address": analysis.get("ip_address"),
-            "threat_score": threat_score,
-            "threat_level": level_name,
-            "threat_color": level_color,
-            "threats": threats,
-            "ssl_certificate": ssl_info,
-            "dns_records": analysis.get("dns_records", {}),
-            "http_headers": analysis.get("http_headers", {}),
-            "security_headers_analysis": analysis.get("security_headers_analysis", {}),
-            "security_txt": analysis.get("security_txt", {}),
-            "server_location": analysis.get("server_location", {}),
-            "port_scan": analysis.get("port_scan", {}),
-            "technologies": analysis.get("technologies", {}),
-            "cookies": analysis.get("cookies", {}),
-            "redirects": analysis.get("redirects", {}),
-            "metadata": analysis.get("metadata", {}),
-        }
-        
+        result = analyze_web_security(url)
         return jsonify(result)
         
     except Exception as e:

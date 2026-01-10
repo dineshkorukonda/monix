@@ -17,12 +17,97 @@ import socket
 import webbrowser
 import subprocess
 import time
+from datetime import datetime
 from threading import Thread
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from utils.logger import Colors as C
+from utils.logger import Colors as C, log_info, log_error, log_success
+from core.scanners.web import analyze_web_security
 
+def run_analysis(url: str):
+    """
+    Perform and display web security analysis in the terminal (compact version).
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    print()
+    log_info(f"Analyzing target: {url}")
+    
+    try:
+        # Simple progress indicator
+        print(f"  {C.DIM}Executing scan...{C.RESET}", end="\r")
+        result = analyze_web_security(url)
+        print(" " * 30, end="\r") # Clear the line
+    except Exception as e:
+        log_error(f"CRITICAL_FAILURE: {str(e)}")
+        return
+
+    if result.get("status") == "error":
+        log_error(f"ANALYSIS_FAILED: {result.get('error')}")
+        return
+
+    # --- Summary Header ---
+    threat_level = result.get("threat_level", "UNKNOWN")
+    threat_score = result.get("threat_score", 0)
+    
+    if threat_score >= 50:
+        threat_display = f"{C.RED}{C.BOLD}{threat_level}{C.RESET}"
+    elif threat_score >= 30:
+        threat_display = f"{C.YELLOW}{threat_level}{C.RESET}"
+    elif threat_score >= 15:
+        threat_display = f"{C.CYAN}{threat_level}{C.RESET}"
+    else:
+        threat_display = f"{C.WHITE}{threat_level}{C.RESET}"
+
+    ssl_valid = result.get("ssl_certificate", {}).get("valid")
+    ssl_status = f"{C.GREEN}VALID{C.RESET}" if ssl_valid else f"{C.RED}INVALID/NONE{C.RESET}"
+
+    print(f"{C.DIM}[{timestamp}]{C.RESET} {C.BOLD}Web Analysis Result{C.RESET}")
+    print(f"{C.DIM}{'─' * 60}{C.RESET}")
+    print(f"  {C.DIM}Status:{C.RESET}       {threat_display} {C.DIM}({threat_score}%){C.RESET}")
+    print(f"  {C.DIM}Target IP:{C.RESET}    {C.WHITE}{result.get('ip_address', '---')}{C.RESET}")
+    print(f"  {C.DIM}Infra:{C.RESET}        {C.WHITE}{result.get('technologies', {}).get('server', '---')}{C.RESET}")
+    print(f"  {C.DIM}SSL:{C.RESET}          {ssl_status}")
+    print()
+
+    # Geo Intel
+    loc = result.get("server_location", {})
+    provider = loc.get('org', '---')
+    city = loc.get('city', '')
+    region = loc.get('region', '')
+    location = f"{city}, {region}" if city and region else city or region or "---"
+    print(f"  {C.BOLD}Geo Intel:{C.RESET}    {C.WHITE}{provider}{C.RESET} {C.DIM}({location}){C.RESET}")
+
+    # Hardening
+    hardening = result.get("security_headers_analysis", {})
+    h_score = hardening.get('percentage', 0)
+    h_color = C.GREEN if h_score >= 70 else C.YELLOW if h_score >= 40 else C.RED
+    print(f"  {C.BOLD}Hardening:{C.RESET}    {h_color}{h_score}% Secured{C.RESET}")
+
+    # Tech Stack
+    tech = result.get("technologies", {})
+    tech_list = []
+    if tech.get('server'): tech_list.append(tech['server'])
+    if tech.get('cms'): tech_list.append(tech['cms'])
+    if tech.get('cdn'): tech_list.append(tech['cdn'])
+    tech_list.extend(tech.get('languages', []))
+    print(f"  {C.BOLD}Tech Stack:{C.RESET}   {C.WHITE}{', '.join(tech_list) if tech_list else '---'}{C.RESET}")
+
+    # DNS
+    dns = result.get("dns_records", {})
+    a_records = dns.get('a', [])
+    print(f"  {C.BOLD}DNS Records:{C.RESET}  {C.DIM}{', '.join(a_records[:3]) if a_records else '---'}{C.RESET}")
+
+    # Threats
+    if result.get("threats"):
+        print()
+        print(f"  {C.RED}⚠ THREATS DETECTED:{C.RESET}")
+        for threat in result["threats"]:
+            print(f"    {C.RED}• {threat}{C.RESET}")
+
+    print(f"{C.DIM}{'─' * 60}{C.RESET}")
+    print()
 
 def get_local_ip() -> str:
     """Get the local IP address of the machine."""
