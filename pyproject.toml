@@ -53,7 +53,7 @@ Repository = "https://github.com/dinexh/monix"
 Issues = "https://github.com/dinexh/monix/issues"
 
 [tool.setuptools.packages.find]
-include = ["cli*", "core*", "shared*", "utils*", "dashboard*"]
+include = ["cli*", "core*", "utils*"]
 
 [tool.black]
 line-length = 100

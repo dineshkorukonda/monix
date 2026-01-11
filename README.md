@@ -4,18 +4,48 @@ Intrusion Monitoring & Defense for Linux Servers
 
 Monix is an open-source host-level security tool that provides real-time threat monitoring, connection intelligence, and behavior-based attack detection for modern Linux servers.
 
+## Products
+
+Monix consists of **2 separate products**:
+
+### 1. monix-linux 
+
+A CLI tool for Linux server security monitoring and intrusion detection.
+
+**Features:**
+- Real-time connection monitoring
+- Threat detection (SYN floods, port scans, high connection counts)
+- GeoIP intelligence
+- Process tracking
+- Security scanning
+- Terminal-based dashboard (`--watch`)
+- Clean CLI interface
+
+### 2. monix-web
+
+A separate, independently deployed Next.js web application for web security analysis.
+
+**Features:**
+- URL security scanning
+- SSL certificate validation
+- DNS record analysis
+- Security headers assessment
+- Port scanning
+- Technology stack detection
+- Geographic intelligence
+
+**Note:** monix-web uses monix-core (shared from this repository) but is deployed as a separate product. It is NOT part of this CLI tool.
+
 ## Features
 
+This repository (monix-linux) provides:
 - Real-time connection monitoring
 - Threat detection (SYN floods, port scans, high connection counts)
 - GeoIP intelligence
 - Process tracking
 - Security scanning
 - Clean CLI interface
-- **monix-web <url>** (Instant CLI web security analysis)
-- Live dashboard UI
-- **Web Security Analyzer** (Modern Next.js interface)
-- **Comprehensive URL Scanning** (SSL, DNS, Headers, Ports, Cookies)
+- Live terminal dashboard (`--watch`)
 
 ## Quick Start
 
@@ -53,53 +83,8 @@ monix --alerts
 # Security scan
 monix --scan
 monix scan --deep
-
-# Open web interface
-monix --web
-# or
-monix web
-
-# CLI Web Analysis
-monix-web dineshkorkonda.in
-# or
-monix web mycrux.in
 ```
 
-
-### Web Interface
-
-Monix includes a comprehensive web-based interface with two main features:
-
-#### 1. Server Dashboard (`/monix`)
-
-Real-time monitoring dashboard showing:
-- **System Statistics**: CPU, memory, disk usage, network I/O, uptime
-- **Active Connections**: Live network connections with geo-location
-- **Security Alerts**: Real-time threat detection alerts
-- **Traffic Analysis**: Web traffic patterns and suspicious IP detection
-
-**Quick Start**:
-```bash
-# Start API server and open dashboard
-monix --web
-
-# Or manually:
-python api/server.py  # In one terminal
-cd web && npm run dev -p 3500  # In another terminal
-# Then visit http://localhost:3500/monix
-```
-
-#### 2. URL Security Analyzer (`/`)
-
-Modern security scanner for analyzing URLs and web applications:
-- SSL certificate validation
-- DNS record analysis
-- Security headers assessment
-- Port scanning
-- Technology stack detection
-- Geographic intelligence
-
-**Access**: Visit `http://localhost:3500` (or your server IP)
 
 ## Commands
 
@@ -111,7 +96,6 @@ Modern security scanner for analyzing URLs and web applications:
 | `--connections` / `-c` | List active connections |
 | `--alerts` / `-a` | Show security alerts |
 | `--scan` | Security scan |
-| `--web` | Open web interface (starts API server and opens browser) |
 
 ## Options
 
@@ -128,10 +112,6 @@ monix watch --refresh 5
 
 # Deep security scan
 monix scan --deep
-
-# Web interface options
-monix web --port 3030 --nextjs-port 3500
-monix web --no-open  # Don't open browser automatically
 ```
 
 ## Example Output
@@ -144,35 +124,9 @@ monix web --no-open  # Don't open browser automatically
 [2025-12-28 00:15:02] INFO: Status: SECURE | Host: my-server
 ```
 
-## Project Structure
-
-```
-monix/
-├── core/              # Core logic modules
-│   ├── collectors/    # Data collection (connections, system stats)
-│   ├── analyzers/    # Analysis and threat detection
-│   ├── scanners/     # Security scanning (system checks, web analysis)
-│   └── monitoring/   # Monitoring engine and state management
-├── utils/             # Utilities (logger, display, geo, network, processes)
-├── cli/               # CLI commands and UI
-│   ├── commands/     # CLI commands (monitor, status, watch, web, etc.)
-│   └── ui.py         # Terminal-based watch dashboard UI
-├── api/               # Flask REST API for web interface
-├── web/               # Next.js frontend application
-│   └── src/
-│       ├── app/
-│       │   ├── page.tsx      # URL Analyzer (home page)
-│       │   └── web/
-│       │       └── page.tsx  # Server Dashboard
-│       └── components/       # React components
-├── app.py             # Compatibility checker
-├── pyproject.toml
-└── README.md
-```
-
 ## Security Checks
 
-The `scan --deep` command and Web UI perform:
+The `scan --deep` command performs:
 
 | Check | Description |
 |-------|-------------|
@@ -197,3 +151,5 @@ The `scan --deep` command and Web UI perform:
 ## License
 
 MIT License
+
+- Developed by dineshkorukonda.in

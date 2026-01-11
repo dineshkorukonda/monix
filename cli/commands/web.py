@@ -1,14 +1,15 @@
 """
-Web interface launcher command for Monix.
+CLI web security analysis command for Monix.
 
-This command starts the Monix web interface by:
-1. Starting the Flask API server
-2. Opening the web interface in the default browser
-3. Optionally starting the Next.js dev server if needed
+This command performs URL security analysis from the terminal.
+It uses the monix-core analysis engine but does NOT start any web servers.
+
+Note: The monix-web Next.js application is a separate, independently
+deployed product that uses monix-core. It is NOT started from this CLI.
 
 Technical Rationale:
-    Providing a unified CLI command to launch the web interface improves
-    user experience and ensures proper initialization of all services.
+    CLI-based URL analysis provides quick security checks without requiring
+    a web interface. The web dashboard is a separate product.
 """
 
 import os
@@ -249,83 +250,18 @@ def start_nextjs_server(port: int = 3500) -> subprocess.Popen:
         return None
 
 
-def run(port: int = 3030, nextjs_port: int = 3500, auto_open: bool = True):
-    """
-    Launch the Monix web interface.
-    
-    Args:
-        port: Port for the Flask API server (default: 3030)
-        nextjs_port: Port for the Next.js frontend (default: 3500)
-        auto_open: Whether to automatically open the browser
-    """
-    print(f"{C.CYAN}Monix Web Interface{C.RESET}")
-    print(f"{C.DIM}{'=' * 50}{C.RESET}")
-    
-    # Check if Flask is installed
-    if not check_flask_installed():
-        print(f"{C.RED}Error: Flask is not installed.{C.RESET}")
-        print(f"{C.YELLOW}Please install dependencies:{C.RESET}")
-        print(f"{C.CYAN}  pip install -r requirements.txt{C.RESET}")
-        sys.exit(1)
-    
-    # Check if API port is available
-    api_running = check_port_in_use(port)
-    if api_running:
-        print(f"{C.YELLOW}API server already running on port {port}{C.RESET}")
-    else:
-        print(f"{C.GREEN}Starting API server on port {port}...{C.RESET}")
-        api_thread = start_api_server(port)
-        time.sleep(3)  # Give server time to start
-    
-    # Check if Next.js is already running
-    nextjs_running = check_port_in_use(nextjs_port)
-    nextjs_process = None
-    
-    if nextjs_running:
-        print(f"{C.YELLOW}Next.js server already running on port {nextjs_port}{C.RESET}")
-    else:
-        print(f"{C.GREEN}Starting Next.js server on port {nextjs_port} (binding to 0.0.0.0)...{C.RESET}")
-        nextjs_process = start_nextjs_server(nextjs_port)
-        if nextjs_process:
-            time.sleep(5)  # Give Next.js time to start
-    
-    # Get local IP
-    local_ip = get_local_ip()
-    
-    # Determine web URL
-    web_url = f"http://{local_ip}:{nextjs_port}/monix"
-    api_url = f"http://{local_ip}:{port}"
-    
-    print(f"{C.DIM}{'=' * 50}{C.RESET}")
-    print(f"{C.GREEN}API Server: {C.BOLD}{api_url}{C.RESET}")
-    print(f"{C.GREEN}Web Interface: {C.BOLD}{web_url}{C.RESET}")
-    print(f"{C.DIM}{'=' * 50}{C.RESET}")
-    print(f"{C.CYAN}Press Ctrl+C to stop{C.RESET}")
-    
-    # Open browser if requested
-    if auto_open:
-        try:
-            time.sleep(2)  # Give servers a moment to be ready
-            webbrowser.open(web_url)
-            print(f"{C.GREEN}Opened browser to {web_url}{C.RESET}")
-        except Exception as e:
-            print(f"{C.YELLOW}Could not open browser automatically: {e}{C.RESET}")
-            print(f"{C.CYAN}Please open {web_url} manually{C.RESET}")
-    
-    # Keep the process alive
-    try:
-        while True:
-            time.sleep(1)
-            # Check if Next.js process is still alive
-            if nextjs_process and nextjs_process.poll() is not None:
-                print(f"{C.RED}Next.js server stopped unexpectedly{C.RESET}")
-                break
-    except KeyboardInterrupt:
-        print(f"\n{C.YELLOW}Shutting down...{C.RESET}")
-        if nextjs_process:
-            nextjs_process.terminate()
-            try:
-                nextjs_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                nextjs_process.kill()
-        sys.exit(0)
+# NOTE: This function is commented out because monix-web is a separate,
+# independently deployed Next.js application. The CLI tool (monix-linux)
+# should NOT start web servers. This code is kept for reference only.
+#
+# def run(port: int = 3030, nextjs_port: int = 3500, auto_open: bool = True):
+#     """
+#     [DISABLED] Launch the Monix web interface.
+#     
+#     This function is disabled because monix-web is a separate product.
+#     The web dashboard should be deployed independently, not started from CLI.
+#     """
+#     print(f"{C.RED}ERROR: Web interface launcher is disabled.{C.RESET}")
+#     print(f"{C.YELLOW}monix-web is a separate, independently deployed product.{C.RESET}")
+#     print(f"{C.CYAN}Use 'monix web <url>' for CLI URL analysis instead.{C.RESET}")
+#     sys.exit(1)
