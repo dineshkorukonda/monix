@@ -5,14 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 export default function DocsPage() {
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const currentYear = new Date().getFullYear();
-
-  const copyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
-  };
 
   const sections = [
     {
@@ -171,35 +164,6 @@ export default function DocsPage() {
                     <p className="text-white/60 leading-relaxed uppercase text-sm">
                       {section.content}
                     </p>
-                  )}
-
-                  {section.steps && (
-                    <div className="space-y-12">
-                      {section.steps.map((step, i) => (
-                        <div key={i} className="space-y-4">
-                          <h3 className="text-sm font-black tracking-widest flex items-center gap-4">
-                            <span className="text-white/40">[{i + 1}]</span>{" "}
-                            {step.title}
-                          </h3>
-                          <div className="relative group">
-                            <pre className="bg-white/5 border border-white/10 p-6 text-[11px] overflow-x-auto text-white/80 group-hover:border-white/20 transition-colors">
-                              <code>{step.cmd}</code>
-                            </pre>
-                            <button
-                              onClick={() => copyCode(step.cmd)}
-                              className="absolute top-2 right-2 px-3 py-1 text-[9px] font-bold tracking-widest border border-white/20 bg-black hover:bg-white/10 transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              {copiedCode === step.cmd ? "COPIED!" : "COPY"}
-                            </button>
-                          </div>
-                          {step.note && (
-                            <span className="text-[9px] font-bold text-white/20 tracking-widest block italic uppercase">
-                              ! {step.note}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
                   )}
 
                   {section.commands && (
