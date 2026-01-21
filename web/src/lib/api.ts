@@ -125,14 +125,31 @@ export interface DashboardData {
 
 /**
  * Analyze a URL for security threats and vulnerabilities.
+ * 
+ * @param url - URL to analyze
+ * @param options - Optional configuration
+ * @param options.includePortScan - Enable port scanning (default: true for UI)
+ * @param options.includeMetadata - Enable page metadata extraction (default: false)
  */
-export async function analyzeUrl(url: string): Promise<WebSecurityAnalysis> {
+export async function analyzeUrl(
+  url: string,
+  options?: {
+    includePortScan?: boolean;
+    includeMetadata?: boolean;
+  }
+): Promise<WebSecurityAnalysis> {
+  const { includePortScan = true, includeMetadata = false } = options || {};
+  
   const response = await fetch(`${API_BASE_URL}/api/analyze-url`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({
+      url,
+      include_port_scan: includePortScan,
+      include_metadata: includeMetadata,
+    }),
   });
 
   if (!response.ok) {

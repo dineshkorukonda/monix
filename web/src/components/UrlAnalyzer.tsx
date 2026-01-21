@@ -340,7 +340,7 @@ export default function UrlAnalyzer() {
               >
                 <div className="grid grid-cols-4 gap-2">
                   {[80, 443, 22, 21, 25, 53, 3306, 8080].map((port) => {
-                    const isOpen = result.port_scan?.open_ports.includes(port) ?? false;
+                    const isOpen = result.port_scan?.open_ports?.includes(port) ?? false;
                     return (
                       <div key={port} className={`flex flex-col items-center justify-center p-2 border ${isOpen ? "border-white bg-white/10" : "border-white/5 opacity-20"}`}>
                         <span className="text-[10px] font-bold">{port}</span>
