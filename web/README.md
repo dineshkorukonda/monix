@@ -2,6 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Install Vercel Skills (Optional)
+
+This project uses Vercel React best practices via agent skills. To install them:
+
+```bash
+npx skills add vercel-labs/agent-skills --skill "vercel-react-best-practices"
+```
+
+This will install performance optimization and best practice rules for AI agents working with this codebase.
+
+### Run the Development Server
+
 First, run the development server:
 
 ```bash
