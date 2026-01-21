@@ -25,9 +25,7 @@ const DataItem = ({ label, value }: DataItemProps) => {
       <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold">
         {label}
       </span>
-      <span className="text-sm text-white truncate uppercase">
-        {value}
-      </span>
+      <span className="text-sm text-white truncate uppercase">{value}</span>
     </div>
   );
 };
@@ -41,7 +39,14 @@ interface SectionProps {
   helpText?: string;
 }
 
-const Section = ({ title, symbol, children, className = "", hasData = true, helpText }: SectionProps) => {
+const Section = ({
+  title,
+  symbol,
+  children,
+  className = "",
+  hasData = true,
+  helpText,
+}: SectionProps) => {
   const [showHelp, setShowHelp] = useState(false);
   if (!hasData) return null;
   return (
@@ -54,7 +59,7 @@ const Section = ({ title, symbol, children, className = "", hasData = true, help
           {title}
         </h3>
         {helpText && (
-          <button 
+          <button
             onClick={() => setShowHelp(!showHelp)}
             className="text-[10px] text-white/20 hover:text-white font-bold transition-colors"
           >
@@ -66,7 +71,12 @@ const Section = ({ title, symbol, children, className = "", hasData = true, help
         <div className="absolute inset-x-0 top-[37px] z-20 bg-white text-black p-4 text-[10px] font-bold leading-relaxed uppercase animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex justify-between items-start mb-2 border-b border-black/10 pb-1">
             <span>METHODOLOGY_INFO</span>
-            <button onClick={() => setShowHelp(false)} className="hover:opacity-60">[X]</button>
+            <button
+              onClick={() => setShowHelp(false)}
+              className="hover:opacity-60"
+            >
+              [X]
+            </button>
           </div>
           {helpText}
         </div>
@@ -109,7 +119,9 @@ export default function UrlAnalyzer() {
         setError(`ANALYSIS_FAILED: ${analysis.error || "UNKNOWN_ERROR"}`);
     } catch (err) {
       clearInterval(progressInterval);
-      setError(`CRITICAL_FAILURE: ${err instanceof Error ? err.message : "NETWORK_ERROR"}`);
+      setError(
+        `CRITICAL_FAILURE: ${err instanceof Error ? err.message : "NETWORK_ERROR"}`,
+      );
     } finally {
       setLoading(false);
       setTimeout(() => setProgress(0), 1000);
@@ -123,13 +135,15 @@ export default function UrlAnalyzer() {
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return "N/A";
     try {
-      return new Date(dateStr).toISOString().split('T')[0];
+      return new Date(dateStr).toISOString().split("T")[0];
     } catch {
       return dateStr;
     }
   };
 
-  const getSubjectName = (subject: Record<string, string> | string | undefined): string => {
+  const getSubjectName = (
+    subject: Record<string, string> | string | undefined,
+  ): string => {
     if (!subject) return "---";
     if (typeof subject === "string") return subject;
     return subject.commonName || subject.CN || JSON.stringify(subject);
@@ -193,7 +207,9 @@ export default function UrlAnalyzer() {
             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white">
               ! CRITICAL_NOTICE
             </span>
-            <span className="text-sm font-bold tracking-tight uppercase">{error}</span>
+            <span className="text-sm font-bold tracking-tight uppercase">
+              {error}
+            </span>
           </div>
         )}
 
@@ -206,7 +222,9 @@ export default function UrlAnalyzer() {
                   [01] STATUS_LEVEL
                 </span>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xl font-black uppercase">{result.threat_level || "UNKNOWN"}</span>
+                  <span className="text-xl font-black uppercase">
+                    {result.threat_level || "UNKNOWN"}
+                  </span>
                   <span className="text-[10px] font-mono border border-white/20 px-2 py-0.5">
                     {result.threat_score ?? 0}%
                   </span>
@@ -233,7 +251,9 @@ export default function UrlAnalyzer() {
                   [04] SSL_AUTH
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className={`text-lg font-black uppercase ${result.ssl_certificate?.valid ? "text-white" : "text-white/20"}`}>
+                  <span
+                    className={`text-lg font-black uppercase ${result.ssl_certificate?.valid ? "text-white" : "text-white/20"}`}
+                  >
                     {result.ssl_certificate?.valid ? "VALID" : "INVALID"}
                   </span>
                 </div>
@@ -242,19 +262,41 @@ export default function UrlAnalyzer() {
 
             {/* Content Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              <Section 
-                title="GEO_INTEL" 
-                symbol="G" 
+              <Section
+                title="GEO_INTEL"
+                symbol="G"
                 className="xl:col-span-2"
-                hasData={!!result.server_location && !!result.server_location.org}
+                hasData={
+                  !!result.server_location && !!result.server_location.org
+                }
                 helpText="RESOLVES TARGET IP TO PHYSICAL SERVER LOCATION, ISP, AND AUTONOMOUS SYSTEM (ASN) DATA VIA EXTERNAL INTEL PROVIDERS."
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-1">
-                    <DataItem label="PROVIDER" value={result.server_location?.org} />
-                    <DataItem label="LOCATION" value={result.server_location?.city ? `${result.server_location.city}, ${result.server_location.region}` : undefined} />
-                    <DataItem label="TIMEZONE" value={result.server_location?.timezone} />
-                    <DataItem label="COORDINATES" value={result.server_location?.coordinates ? `${result.server_location.coordinates.latitude}, ${result.server_location.coordinates.longitude}` : undefined} />
+                    <DataItem
+                      label="PROVIDER"
+                      value={result.server_location?.org}
+                    />
+                    <DataItem
+                      label="LOCATION"
+                      value={
+                        result.server_location?.city
+                          ? `${result.server_location.city}, ${result.server_location.region}`
+                          : undefined
+                      }
+                    />
+                    <DataItem
+                      label="TIMEZONE"
+                      value={result.server_location?.timezone}
+                    />
+                    <DataItem
+                      label="COORDINATES"
+                      value={
+                        result.server_location?.coordinates
+                          ? `${result.server_location.coordinates.latitude}, ${result.server_location.coordinates.longitude}`
+                          : undefined
+                      }
+                    />
                   </div>
                   <div className="h-[240px] border border-white/10 bg-black relative">
                     {result.server_location?.coordinates && (
@@ -266,11 +308,14 @@ export default function UrlAnalyzer() {
                         zoom={4}
                         styles={{
                           dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                          light: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+                          light:
+                            "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
                         }}
                       >
                         <MapMarker
-                          longitude={result.server_location.coordinates.longitude}
+                          longitude={
+                            result.server_location.coordinates.longitude
+                          }
                           latitude={result.server_location.coordinates.latitude}
                         >
                           <MarkerContent>
@@ -283,46 +328,79 @@ export default function UrlAnalyzer() {
                 </div>
               </Section>
 
-              <Section 
-                title="HARDENING" 
+              <Section
+                title="HARDENING"
                 symbol="H"
-                hasData={!!result.security_headers_analysis && result.security_headers_analysis.percentage > 0}
+                hasData={
+                  !!result.security_headers_analysis &&
+                  result.security_headers_analysis.percentage > 0
+                }
                 helpText="EVALUATES HTTP SECURITY HEADERS (CSP, HSTS, X-FRAME-OPTIONS) TO MEASURE PROACTIVE DEFENSE AGAINST COMMON WEB ATTACK VECTORS."
               >
                 <div className="flex flex-col gap-6">
                   <div className="flex flex-col items-center justify-center py-6 border border-white/5 bg-white/[0.02]">
-                    <span className="text-4xl font-black">{result.security_headers_analysis?.percentage ?? 0}%</span>
-                    <span className="text-[9px] text-white/40 font-bold uppercase tracking-widest mt-2">SECURED</span>
+                    <span className="text-4xl font-black">
+                      {result.security_headers_analysis?.percentage ?? 0}%
+                    </span>
+                    <span className="text-[9px] text-white/40 font-bold uppercase tracking-widest mt-2">
+                      SECURED
+                    </span>
                   </div>
                   <div className="space-y-2">
-                    {Object.entries(result.security_headers_analysis?.headers || {}).slice(0, 6).map(([header, data]) => (
-                      <div key={header} className="flex items-center justify-between text-[10px] uppercase">
-                        <span className="text-white/40 truncate mr-4">{header}</span>
-                        <span className={data.present ? "text-white" : "text-white/20"}>
-                          {data.present ? "[+]" : "[-]"}
-                        </span>
-                      </div>
-                    ))}
+                    {Object.entries(
+                      result.security_headers_analysis?.headers || {},
+                    )
+                      .slice(0, 6)
+                      .map(([header, data]) => (
+                        <div
+                          key={header}
+                          className="flex items-center justify-between text-[10px] uppercase"
+                        >
+                          <span className="text-white/40 truncate mr-4">
+                            {header}
+                          </span>
+                          <span
+                            className={
+                              data.present ? "text-white" : "text-white/20"
+                            }
+                          >
+                            {data.present ? "[+]" : "[-]"}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               </Section>
 
-              <Section 
-                title="TECH_STACK" 
+              <Section
+                title="TECH_STACK"
                 symbol="T"
-                hasData={!!result.technologies && (!!result.technologies.server || !!result.technologies.cms || (result.technologies.languages?.length ?? 0) > 0)}
+                hasData={
+                  !!result.technologies &&
+                  (!!result.technologies.server ||
+                    !!result.technologies.cms ||
+                    (result.technologies.languages?.length ?? 0) > 0)
+                }
                 helpText="FINGERPRINTS UNDERLYING SERVER SOFTWARE, CONTENT MANAGEMENT SYSTEMS, AND BACKEND LANGUAGES VIA HTTP RESPONSE PATTERNS."
               >
                 <div className="space-y-4">
-                  <DataItem label="SERVER" value={result.technologies?.server} />
+                  <DataItem
+                    label="SERVER"
+                    value={result.technologies?.server}
+                  />
                   <DataItem label="CMS" value={result.technologies?.cms} />
                   <DataItem label="CDN" value={result.technologies?.cdn} />
-                  { (result.technologies?.languages?.length ?? 0) > 0 && (
+                  {(result.technologies?.languages?.length ?? 0) > 0 && (
                     <div className="mt-4">
-                      <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold mb-2 block">LANGUAGES</span>
+                      <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold mb-2 block">
+                        LANGUAGES
+                      </span>
                       <div className="flex flex-wrap gap-2">
                         {result.technologies?.languages.map((l) => (
-                          <span key={l} className="text-[10px] border border-white/20 px-2 py-1 uppercase font-bold">
+                          <span
+                            key={l}
+                            className="text-[10px] border border-white/20 px-2 py-1 uppercase font-bold"
+                          >
                             {l}
                           </span>
                         ))}
@@ -332,35 +410,55 @@ export default function UrlAnalyzer() {
                 </div>
               </Section>
 
-              <Section 
-                title="NET_PORTS" 
+              <Section
+                title="NET_PORTS"
                 symbol="P"
-                hasData={!!result.port_scan && (result.port_scan.open_ports?.length ?? 0) > 0}
+                hasData={
+                  !!result.port_scan &&
+                  (result.port_scan.open_ports?.length ?? 0) > 0
+                }
                 helpText="SCANS COMMON INFRASTRUCTURE PORTS (SSH, HTTP, SQL) TO IDENTIFY EXPOSED SERVICES AND POTENTIAL NETWORK ENTRY POINTS."
               >
                 <div className="grid grid-cols-4 gap-2">
                   {[80, 443, 22, 21, 25, 53, 3306, 8080].map((port) => {
-                    const isOpen = result.port_scan?.open_ports?.includes(port) ?? false;
+                    const isOpen =
+                      result.port_scan?.open_ports?.includes(port) ?? false;
                     return (
-                      <div key={port} className={`flex flex-col items-center justify-center p-2 border ${isOpen ? "border-white bg-white/10" : "border-white/5 opacity-20"}`}>
+                      <div
+                        key={port}
+                        className={`flex flex-col items-center justify-center p-2 border ${isOpen ? "border-white bg-white/10" : "border-white/5 opacity-20"}`}
+                      >
                         <span className="text-[10px] font-bold">{port}</span>
-                        <span className="text-[8px] mt-1">{isOpen ? "ON" : "OFF"}</span>
+                        <span className="text-[8px] mt-1">
+                          {isOpen ? "ON" : "OFF"}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
               </Section>
 
-              <Section 
-                title="ENCRYPTION" 
+              <Section
+                title="ENCRYPTION"
                 symbol="E"
-                hasData={!!result.ssl_certificate && !!result.ssl_certificate.subject}
+                hasData={
+                  !!result.ssl_certificate && !!result.ssl_certificate.subject
+                }
                 helpText="VALIDATES SSL/TLS CERTIFICATE AUTHENTICITY, ISSUER TRUST, AND EXPIRATION DATA VIA SECURE SOCKET HANDSHAKES."
               >
                 <div className="space-y-1">
-                  <DataItem label="SUBJECT" value={getSubjectName(result.ssl_certificate?.subject)} />
-                  <DataItem label="ISSUER" value={getSubjectName(result.ssl_certificate?.issuer)} />
-                  <DataItem label="EXPIRES" value={formatDate(result.ssl_certificate?.expires)} />
+                  <DataItem
+                    label="SUBJECT"
+                    value={getSubjectName(result.ssl_certificate?.subject)}
+                  />
+                  <DataItem
+                    label="ISSUER"
+                    value={getSubjectName(result.ssl_certificate?.issuer)}
+                  />
+                  <DataItem
+                    label="EXPIRES"
+                    value={formatDate(result.ssl_certificate?.expires)}
+                  />
                   <div className="mt-4 pt-4 border-t border-white/5">
                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block text-center">
                       SSL_VERIFIED_NODE
@@ -369,10 +467,13 @@ export default function UrlAnalyzer() {
                 </div>
               </Section>
 
-              <Section 
-                title="REDIRECTS" 
+              <Section
+                title="REDIRECTS"
                 symbol="R"
-                hasData={!!result.redirects && (result.redirects.chain?.length ?? 0) > 0}
+                hasData={
+                  !!result.redirects &&
+                  (result.redirects.chain?.length ?? 0) > 0
+                }
                 helpText="TRACKS HTTP STATUS CODES (301, 302) TO MAP THE FULL REQUEST PATH FROM SOURCE TO FINAL DESTINATION."
               >
                 <div className="space-y-3">
@@ -381,41 +482,62 @@ export default function UrlAnalyzer() {
                     <span className="truncate">{url}</span>
                   </div>
                   {result.redirects?.chain.map((step, i) => (
-                    <div key={i} className="pl-4 border-l border-white/10 flex flex-col gap-1">
+                    <div
+                      key={i}
+                      className="pl-4 border-l border-white/10 flex flex-col gap-1"
+                    >
                       <div className="text-[10px] flex items-center gap-2">
-                        <span className="text-white font-bold">[{step.status_code}]</span>
-                        <span className="truncate text-white/60">{step.url}</span>
+                        <span className="text-white font-bold">
+                          [{step.status_code}]
+                        </span>
+                        <span className="truncate text-white/60">
+                          {step.url}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
               </Section>
 
-              <Section 
-                title="DNS_MAP" 
+              <Section
+                title="DNS_MAP"
                 symbol="D"
-                hasData={!!result.dns_records && ((result.dns_records.a?.length ?? 0) > 0 || (result.dns_records.ns?.length ?? 0) > 0)}
+                hasData={
+                  !!result.dns_records &&
+                  ((result.dns_records.a?.length ?? 0) > 0 ||
+                    (result.dns_records.ns?.length ?? 0) > 0)
+                }
                 helpText="QUERIES AUTHORITATIVE NAME SERVERS FOR A, MX, AND TXT RECORDS TO UNCOVER DOMAIN ARCHITECTURE AND MAIL CONFIGURATION."
               >
                 <div className="space-y-6">
-                  { (result.dns_records?.a?.length ?? 0) > 0 && (
+                  {(result.dns_records?.a?.length ?? 0) > 0 && (
                     <div>
-                      <span className="text-[9px] font-bold text-white/40 uppercase block mb-2 tracking-widest">A_RECORDS</span>
+                      <span className="text-[9px] font-bold text-white/40 uppercase block mb-2 tracking-widest">
+                        A_RECORDS
+                      </span>
                       <div className="flex flex-col gap-1">
                         {result.dns_records?.a.map((ip) => (
-                          <span key={ip} className="text-[10px] font-bold bg-white/5 px-2 py-1">
+                          <span
+                            key={ip}
+                            className="text-[10px] font-bold bg-white/5 px-2 py-1"
+                          >
                             {ip}
                           </span>
                         ))}
                       </div>
                     </div>
                   )}
-                  { (result.dns_records?.ns?.length ?? 0) > 0 && (
+                  {(result.dns_records?.ns?.length ?? 0) > 0 && (
                     <div>
-                      <span className="text-[9px] font-bold text-white/40 uppercase block mb-2 tracking-widest">NS_RECORDS</span>
+                      <span className="text-[9px] font-bold text-white/40 uppercase block mb-2 tracking-widest">
+                        NS_RECORDS
+                      </span>
                       <div className="flex flex-col gap-1">
                         {result.dns_records?.ns.map((ns) => (
-                          <span key={ns} className="text-[10px] font-bold bg-white/5 px-2 py-1 truncate">
+                          <span
+                            key={ns}
+                            className="text-[10px] font-bold bg-white/5 px-2 py-1 truncate"
+                          >
                             {ns}
                           </span>
                         ))}
@@ -425,8 +547,8 @@ export default function UrlAnalyzer() {
                 </div>
               </Section>
 
-              <Section 
-                title="THREAT_VECTORS" 
+              <Section
+                title="THREAT_VECTORS"
                 symbol="!"
                 hasData={!!result.threats && result.threats.length > 0}
                 helpText="IDENTIFIES POTENTIAL SECURITY VULNERABILITIES BASED ON MISSING DEFENSIVE HEADERS, SUSPICIOUS PATH PATTERNS, AND SSL WEAKNESSES."
@@ -434,8 +556,13 @@ export default function UrlAnalyzer() {
               >
                 <div className="space-y-3">
                   {result.threats?.map((threat, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 bg-white/5 border border-white/10">
-                      <span className="text-white font-bold text-xs mt-0.5">!</span>
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 p-3 bg-white/5 border border-white/10"
+                    >
+                      <span className="text-white font-bold text-xs mt-0.5">
+                        !
+                      </span>
                       <span className="text-[11px] uppercase font-bold tracking-tight text-white/80 leading-relaxed">
                         {threat}
                       </span>
@@ -447,80 +574,103 @@ export default function UrlAnalyzer() {
           </div>
         )}
       </div>
-      
+
       {showInfo && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 animate-in fade-in duration-300">
           <div className="max-w-2xl w-full border border-white/20 bg-black p-8 relative">
-            <button 
+            <button
               onClick={() => setShowInfo(false)}
               className="absolute top-4 right-4 text-white/40 hover:text-white text-xs font-bold tracking-widest"
             >
               [CLOSE_X]
             </button>
-            
+
             <div className="mb-8">
               <div className="text-[10px] font-bold text-white/40 tracking-[0.4em] mb-2 uppercase">
                 [SYSTEM_OPERATIONS_01]
               </div>
-              <h2 className="text-3xl font-black tracking-tighter uppercase">SCAN_METHODOLOGY</h2>
+              <h2 className="text-3xl font-black tracking-tighter uppercase">
+                SCAN_METHODOLOGY
+              </h2>
             </div>
-            
+
             <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-4 custom-scrollbar">
               <div className="space-y-2">
-                <h4 className="text-xs font-black tracking-widest uppercase text-white">[01] SSL_VALIDATION</h4>
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">
+                  [01] SSL_VALIDATION
+                </h4>
                 <p className="text-[11px] text-white/60 leading-relaxed uppercase">
-                  VERIFIES CERTIFICATE CHAIN, EXPIRATION, ISSUER AUTHENTICITY, AND ENCRYPTION STRENGTH VIA SSL/TLS HANDSHAKE.
+                  VERIFIES CERTIFICATE CHAIN, EXPIRATION, ISSUER AUTHENTICITY,
+                  AND ENCRYPTION STRENGTH VIA SSL/TLS HANDSHAKE.
                 </p>
               </div>
-              
+
               <div className="space-y-2">
-                <h4 className="text-xs font-black tracking-widest uppercase text-white">[02] DNS_RECON</h4>
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">
+                  [02] DNS_RECON
+                </h4>
                 <p className="text-[11px] text-white/60 leading-relaxed uppercase">
-                  PERFORMS DEEP QUERIES FOR A, AAAA, MX, NS, AND TXT RECORDS TO MAP THE DOMAIN'S ARCHITECTURE.
+                  PERFORMS DEEP QUERIES FOR A, AAAA, MX, NS, AND TXT RECORDS TO
+                  MAP THE DOMAIN'S ARCHITECTURE.
                 </p>
               </div>
-              
+
               <div className="space-y-2">
-                <h4 className="text-xs font-black tracking-widest uppercase text-white">[03] HEADER_ANALYSIS</h4>
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">
+                  [03] HEADER_ANALYSIS
+                </h4>
                 <p className="text-[11px] text-white/60 leading-relaxed uppercase">
-                  EVALUATES SECURITY POLICIES (CSP, HSTS, XSS-PROTECTION) TO MEASURE FRONT-END HARDENING LEVELS.
+                  EVALUATES SECURITY POLICIES (CSP, HSTS, XSS-PROTECTION) TO
+                  MEASURE FRONT-END HARDENING LEVELS.
                 </p>
               </div>
-              
+
               <div className="space-y-2">
-                <h4 className="text-xs font-black tracking-widest uppercase text-white">[04] GEO_INTELLIGENCE</h4>
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">
+                  [04] GEO_INTELLIGENCE
+                </h4>
                 <p className="text-[11px] text-white/60 leading-relaxed uppercase">
-                  RESOLVES TARGET IP TO PHYSICAL SERVER LOCATION, ISP, AND AUTONOMOUS SYSTEM (ASN) INFORMATION.
+                  RESOLVES TARGET IP TO PHYSICAL SERVER LOCATION, ISP, AND
+                  AUTONOMOUS SYSTEM (ASN) INFORMATION.
                 </p>
               </div>
-              
+
               <div className="space-y-2">
-                <h4 className="text-xs font-black tracking-widest uppercase text-white">[05] TECH_STACK_ID</h4>
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">
+                  [05] TECH_STACK_ID
+                </h4>
                 <p className="text-[11px] text-white/60 leading-relaxed uppercase">
-                  FINGERPRINTS SERVER SOFTWARE, CMS, CDNS, AND BACKEND LANGUAGES VIA HTTP FINGERPRINTING.
+                  FINGERPRINTS SERVER SOFTWARE, CMS, CDNS, AND BACKEND LANGUAGES
+                  VIA HTTP FINGERPRINTING.
                 </p>
               </div>
-              
+
               <div className="space-y-2">
-                <h4 className="text-xs font-black tracking-widest uppercase text-white">[06] PORT_SURVEY</h4>
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">
+                  [06] PORT_SURVEY
+                </h4>
                 <p className="text-[11px] text-white/60 leading-relaxed uppercase">
-                  SCANS COMMON SERVICE PORTS (80, 443, 22, ETC.) TO IDENTIFY EXPOSED INFRASTRUCTURE COMPONENTS.
+                  SCANS COMMON SERVICE PORTS (80, 443, 22, ETC.) TO IDENTIFY
+                  EXPOSED INFRASTRUCTURE COMPONENTS.
                 </p>
               </div>
-              
+
               <div className="space-y-2">
-                <h4 className="text-xs font-black tracking-widest uppercase text-white">[07] THREAT_SCORING</h4>
+                <h4 className="text-xs font-black tracking-widest uppercase text-white">
+                  [07] THREAT_SCORING
+                </h4>
                 <p className="text-[11px] text-white/60 leading-relaxed uppercase">
-                  USES MONIX CORE ANALYZERS TO CALCULATE RISK BASED ON ENDPOINT SUSPICION AND PATH PATTERNS.
+                  USES MONIX CORE ANALYZERS TO CALCULATE RISK BASED ON ENDPOINT
+                  SUSPICION AND PATH PATTERNS.
                 </p>
               </div>
             </div>
-            
+
             <div className="mt-10 pt-6 border-t border-white/10 flex justify-between items-center">
               <span className="text-[9px] font-bold text-white/20 tracking-widest uppercase italic">
                 ! AUTONOMOUS_SCANNER_v2.0
               </span>
-              <button 
+              <button
                 onClick={() => setShowInfo(false)}
                 className="bg-white text-black px-6 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/80 transition-all"
               >

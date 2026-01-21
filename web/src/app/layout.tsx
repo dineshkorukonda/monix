@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
-import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -11,7 +11,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "monix",
-  description: "Real-time intrusion monitoring and autonomous defense for Linux infrastructure. High-density connection intelligence.",
+  description:
+    "Real-time intrusion monitoring and autonomous defense for Linux infrastructure. High-density connection intelligence.",
 };
 
 export default function RootLayout({

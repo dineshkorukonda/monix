@@ -1,6 +1,6 @@
 /**
  * API client for Monix backend services.
- * 
+ *
  * This module provides functions to interact with the Monix Flask API server,
  * handling all HTTP requests and type definitions for the web interface.
  */
@@ -125,7 +125,7 @@ export interface DashboardData {
 
 /**
  * Analyze a URL for security threats and vulnerabilities.
- * 
+ *
  * @param url - URL to analyze
  * @param options - Optional configuration
  * @param options.includePortScan - Enable port scanning (default: true for UI)
@@ -136,27 +136,52 @@ export async function analyzeUrl(
   options?: {
     includePortScan?: boolean;
     includeMetadata?: boolean;
-  }
+  },
 ): Promise<WebSecurityAnalysis> {
   const { includePortScan = true, includeMetadata = false } = options || {};
-  
-  const response = await fetch(`${API_BASE_URL}/api/analyze-url`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      url,
-      include_port_scan: includePortScan,
-      include_metadata: includeMetadata,
-    }),
-  });
 
-  if (!response.ok) {
-    throw new Error(`Analysis failed: ${response.statusText}`);
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/analyze-url`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url,
+        include_port_scan: includePortScan,
+        include_metadata: includeMetadata,
+      }),
+      signal: AbortSignal.timeout(60000), // 60 second timeout for analysis
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.error || `Analysis failed: ${response.statusText}`,
+      );
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.name === "TimeoutError") {
+        throw new Error(
+          "Analysis timeout - the target may be unreachable or taking too long to respond",
+        );
+      }
+      if (
+        error.message.includes("fetch") ||
+        error.message.includes("Failed to fetch")
+      ) {
+        throw new Error(
+          "Cannot connect to API server - ensure the backend is running on " +
+            API_BASE_URL +
+            " (run: python api/server.py)",
+        );
+      }
+    }
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -236,14 +261,43 @@ export async function getAlerts(): Promise<string[]> {
 /**
  * Check API health status.
  */
-export async function checkHealth(): Promise<{ status: string; service: string }> {
-  const response = await fetch(`${API_BASE_URL}/api/health`, {
-    method: "GET",
-  });
+export async function checkHealth(): Promise<{
+  status: string;
+  service: string;
+}> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/health`, {
+      method: "GET",
+      signal: AbortSignal.timeout(5000), // 5 second timeout
+    });
 
-  if (!response.ok) {
-    throw new Error(`Health check failed: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Health check failed: ${response.statusText}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.name === "TimeoutError") {
+        throw new Error(
+          "API server timeout - ensure the backend is running on " +
+            API_BASE_URL,
+        );
+      }
+      if (error.message.includes("fetch")) {
+        throw new Error(
+          "Cannot connect to API server - ensure the backend is running on " +
+            API_BASE_URL,
+        );
+      }
+    }
+    throw error;
   }
+}
 
-  return response.json();
+/**
+ * Get the current API base URL.
+ */
+export function getApiUrl(): string {
+  return API_BASE_URL;
 }

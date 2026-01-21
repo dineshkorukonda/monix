@@ -27,7 +27,7 @@ export default function MonixWebPage() {
         </div>
         <UrlAnalyzer />
       </div>
-      
+
       {/* Mini Footer */}
       <footer className="border-t border-white/10 py-12 bg-black">
         <div className="container mx-auto px-6 max-w-[1600px] flex justify-between items-center">
@@ -35,7 +35,10 @@ export default function MonixWebPage() {
             (C) 2025 MONIX_SECURITY
           </span>
           <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">
-            DONE BY <a href="#" className="text-white hover:underline transition-all">dineshkorukonda</a>
+            DONE BY{" "}
+            <a href="#" className="text-white hover:underline transition-all">
+              dineshkorukonda
+            </a>
           </span>
         </div>
       </footer>
