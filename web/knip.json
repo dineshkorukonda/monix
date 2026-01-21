@@ -4,11 +4,6 @@
     "interface": true,
     "type": true
   },
-  "ignoreDependencies": [
-    "clsx",
-    "tailwind-merge"
-  ],
-  "tags": [
-    "-lintignore"
-  ]
+  "ignoreDependencies": ["clsx", "tailwind-merge"],
+  "tags": ["-lintignore"]
 }

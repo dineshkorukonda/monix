@@ -28,6 +28,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# agent skills
+.agents/
+.agent/
+.gemini/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

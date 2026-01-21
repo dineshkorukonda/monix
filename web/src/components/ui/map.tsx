@@ -1274,10 +1274,6 @@ function MapClusterLayer<
   return null;
 }
 
-export {
-  Map,
-  MapMarker,
-  MarkerContent,
-};
+export { Map, MapMarker, MarkerContent };
 
 export type { MapRef };
