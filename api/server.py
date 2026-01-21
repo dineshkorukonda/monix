@@ -153,15 +153,24 @@ def health():
 @app.route("/api/analyze-url", methods=["POST"])
 def analyze_url_endpoint():
     """
-    Perform comprehensive web security analysis.
+    Perform comprehensive web security analysis with optional checks.
     
     Request body:
         {
-            "url": "https://example.com"
+            "url": "https://example.com",
+            "include_port_scan": false,  // optional, default: false
+            "include_metadata": false    // optional, default: false
         }
+    
+    Query params (alternative):
+        ?full=true  // Enables all checks including port scan and metadata
     
     Returns:
         JSON response with complete security analysis
+        
+    Performance Note:
+        By default, expensive checks (port scanning, metadata extraction) are disabled
+        for faster responses (~5-10s vs 60s). Enable them only when needed.
     """
     data = request.get_json()
     
@@ -173,9 +182,20 @@ def analyze_url_endpoint():
     
     url = data["url"]
     
+    # Check for full scan parameter (query param or request body)
+    full_scan = request.args.get("full", "false").lower() == "true"
+    
+    # Optional parameters (default to False for better performance)
+    include_port_scan = data.get("include_port_scan", full_scan)
+    include_metadata = data.get("include_metadata", full_scan)
+    
     try:
-        # Perform comprehensive web security analysis
-        result = analyze_web_security(url)
+        # Perform comprehensive web security analysis with optional checks
+        result = analyze_web_security(
+            url,
+            include_port_scan=include_port_scan,
+            include_metadata=include_metadata
+        )
         return jsonify(result)
         
     except Exception as e:
