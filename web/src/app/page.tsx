@@ -199,7 +199,7 @@ export default function Home() {
             </p>
             <div className="flex flex-wrap gap-4 justify-center">
               <a
-                href="https://dineshkorukonda.in"
+                href="https://dineshkorukonda.in/blogs/monix"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block border border-white/20 px-8 py-3 text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all group"

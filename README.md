@@ -12,7 +12,9 @@ This repository contains **monix-core** - the core security logic and analysis e
 
 **CLI Tools:** This repository also includes command-line tools for Linux server monitoring and intrusion detection. These tools leverage the same monix-core logic that powers monix-web.
 
-For more details about the architecture and technical implementation, visit: [dineshkorukonda.in/blog](https://dineshkorukonda.in/blogs)
+📖 **Read about Monix Core:** Learn about the architecture, design decisions, and the story behind Monix at [dineshkorukonda.in/blogs/monix](https://dineshkorukonda.in/blogs/monix)
+
+For more technical articles and updates, visit: [dineshkorukonda.in/blogs](https://dineshkorukonda.in/blogs)
 
 
 ## License
