@@ -6,8 +6,8 @@ This package contains modules responsible for gathering system and network data:
 - system: System resource monitoring (CPU, memory, disk, network I/O)
 """
 
-from core.collectors.connection import collect_connections
-from core.collectors.system import (
+from engine.collectors.connection import collect_connections
+from engine.collectors.system import (
     get_system_stats,
     get_top_processes,
     get_disk_io,

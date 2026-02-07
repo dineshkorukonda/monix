@@ -26,12 +26,12 @@ def check_compatibility():
     print()
     print("Available Commands (after 'pip install -e .'):")
     print()
-    print("  monix --monitor      Quick system snapshot")
-    print("  monix --status       One-line health check")
-    print("  monix --watch        Live security dashboard")
-    print("  monix --connections  List active connections")
-    print("  monix --alerts       Show security alerts")
-    print("  monix --scan         Security scan")
+    print("  monix-cli --monitor      Quick system snapshot")
+    print("  monix-cli --status       One-line health check")
+    print("  monix-cli --watch        Live security dashboard")
+    print("  monix-cli --connections  List active connections")
+    print("  monix-cli --alerts       Show security alerts")
+    print("  monix-cli --scan         Security scan")
     print()
     print("=" * 70)
     print()
@@ -41,4 +41,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

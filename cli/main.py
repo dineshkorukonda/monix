@@ -17,7 +17,7 @@ from cli.commands import monitor, status, watch, connections, alerts, scan, traf
 @click.pass_context
 def cli(ctx, version, run_monitor, run_status, run_watch, run_connections, run_alerts, run_scan, run_traffic, output_json):
     if version:
-        click.echo(f"monix v{__version__}")
+        click.echo(f"monix-cli v{__version__}")
         return
     
     if run_monitor:

@@ -43,7 +43,7 @@ dev = [
 ]
 
 [project.scripts]
-monix = "cli.main:main"
+monix-cli = "cli.main:main"
 monix-web = "cli.main:monix_web_main"
 
 [project.urls]
@@ -53,7 +53,7 @@ Repository = "https://github.com/dinexh/monix"
 Issues = "https://github.com/dinexh/monix/issues"
 
 [tool.setuptools.packages.find]
-include = ["cli*", "core*", "utils*"]
+include = ["cli*", "engine*", "utils*"]
 
 [tool.black]
 line-length = 100

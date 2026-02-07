@@ -14,7 +14,7 @@ from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.analyzers.traffic import (
+from engine.analyzers.traffic import (
     get_traffic_summary,
     classify_threat_level,
     DEFAULT_LOG_PATH,

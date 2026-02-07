@@ -28,7 +28,7 @@ from typing import Dict, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 
-from core.analyzers.traffic import (
+from engine.analyzers.traffic import (
     is_suspicious_url,
     classify_threat_level
 )
@@ -688,7 +688,7 @@ def analyze_web_security(url: str, include_port_scan: bool = False, include_meta
     headers_dict = {k.lower(): v for k, v in http_headers_result.get("headers", {}).items()}
     results["security_headers_analysis"] = analyze_security_headers(headers_dict)
 
-    # Add threat analysis using Monix core
+    # Add threat analysis using Monix engine
     suspicious = is_suspicious_url(path)
     
     threat_score = 0

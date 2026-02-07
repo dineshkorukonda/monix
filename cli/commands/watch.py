@@ -9,7 +9,7 @@ from utils.logger import log_info
 def run(refresh_interval=3):
     log_info("Starting live dashboard... Press Ctrl+C to exit")
     
-    from core.monitoring.engine import start_monitor
+    from engine.monitoring.engine import start_monitor
     from cli.ui import start_ui
     
     start_monitor()

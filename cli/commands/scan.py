@@ -4,9 +4,9 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.collectors.connection import collect_connections
-from core.analyzers.threat import analyze_connections, detect_threats
-from core.scanners.security import run_security_checks
+from engine.collectors.connection import collect_connections
+from engine.analyzers.threat import analyze_connections, detect_threats
+from engine.scanners.security import run_security_checks
 from utils.logger import log_info, log_warn, log_success, Colors as C
 
 def run(deep=False):

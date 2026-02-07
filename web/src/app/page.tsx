@@ -67,7 +67,7 @@ export default function Home() {
               </h2>
               <p className="text-white/60 mb-8 leading-relaxed uppercase text-sm">
                 Monix Web provides comprehensive security analysis for any URL.
-                Built on monix-core's battle-tested security engine, delivering
+                Built on monix-engine's battle-tested security engine, delivering
                 instant threat intelligence and vulnerability assessment.
               </p>
               <div className="space-y-4">
@@ -121,7 +121,7 @@ export default function Home() {
             ANALYSIS_CAPABILITIES
           </h2>
           <p className="text-white/60 text-sm uppercase tracking-wider mt-4">
-            Powered by monix-core security engine
+            Powered by monix-engine security engine
           </p>
         </div>
 
@@ -180,7 +180,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* monix-core Info Section */}
+      {/* monix-engine Info Section */}
       <div className="border-t border-white/10 bg-white/[0.02]">
         <div className="container mx-auto px-6 py-16 max-w-[1600px]">
           <div className="max-w-3xl mx-auto text-center">
@@ -191,9 +191,9 @@ export default function Home() {
               MONIX-CORE ENGINE
             </h3>
             <p className="text-white/60 text-sm leading-relaxed mb-8">
-              Monix Web is powered by the monix-core security engine - a
+              Monix Web is powered by the monix-engine security engine - a
               battle-tested Python-based threat detection and analysis system.
-              The same core logic powers both our web platform and CLI tools,
+              The same engine logic powers both our web platform and CLI tools,
               ensuring consistency and reliability across the entire Monix
               ecosystem.
             </p>

@@ -408,7 +408,7 @@ def get_traffic_summary(
 
 def classify_threat_level(threat_score: int) -> Tuple[str, str]:
     """
-    Classify threat level based on score.
+    Classify threat level based on sengine.
     
     Args:
         threat_score: Numeric threat score

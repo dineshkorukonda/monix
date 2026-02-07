@@ -6,8 +6,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.collectors.connection import collect_connections
-from core.analyzers.threat import analyze_connections
+from engine.collectors.connection import collect_connections
+from engine.analyzers.threat import analyze_connections
 from utils.logger import log_info, log_warn, log_success, Colors as C
 from utils.geo import get_my_location
 
