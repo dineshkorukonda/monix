@@ -1,9 +1,9 @@
 """
 API server module for Monix web interface.
 
-This module provides REST API endpoints that expose Monix core functionality
+This module provides REST API endpoints that expose Monix engine functionality
 for use by the web UI. It maintains strict separation of concerns - all
-security logic remains in core modules, this is purely an API layer.
+security logic remains in engine modules, this is purely an API layer.
 """
 
 import os
@@ -17,7 +17,7 @@ import requests
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.analyzers.traffic import (
+from engine.analyzers.traffic import (
     is_suspicious_url,
     is_malicious_bot,
     HIGH_RISK_ENDPOINTS,
@@ -27,13 +27,13 @@ from core.analyzers.traffic import (
     DEFAULT_LOG_PATH
 )
 from utils.geo import geo_lookup, reverse_dns, get_ip_info
-from core.analyzers.threat import detect_threats
-from core.scanners.security import run_security_checks
-from core.scanners.web import analyze_web_security
-from core.collectors.connection import collect_connections
-from core.monitoring.state import state
-from core.collectors.system import get_system_stats, get_top_processes
-from core.monitoring.engine import start_monitor
+from engine.analyzers.threat import detect_threats
+from engine.scanners.security import run_security_checks
+from engine.scanners.web import analyze_web_security
+from engine.collectors.connection import collect_connections
+from engine.monitoring.state import state
+from engine.collectors.system import get_system_stats, get_top_processes
+from engine.monitoring.engine import start_monitor
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js frontend
@@ -409,4 +409,3 @@ if __name__ == "__main__":
     # Run on port 3030 by default (5000 often used by AirPlay on macOS)
     port = int(os.environ.get("PORT", 3030))
     app.run(host="0.0.0.0", port=port, debug=True)
-

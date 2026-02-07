@@ -12,8 +12,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.monitoring.state import state
-from core.analyzers.traffic import classify_threat_level
+from engine.monitoring.state import state
+from engine.analyzers.traffic import classify_threat_level
 from utils.geo import get_my_location
 
 console = Console()

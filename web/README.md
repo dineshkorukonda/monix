@@ -2,7 +2,7 @@
 
 **Comprehensive Web Security Analysis & Threat Intelligence Platform**
 
-Monix Web is a modern, high-performance web application for real-time URL security scanning, SSL certificate validation, DNS analysis, and threat detection. Built with Next.js and powered by **monix-core's security engine**.
+Monix Web is a modern, high-performance web application for real-time URL security scanning, SSL certificate validation, DNS analysis, and threat detection. Built with Next.js and powered by **monix-engine's security engine**.
 
 ## Features
 
@@ -16,12 +16,12 @@ Monix Web is a modern, high-performance web application for real-time URL securi
 - **Geographic Intelligence** - Precise server location and provider mapping
 - **Real-time Threat Scoring** - Multi-factor security risk assessment
 
-### Powered by monix-core
-Monix Web leverages the battle-tested **monix-core** security engine, which includes:
+### Powered by monix-engine
+Monix Web leverages the battle-tested **monix-engine** security engine, which includes:
 - Advanced threat detection algorithms
 - Connection intelligence and pattern analysis
 - GeoIP resolution and network mapping
 - Process and port analysis
 - Real-time security scoring
 
-All security logic resides in monix-core (`../core`), ensuring consistency, reliability, and reusability across the Monix ecosystem.
+All security logic resides in monix-engine (`../engine`), ensuring consistency, reliability, and reusability across the Monix ecosystem.

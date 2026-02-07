@@ -6,8 +6,8 @@ This package contains modules responsible for analyzing collected data:
 - traffic: Web traffic log analysis and suspicious pattern detection
 """
 
-from core.analyzers.threat import analyze_connections, detect_threats
-from core.analyzers.traffic import (
+from engine.analyzers.threat import analyze_connections, detect_threats
+from engine.analyzers.traffic import (
     LogEntry,
     SuspiciousIP,
     parse_log_line,

@@ -5,7 +5,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.collectors.connection import collect_connections
+from engine.collectors.connection import collect_connections
 from utils.logger import log_info, Colors as C
 
 def run(state_filter=None, limit=20, output_json=False):

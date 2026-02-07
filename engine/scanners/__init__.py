@@ -6,8 +6,8 @@ This package contains modules responsible for security scanning:
 - web: Web security analysis (SSL, DNS, headers, port scanning, etc.)
 """
 
-from core.scanners.security import run_security_checks
-from core.scanners.web import (
+from engine.scanners.security import run_security_checks
+from engine.scanners.web import (
     check_ssl_certificate,
     check_dns_records,
     check_http_headers,

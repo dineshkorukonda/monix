@@ -6,7 +6,7 @@ This package contains modules responsible for monitoring orchestration and state
 - state: Thread-safe global state manager for real-time data
 """
 
-from core.monitoring.engine import start_monitor
-from core.monitoring.state import state, GlobalState
+from engine.monitoring.engine import start_monitor
+from engine.monitoring.state import state, GlobalState
 
 __all__ = ['start_monitor', 'state', 'GlobalState']

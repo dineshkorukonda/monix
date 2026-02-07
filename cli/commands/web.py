@@ -2,10 +2,10 @@
 CLI web security analysis command for Monix.
 
 This command performs URL security analysis from the terminal.
-It uses the monix-core analysis engine but does NOT start any web servers.
+It uses the monix-engine analysis engine but does NOT start any web servers.
 
 Note: The monix-web Next.js application is a separate, independently
-deployed product that uses monix-core. It is NOT started from this CLI.
+deployed product that uses monix-engine. It is NOT started from this CLI.
 
 Technical Rationale:
     CLI-based URL analysis provides quick security checks without requiring
@@ -24,7 +24,7 @@ from threading import Thread
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from utils.logger import Colors as C, log_info, log_error, log_success
-from core.scanners.web import analyze_web_security
+from engine.scanners.web import analyze_web_security
 
 def run_analysis(url: str):
     """
@@ -251,7 +251,7 @@ def start_nextjs_server(port: int = 3500) -> subprocess.Popen:
 
 
 # NOTE: This function is commented out because monix-web is a separate,
-# independently deployed Next.js application. The CLI tool (monix-linux)
+# independently deployed Next.js application. The CLI tool (monix-cli)
 # should NOT start web servers. This code is kept for reference only.
 #
 # def run(port: int = 3030, nextjs_port: int = 3500, auto_open: bool = True):
@@ -263,5 +263,5 @@ def start_nextjs_server(port: int = 3500) -> subprocess.Popen:
 #     """
 #     print(f"{C.RED}ERROR: Web interface launcher is disabled.{C.RESET}")
 #     print(f"{C.YELLOW}monix-web is a separate, independently deployed product.{C.RESET}")
-#     print(f"{C.CYAN}Use 'monix web <url>' for CLI URL analysis instead.{C.RESET}")
+#     print(f"{C.CYAN}Use 'monix-cli web <url>' for CLI URL analysis instead.{C.RESET}")
 #     sys.exit(1)

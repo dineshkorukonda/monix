@@ -6,11 +6,11 @@ Monix is an open-source security tool that provides real-time threat monitoring,
 
 ## About This Repository
 
-This repository contains **monix-core** - the core security logic and analysis engine that powers the Monix ecosystem. It includes CLI tools for server monitoring and a comprehensive web application for URL security analysis.
+This repository contains **monix-engine** - the core security logic and analysis engine that powers the Monix ecosystem. It includes CLI tools for server monitoring and a comprehensive web application for URL security analysis.
 
-**Primary Product:** [monix-web](./web) - A modern web application for comprehensive URL security scanning, SSL validation, DNS analysis, and threat detection. Built with Next.js and powered by monix-core's security engine.
+**Primary Product:** [monix-web](./web) - A modern web application for comprehensive URL security scanning, SSL validation, DNS analysis, and threat detection. Built with Next.js and powered by monix-engine's security engine.
 
-**CLI Tools:** This repository also includes command-line tools for Linux server monitoring and intrusion detection. These tools leverage the same monix-core logic that powers monix-web.
+**CLI Tools:** This repository also includes command-line tools for Linux server monitoring and intrusion detection. These tools leverage the same monix-engine logic that powers monix-web. The CLI entry point is `monix-cli`.
 
 📖 **Read about Monix Core:** Learn about the architecture, design decisions, and the story behind Monix at [dineshkorukonda.in/blogs/monix](https://dineshkorukonda.in/blogs/monix)
 
