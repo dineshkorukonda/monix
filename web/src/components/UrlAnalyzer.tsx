@@ -95,6 +95,7 @@ export default function UrlAnalyzer() {
   const [result, setResult] = useState<WebSecurityAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [showStatusScale, setShowStatusScale] = useState(false);
 
   const handleAnalyze = async () => {
     if (!url.trim()) {
@@ -221,6 +222,14 @@ export default function UrlAnalyzer() {
                 <span className="text-[9px] font-bold text-white/40 uppercase tracking-[0.3em]">
                   [01] STATUS_LEVEL
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setShowStatusScale((prev) => !prev)}
+                  className="self-start text-[10px] text-white/30 hover:text-white font-bold transition-colors"
+                  title="Status level scale"
+                >
+                  [i]
+                </button>
                 <div className="flex items-baseline justify-between">
                   <span className="text-xl font-black uppercase">
                     {result.threat_level || "UNKNOWN"}
@@ -259,6 +268,32 @@ export default function UrlAnalyzer() {
                 </div>
               </div>
             </div>
+
+            {showStatusScale && (
+              <div className="border border-white/10 bg-black p-5 text-[10px] font-bold uppercase tracking-widest">
+                <div className="flex items-start justify-between border-b border-white/10 pb-2 mb-3">
+                  <span className="text-white/60">STATUS_LEVEL_SCALE</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowStatusScale(false)}
+                    className="text-white/30 hover:text-white"
+                    aria-label="Close"
+                  >
+                    [X]
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="border border-white/10 px-2 py-1 text-white/70">0-14 LOW / FINE</span>
+                  <span className="border border-cyan-400/40 px-2 py-1 text-cyan-300">15-29 MEDIUM / WATCH</span>
+                  <span className="border border-yellow-400/40 px-2 py-1 text-yellow-300">30-49 HIGH / RISK</span>
+                  <span className="border border-red-400/40 px-2 py-1 text-red-300">50-100 CRITICAL / BAD</span>
+                </div>
+                <p className="mt-3 text-white/40">
+                  SCORE IS A HEURISTIC FROM URL PATTERNS, HIGH-RISK ENDPOINTS,
+                  BOT SIGNATURES, AND TRAFFIC SIGNALS.
+                </p>
+              </div>
+            )}
 
             {/* Content Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
