@@ -16,6 +16,21 @@ This repository contains **monix-engine** - the core security logic and analysis
 
 For more technical articles and updates, visit: [dineshkorukonda.in/blogs](https://dineshkorukonda.in/blogs)
 
+## Testing
+
+Monix includes a comprehensive test suite with 103 tests covering all core functionality:
+- Engine collectors (system stats, processes)
+- Threat analyzers (SYN floods, port scans, connection analysis)
+- Traffic analyzers (log parsing, suspicious URLs, malicious bots)
+- Web security scanners (SSL, DNS, HTTP headers, port scanning)
+- API server endpoints
+
+Run tests with:
+```bash
+pytest tests/
+```
+
+See [tests/README.md](./tests/README.md) for detailed test documentation.
 
 ## License
 
