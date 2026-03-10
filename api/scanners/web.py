@@ -28,7 +28,7 @@ from typing import Dict, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 
-from engine.analyzers.traffic import (
+from api.analyzers.traffic import (
     is_suspicious_url,
     classify_threat_level
 )
@@ -80,8 +80,9 @@ def check_ssl_certificate(url: str) -> Dict:
         hostname = parsed.netloc.split(":")[0]
         port = parsed.port or 443
         
-        # Create SSL context
+        # Create SSL context with minimum TLS 1.2 for security
         context = ssl.create_default_context()
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         
         with socket.create_connection((hostname, port), timeout=3) as sock:
             with context.wrap_socket(sock, server_hostname=hostname) as ssock:

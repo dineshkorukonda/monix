@@ -1,10 +1,10 @@
-"""Tests for engine.collectors.system module."""
+"""Tests for api.collectors.system module."""
 
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
 
-from engine.collectors.system import (
+from api.collectors.system import (
     get_system_stats,
     get_top_processes,
     get_disk_io,
@@ -69,7 +69,7 @@ class TestFormatBytes:
 class TestGetSystemStats:
     """Tests for get_system_stats function."""
     
-    @patch('engine.collectors.system.psutil')
+    @patch('api.collectors.system.psutil')
     def test_get_system_stats_success(self, mock_psutil):
         """Test successful system stats collection."""
         # Mock psutil functions
@@ -83,8 +83,8 @@ class TestGetSystemStats:
         mock_psutil.boot_time.return_value = 1000000000.0
         mock_psutil.pids.return_value = list(range(100))
         
-        with patch('engine.collectors.system.time.time', return_value=1000001000.0):
-            with patch('engine.collectors.system.os.getloadavg', return_value=(1.5, 1.2, 1.0)):
+        with patch('api.collectors.system.time.time', return_value=1000001000.0):
+            with patch('api.collectors.system.os.getloadavg', return_value=(1.5, 1.2, 1.0)):
                 stats = get_system_stats()
         
         # Verify stats structure
@@ -106,7 +106,7 @@ class TestGetSystemStats:
         assert stats['network_recv'] == 2000000
         assert stats['process_count'] == 100
     
-    @patch('engine.collectors.system.psutil')
+    @patch('api.collectors.system.psutil')
     def test_get_system_stats_error_handling(self, mock_psutil):
         """Test error handling in system stats collection."""
         # Mock an exception
@@ -123,7 +123,7 @@ class TestGetSystemStats:
 class TestGetTopProcesses:
     """Tests for get_top_processes function."""
     
-    @patch('engine.collectors.system.psutil.process_iter')
+    @patch('api.collectors.system.psutil.process_iter')
     def test_get_top_processes_success(self, mock_process_iter):
         """Test successful top processes retrieval."""
         # Create mock processes
@@ -145,7 +145,7 @@ class TestGetTopProcesses:
         assert processes[1]['cpu_percent'] == 30.0
         assert processes[0]['name'] == 'process1'
     
-    @patch('engine.collectors.system.psutil.process_iter')
+    @patch('api.collectors.system.psutil.process_iter')
     def test_get_top_processes_limit(self, mock_process_iter):
         """Test top processes with limit parameter."""
         # Create mock processes
@@ -170,7 +170,7 @@ class TestGetTopProcesses:
         # Should be sorted by CPU (highest first)
         assert processes[0]['cpu_percent'] >= processes[1]['cpu_percent']
     
-    @patch('engine.collectors.system.psutil.process_iter')
+    @patch('api.collectors.system.psutil.process_iter')
     def test_get_top_processes_error_handling(self, mock_process_iter):
         """Test error handling in top processes retrieval."""
         mock_process_iter.side_effect = Exception("Test error")
@@ -184,7 +184,7 @@ class TestGetTopProcesses:
 class TestGetDiskIO:
     """Tests for get_disk_io function."""
     
-    @patch('engine.collectors.system.psutil.disk_io_counters')
+    @patch('api.collectors.system.psutil.disk_io_counters')
     def test_get_disk_io_success(self, mock_disk_io):
         """Test successful disk I/O stats retrieval."""
         mock_disk_io.return_value = MagicMock(
@@ -204,7 +204,7 @@ class TestGetDiskIO:
         assert disk_io['read_bytes'] == 1048576
         assert disk_io['write_bytes'] == 524288
     
-    @patch('engine.collectors.system.psutil.disk_io_counters')
+    @patch('api.collectors.system.psutil.disk_io_counters')
     def test_get_disk_io_none(self, mock_disk_io):
         """Test disk I/O when counters return None."""
         mock_disk_io.return_value = None
@@ -214,7 +214,7 @@ class TestGetDiskIO:
         # Should return empty dict
         assert disk_io == {}
     
-    @patch('engine.collectors.system.psutil.disk_io_counters')
+    @patch('api.collectors.system.psutil.disk_io_counters')
     def test_get_disk_io_error(self, mock_disk_io):
         """Test error handling in disk I/O retrieval."""
         mock_disk_io.side_effect = Exception("Test error")
