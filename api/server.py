@@ -1,9 +1,9 @@
 """
 API server module for Monix web interface.
 
-This module provides REST API endpoints that expose Monix engine functionality
+This module provides REST API endpoints that expose Monix core functionality
 for use by the web UI. It maintains strict separation of concerns - all
-security logic remains in engine modules, this is purely an API layer.
+security logic remains in core modules, this is purely an API layer.
 """
 
 import os
