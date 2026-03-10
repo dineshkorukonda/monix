@@ -6,11 +6,11 @@ Monix is an open-source security tool that provides real-time threat monitoring,
 
 ## About This Repository
 
-This repository contains **monix-engine** - the core security logic and analysis engine that powers the Monix ecosystem. It includes CLI tools for server monitoring and a comprehensive web application for URL security analysis.
+This repository contains **monix-core** — the security logic and analysis system that powers the Monix ecosystem. It includes CLI tools for server monitoring and a comprehensive web application for URL security analysis.
 
-**Primary Product:** [monix-web](./web) - A modern web application for comprehensive URL security scanning, SSL validation, DNS analysis, and threat detection. Built with Next.js and powered by monix-engine's security engine.
+**Primary Product:** [monix-web](./web) — A modern web application for comprehensive URL security scanning, SSL validation, DNS analysis, and threat detection. Built with Next.js and powered by monix-core.
 
-**CLI Tools:** This repository also includes command-line tools for Linux server monitoring and intrusion detection. These tools leverage the same monix-engine logic that powers monix-web. The CLI entry point is `monix-cli`.
+**CLI Tools:** This repository also includes command-line tools for Linux server monitoring and intrusion detection. These tools leverage the same monix-core logic that powers monix-web. The CLI entry point is `monix-cli`.
 
 📖 **Read about Monix Core:** Learn about the architecture, design decisions, and the story behind Monix at [dineshkorukonda.in/blogs/monix](https://dineshkorukonda.in/blogs/monix)
 
@@ -19,7 +19,7 @@ For more technical articles and updates, visit: [dineshkorukonda.in/blogs](https
 ## Testing
 
 Monix includes a comprehensive test suite with 103 tests covering all core functionality:
-- Engine collectors (system stats, processes)
+- Core collectors (system stats, processes)
 - Threat analyzers (SYN floods, port scans, connection analysis)
 - Traffic analyzers (log parsing, suspicious URLs, malicious bots)
 - Web security scanners (SSL, DNS, HTTP headers, port scanning)

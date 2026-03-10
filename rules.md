@@ -11,14 +11,14 @@ These rules ensure all LLMS contributors and tools maintain consistency, correct
 3. Maintain PEP8 compliance.
 4. Avoid unused imports, variables, and dead code.
 5. Structure code around the existing architecture:
-   - Data gathering in `engine/collector`
-   - Analysis and scoring in `engine/analyzer`
+   - Data gathering in `api/collectors`
+   - Analysis and scoring in `api/analyzers`
    - UI rendering only in `dashboard/ui`
 
 ---
 
 ## Feature Additions
-1. All new security logic must be added to `engine` modules.
+1. All new security logic must be added to `api` core modules.
 2. UI should never implement logic, only display output.
 3. Each feature must include:
    - Logs where applicable
