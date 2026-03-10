@@ -1,7 +1,7 @@
-"""Tests for engine.analyzers.threat module."""
+"""Tests for api.analyzers.threat module."""
 
 import pytest
-from engine.analyzers.threat import (
+from api.analyzers.threat import (
     analyze_connections,
     detect_threats
 )

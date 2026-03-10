@@ -1,8 +1,8 @@
-"""Tests for engine.scanners.web module."""
+"""Tests for api.scanners.web module."""
 
 import pytest
 from unittest.mock import patch, MagicMock
-from engine.scanners.web import (
+from api.scanners.web import (
     check_ssl_certificate,
     check_dns_records,
     check_http_headers,
@@ -25,8 +25,8 @@ class TestCheckSSLCertificate:
         assert result['valid'] == False
         assert result['error'] == 'URL must use HTTPS'
     
-    @patch('engine.scanners.web.socket.create_connection')
-    @patch('engine.scanners.web.ssl.create_default_context')
+    @patch('api.scanners.web.socket.create_connection')
+    @patch('api.scanners.web.ssl.create_default_context')
     def test_check_ssl_certificate_timeout(self, mock_ssl_context, mock_socket):
         """Test SSL check with connection timeout."""
         mock_socket.side_effect = TimeoutError()
@@ -36,7 +36,7 @@ class TestCheckSSLCertificate:
         assert result['valid'] == False
         assert 'error' in result
     
-    @patch('engine.scanners.web.socket.create_connection')
+    @patch('api.scanners.web.socket.create_connection')
     def test_check_ssl_certificate_dns_failure(self, mock_socket):
         """Test SSL check with DNS failure."""
         import socket
@@ -53,14 +53,14 @@ class TestCheckDNSRecords:
     
     def test_check_dns_records_no_dnspython(self):
         """Test DNS check without dnspython installed."""
-        with patch('engine.scanners.web.DNS_AVAILABLE', False):
+        with patch('api.scanners.web.DNS_AVAILABLE', False):
             result = check_dns_records('example.com')
             
             assert 'error' in result
             assert 'dnspython' in result['error']
     
-    @patch('engine.scanners.web.DNS_AVAILABLE', True)
-    @patch('engine.scanners.web.dns.resolver.resolve')
+    @patch('api.scanners.web.DNS_AVAILABLE', True)
+    @patch('api.scanners.web.dns.resolver.resolve')
     def test_check_dns_records_success(self, mock_resolve):
         """Test successful DNS record retrieval."""
         # Mock A record
@@ -83,7 +83,7 @@ class TestCheckDNSRecords:
 class TestCheckHTTPHeaders:
     """Tests for check_http_headers function."""
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_check_http_headers_success(self, mock_get):
         """Test successful HTTP headers retrieval."""
         mock_response = MagicMock()
@@ -100,7 +100,7 @@ class TestCheckHTTPHeaders:
         assert 'security_headers' in result
         assert result['security_headers']['strict-transport-security'] == 'max-age=31536000'
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_check_http_headers_timeout(self, mock_get):
         """Test HTTP headers check with timeout."""
         import requests
@@ -110,7 +110,7 @@ class TestCheckHTTPHeaders:
         
         assert 'error' in result
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_check_http_headers_missing_security_headers(self, mock_get):
         """Test missing security headers detection."""
         mock_response = MagicMock()
@@ -130,7 +130,7 @@ class TestCheckHTTPHeaders:
 class TestCheckSecurityTxt:
     """Tests for check_security_txt function."""
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_check_security_txt_present(self, mock_get):
         """Test security.txt file detection."""
         mock_response = MagicMock()
@@ -143,7 +143,7 @@ class TestCheckSecurityTxt:
         assert result['present'] == True
         assert 'security@example.com' in result['content']
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_check_security_txt_not_present(self, mock_get):
         """Test when security.txt is not present."""
         mock_response = MagicMock()
@@ -204,7 +204,7 @@ class TestAnalyzeSecurityHeaders:
 class TestScanPorts:
     """Tests for scan_ports function."""
     
-    @patch('engine.scanners.web._check_single_port')
+    @patch('api.scanners.web._check_single_port')
     def test_scan_ports_basic(self, mock_check_port):
         """Test basic port scanning."""
         # Mock port checks
@@ -221,7 +221,7 @@ class TestScanPorts:
         assert 443 in result['open_ports']
         assert 8080 in result['closed_ports']
     
-    @patch('engine.scanners.web._check_single_port')
+    @patch('api.scanners.web._check_single_port')
     def test_scan_ports_default_web_ports(self, mock_check_port):
         """Test scanning with default web ports."""
         mock_check_port.return_value = (80, 'open')
@@ -232,7 +232,7 @@ class TestScanPorts:
         assert 'open_ports' in result
         assert 'closed_ports' in result
     
-    @patch('engine.scanners.web._check_single_port')
+    @patch('api.scanners.web._check_single_port')
     def test_scan_ports_dns_error(self, mock_check_port):
         """Test port scan with DNS error."""
         import socket
@@ -246,7 +246,7 @@ class TestScanPorts:
 class TestDetectTechnologies:
     """Tests for detect_technologies function."""
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_detect_technologies_nginx(self, mock_get):
         """Test detecting Nginx server."""
         mock_response = MagicMock()
@@ -258,7 +258,7 @@ class TestDetectTechnologies:
         
         assert result['server'] == 'Nginx'
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_detect_technologies_wordpress(self, mock_get):
         """Test detecting WordPress CMS."""
         mock_response = MagicMock()
@@ -270,7 +270,7 @@ class TestDetectTechnologies:
         
         assert result['cms'] == 'WordPress'
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_detect_technologies_php(self, mock_get):
         """Test detecting PHP."""
         mock_response = MagicMock()
@@ -285,7 +285,7 @@ class TestDetectTechnologies:
         
         assert 'PHP' in result['languages']
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_detect_technologies_cloudflare(self, mock_get):
         """Test detecting Cloudflare CDN."""
         mock_response = MagicMock()
@@ -304,7 +304,7 @@ class TestDetectTechnologies:
 class TestCheckCookies:
     """Tests for check_cookies function."""
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_check_cookies_success(self, mock_get):
         """Test successful cookie analysis."""
         mock_response = MagicMock()
@@ -330,7 +330,7 @@ class TestCheckCookies:
 class TestCheckRedirects:
     """Tests for check_redirects function."""
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_check_redirects_no_redirect(self, mock_get):
         """Test when there's no redirect."""
         mock_response = MagicMock()
@@ -343,7 +343,7 @@ class TestCheckRedirects:
         assert result['final_url'] == 'https://example.com'
         assert len(result['chain']) == 0
     
-    @patch('engine.scanners.web.requests.get')
+    @patch('api.scanners.web.requests.get')
     def test_check_redirects_with_chain(self, mock_get):
         """Test with redirect chain."""
         # Create redirect chain

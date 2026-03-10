@@ -1,8 +1,8 @@
-"""Tests for engine.analyzers.traffic module."""
+"""Tests for api.analyzers.traffic module."""
 
 import pytest
 from datetime import datetime, timedelta
-from engine.analyzers.traffic import (
+from api.analyzers.traffic import (
     parse_log_line,
     is_suspicious_url,
     is_malicious_bot,
