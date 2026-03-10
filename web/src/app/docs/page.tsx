@@ -58,8 +58,8 @@ export default function DocsPage() {
       ],
     },
     {
-      id: "threat_engine",
-      title: "THREAT_SCORING_ENGINE",
+      id: "threat_scoring",
+      title: "THREAT_SCORING",
       infoBoxes: [
         {
           title: "SCORING_ALGORITHM",
