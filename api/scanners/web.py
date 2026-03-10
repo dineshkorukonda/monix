@@ -228,12 +228,23 @@ def check_http_headers(url: str) -> Dict:
     result = {
         "headers": {},
         "security_headers": {},
+        "status_code": None,
+        "final_url": url,
+        "content_type": "",
+        "content_length": None,
+        "response_time_ms": None,
         "error": None
     }
     
     try:
         response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True, verify=True)
         result["headers"] = dict(response.headers)
+        result["status_code"] = response.status_code
+        result["final_url"] = response.url
+        result["content_type"] = response.headers.get("content-type", "")
+        content_length = response.headers.get("content-length")
+        result["content_length"] = int(content_length) if content_length and content_length.isdigit() else None
+        result["response_time_ms"] = int(response.elapsed.total_seconds() * 1000)
         
         # Check for security headers
         security_headers = [
@@ -256,6 +267,123 @@ def check_http_headers(url: str) -> Dict:
         result["error"] = str(e)
     
     return result
+
+
+def build_findings_and_recommendations(results: Dict) -> Tuple[List[Dict], List[str]]:
+    """Build structured findings and prioritized recommendations."""
+    findings = []
+    recommendations = []
+
+    ssl_info = results.get("ssl_certificate", {})
+    header_analysis = results.get("security_headers_analysis", {})
+    security_txt = results.get("security_txt", {})
+    cookies = results.get("cookies", {}).get("cookies", [])
+    redirects = results.get("redirects", {}).get("chain", [])
+    port_scan = results.get("port_scan", {})
+    metadata = results.get("metadata", {})
+
+    missing_headers = [
+        header
+        for header, state in header_analysis.get("headers", {}).items()
+        if not state.get("present")
+    ]
+
+    insecure_cookies = [
+        cookie
+        for cookie in cookies
+        if not cookie.get("secure")
+        or not cookie.get("httponly")
+        or not cookie.get("samesite")
+    ]
+
+    if results.get("threat_score", 0) >= 50:
+        findings.append({
+            "severity": "high",
+            "title": "Elevated exposure score",
+            "detail": f"Threat score reached {results.get('threat_score', 0)} based on URL patterns, TLS posture, and hardening gaps.",
+        })
+
+    if missing_headers:
+        findings.append({
+            "severity": "medium",
+            "title": "Missing defensive headers",
+            "detail": f"Missing {len(missing_headers)} recommended HTTP headers: {', '.join(missing_headers[:4])}.",
+        })
+        recommendations.append(
+            f"Add missing security headers: {', '.join(missing_headers[:4])}."
+        )
+
+    if ssl_info.get("error") == "Not HTTPS" or not ssl_info.get("valid"):
+        findings.append({
+            "severity": "high",
+            "title": "TLS needs attention",
+            "detail": ssl_info.get("error") or "The endpoint did not present a valid TLS certificate.",
+        })
+        recommendations.append(
+            "Serve the target over HTTPS with a valid TLS certificate and renew it before expiry."
+        )
+    elif ssl_info.get("expires"):
+        findings.append({
+            "severity": "low",
+            "title": "TLS certificate available",
+            "detail": f"Certificate is valid and currently expires on {ssl_info.get('expires')}.",
+        })
+
+    if not security_txt.get("present"):
+        findings.append({
+            "severity": "low",
+            "title": "No security.txt policy",
+            "detail": "Researchers do not have a published vulnerability disclosure file.",
+        })
+        recommendations.append(
+            "Publish a /.well-known/security.txt file so researchers have a disclosure path."
+        )
+
+    if insecure_cookies:
+        findings.append({
+            "severity": "medium",
+            "title": "Cookie hardening gaps",
+            "detail": f"{len(insecure_cookies)} cookies are missing Secure, HttpOnly, or SameSite protections.",
+        })
+        recommendations.append(
+            "Set Secure, HttpOnly, and SameSite on session or identity cookies."
+        )
+
+    open_ports = port_scan.get("open_ports", [])
+    if open_ports:
+        findings.append({
+            "severity": "medium" if any(port not in {80, 443, 8080} for port in open_ports) else "low",
+            "title": "Open network services detected",
+            "detail": f"Detected open ports: {', '.join(str(port) for port in sorted(open_ports))}.",
+        })
+        if any(port not in {80, 443, 8080} for port in open_ports):
+            recommendations.append(
+                "Review exposed non-web ports and restrict them to trusted networks if they are not required."
+            )
+
+    if len(redirects) > 1:
+        findings.append({
+            "severity": "low",
+            "title": "Redirect chain is longer than ideal",
+            "detail": f"Request resolution required {len(redirects)} redirect hops before reaching the final URL.",
+        })
+        recommendations.append(
+            "Reduce redirect hops to improve reliability and limit confusing edge-case routing."
+        )
+
+    if metadata.get("title") or metadata.get("description"):
+        findings.append({
+            "severity": "info",
+            "title": "Page metadata collected",
+            "detail": "Optional page title and description were successfully extracted for content context.",
+        })
+
+    deduped_recommendations = []
+    for recommendation in recommendations:
+        if recommendation not in deduped_recommendations:
+            deduped_recommendations.append(recommendation)
+
+    return findings, deduped_recommendations[:5]
 
 
 def check_security_txt(url: str) -> Dict:
@@ -740,5 +868,22 @@ def analyze_web_security(url: str, include_port_scan: bool = False, include_meta
         "threat_color": level_color,
         "threats": threats
     })
+
+    findings, recommendations = build_findings_and_recommendations(results)
+    results["findings"] = findings
+    results["recommendations"] = recommendations
+    results["scan_profile"] = "deep" if include_port_scan or include_metadata else "standard"
+    results["summary"] = {
+        "https": parsed.scheme == "https",
+        "redirect_hops": len(results.get("redirects", {}).get("chain", [])),
+        "cookie_count": len(results.get("cookies", {}).get("cookies", [])),
+        "open_port_count": len(results.get("port_scan", {}).get("open_ports", [])),
+        "missing_header_count": len([
+            header
+            for header, state in results.get("security_headers_analysis", {}).get("headers", {}).items()
+            if not state.get("present")
+        ]),
+        "security_txt_present": bool(results.get("security_txt", {}).get("present")),
+    }
     
     return results

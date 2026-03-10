@@ -31,16 +31,24 @@ export interface WebSecurityAnalysis {
     txt: string[];
   };
   http_headers?: {
-    security_headers?: Record<string, any>;
-    all_headers?: Record<string, string>;
+    headers?: Record<string, string>;
+    security_headers?: Record<string, string | null>;
+    status_code?: number | null;
+    final_url?: string;
+    content_type?: string;
+    content_length?: number | null;
+    response_time_ms?: number | null;
   };
   security_headers_analysis?: {
     percentage: number;
-    headers: Record<string, { present: boolean; value?: string }>;
+    score?: number;
+    max_score?: number;
+    headers: Record<string, { present: boolean; value?: string | null }>;
   };
   security_txt?: {
     present: boolean;
     content?: string;
+    url?: string;
   };
   server_location?: {
     org: string;
@@ -60,6 +68,7 @@ export interface WebSecurityAnalysis {
   technologies?: {
     server?: string;
     cms?: string;
+    framework?: string;
     cdn?: string;
     languages: string[];
   };
@@ -69,6 +78,7 @@ export interface WebSecurityAnalysis {
       value: string;
       secure: boolean;
       httponly: boolean;
+      samesite?: string;
       domain?: string;
       path?: string;
     }>;
@@ -78,8 +88,24 @@ export interface WebSecurityAnalysis {
       url: string;
       status_code: number;
     }>;
+    final_url?: string;
   };
   metadata?: Record<string, any>;
+  findings?: Array<{
+    severity: "info" | "low" | "medium" | "high";
+    title: string;
+    detail: string;
+  }>;
+  recommendations?: string[];
+  scan_profile?: string;
+  summary?: {
+    https: boolean;
+    redirect_hops: number;
+    cookie_count: number;
+    open_port_count: number;
+    missing_header_count: number;
+    security_txt_present: boolean;
+  };
   error?: string;
 }
 
