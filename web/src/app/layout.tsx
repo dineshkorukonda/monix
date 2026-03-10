@@ -1,18 +1,19 @@
-import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import type { Metadata } from "next";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const poppins = Poppins({
   subsets: ["latin"],
+  variable: "--font-poppins",
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
-  title: "monix",
+  title: "Monix",
   description:
-    "Real-time intrusion monitoring and autonomous defense for Linux infrastructure. High-density connection intelligence.",
+    "Web-facing security analysis with infrastructure context, hardening checks, and threat scoring.",
 };
 
 export default function RootLayout({
@@ -21,9 +22,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark selection:bg-white selection:text-black">
+    <html
+      lang="en"
+      className="selection:bg-[var(--accent)] selection:text-[var(--ink-strong)]"
+    >
       <body
-        className={`${geistMono.variable} font-mono antialiased bg-black text-white`}
+        className={`${poppins.variable} bg-background text-foreground antialiased`}
       >
         {children}
         <SpeedInsights />

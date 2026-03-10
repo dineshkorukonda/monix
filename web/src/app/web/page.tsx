@@ -1,47 +1,30 @@
 "use client";
 
-import UrlAnalyzer from "@/components/UrlAnalyzer";
 import Navigation from "@/components/Navigation";
+import UrlAnalyzer from "@/components/UrlAnalyzer";
 
-/**
- * Monix Web - URL Security Analyzer
- *
- * This page hosts the redesigned URL security analysis tool.
- * High-density, icon-free, monochromatic interface.
- */
 export default function MonixWebPage() {
   return (
-    <div className="bg-black min-h-screen">
+    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black">
       <Navigation />
-      <div className="py-8">
-        <div className="container mx-auto px-6 max-w-[1600px] mb-12">
-          <div className="text-[10px] font-bold text-white/40 tracking-[0.4em] mb-4 uppercase">
+
+      <main className="px-6 py-8">
+        <div className="mx-auto max-w-[1600px] pb-10">
+          <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/40">
             [TOOL_ACCESS_01]
           </div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase mb-4">
+          <h1 className="mt-4 text-4xl font-black uppercase tracking-[-0.05em]">
             MONIX_WEB_ANALYZER
           </h1>
-          <p className="text-white/40 text-sm font-bold tracking-widest uppercase">
-            V2.0_SECURITY_SCANNER_CONNECTED
+          <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.25em] text-white/40">
+            DETAILED_URL_SECURITY_WORKSPACE
           </p>
         </div>
-        <UrlAnalyzer />
-      </div>
 
-      {/* Mini Footer */}
-      <footer className="border-t border-white/10 py-12 bg-black">
-        <div className="container mx-auto px-6 max-w-[1600px] flex justify-between items-center">
-          <span className="text-[10px] text-white/20 font-bold tracking-widest uppercase">
-            (C) 2025 MONIX_SECURITY
-          </span>
-          <span className="text-[10px] text-white/40 font-bold tracking-widest uppercase">
-            DONE BY{" "}
-            <a href="#" className="text-white hover:underline transition-all">
-              dineshkorukonda
-            </a>
-          </span>
+        <div className="mx-auto max-w-[1600px]">
+          <UrlAnalyzer />
         </div>
-      </footer>
+      </main>
     </div>
   );
 }
