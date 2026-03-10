@@ -111,11 +111,62 @@ export default function Home() {
         </div>
       </div>
 
+      {/* How It Works Section */}
+      <div className="border-b border-white/10">
+        <div className="container mx-auto px-6 py-24 max-w-[1600px]">
+          <div className="text-center mb-16">
+            <div className="text-[10px] font-bold text-white/40 tracking-[0.4em] mb-4">
+              [SECTION_02]
+            </div>
+            <h2 className="text-4xl font-black tracking-tighter uppercase mb-4">
+              HOW_IT_WORKS
+            </h2>
+            <p className="text-white/60 text-sm uppercase tracking-wider mt-4">
+              Three steps to complete security analysis
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                step: "01",
+                title: "SUBMIT_URL",
+                desc: "Enter any URL or domain into the analyzer. Monix accepts any publicly accessible web address for scanning.",
+              },
+              {
+                step: "02",
+                title: "DEEP_ANALYSIS",
+                desc: "Monix-core runs parallel security checks — SSL validation, DNS lookups, port scanning, header analysis, and threat scoring.",
+              },
+              {
+                step: "03",
+                title: "GET_REPORT",
+                desc: "Receive a comprehensive security report with threat scores, vulnerability details, and actionable recommendations.",
+              },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="border border-white/10 p-8 hover:border-white transition-all hover:bg-white/[0.02] group cursor-default"
+              >
+                <div className="text-5xl font-black text-white/10 mb-4 group-hover:text-white/20 transition-colors">
+                  {item.step}
+                </div>
+                <h3 className="text-sm font-black tracking-widest mb-4 uppercase">
+                  {item.title}
+                </h3>
+                <p className="text-[11px] text-white/60 leading-relaxed uppercase group-hover:text-white/80 transition-colors">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Technical Breakdown */}
       <div className="container mx-auto px-6 py-24 max-w-[1600px]">
         <div className="text-center mb-16">
           <div className="text-[10px] font-bold text-white/40 tracking-[0.4em] mb-4">
-            [SECTION_02]
+            [SECTION_03]
           </div>
           <h2 className="text-4xl font-black tracking-tighter uppercase mb-4">
             ANALYSIS_CAPABILITIES
@@ -177,6 +228,131 @@ export default function Home() {
               </ul>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Use Cases Section */}
+      <div className="border-t border-white/10">
+        <div className="container mx-auto px-6 py-24 max-w-[1600px]">
+          <div className="text-center mb-16">
+            <div className="text-[10px] font-bold text-white/40 tracking-[0.4em] mb-4">
+              [SECTION_04]
+            </div>
+            <h2 className="text-4xl font-black tracking-tighter uppercase mb-4">
+              USE_CASES
+            </h2>
+            <p className="text-white/60 text-sm uppercase tracking-wider mt-4">
+              Who benefits from Monix
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {[
+              {
+                title: "SECURITY_ENGINEERS",
+                desc: "Run quick vulnerability assessments on web assets. Identify SSL misconfigurations, missing security headers, and exposed services before attackers do.",
+              },
+              {
+                title: "DEVOPS_TEAMS",
+                desc: "Validate deployment security posture. Monitor SSL certificate expiry, verify DNS configurations, and ensure production services meet security baselines.",
+              },
+              {
+                title: "PENETRATION_TESTERS",
+                desc: "Accelerate reconnaissance with automated port scanning, technology detection, and geographic intelligence. Gather comprehensive target information in seconds.",
+              },
+              {
+                title: "SYSTEM_ADMINISTRATORS",
+                desc: "Monitor server security with CLI tools. Track connections, detect intrusion attempts, and receive real-time threat alerts for Linux infrastructure.",
+              },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="border border-white/10 p-8 hover:border-white transition-all hover:bg-white/[0.02] group cursor-default"
+              >
+                <h3 className="text-sm font-black tracking-widest mb-4 uppercase border-b border-white/10 pb-4 group-hover:border-white/20 transition-colors">
+                  [{item.title}]
+                </h3>
+                <p className="text-[11px] text-white/60 leading-relaxed uppercase group-hover:text-white/80 transition-colors">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Open Source Section */}
+      <div className="border-t border-white/10 bg-white/[0.02]">
+        <div className="container mx-auto px-6 py-24 max-w-[1600px]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <div className="text-[10px] font-bold text-white/40 tracking-[0.4em] mb-4">
+                [SECTION_05]
+              </div>
+              <h2 className="text-4xl font-black tracking-tighter uppercase mb-8">
+                OPEN_SOURCE
+              </h2>
+              <p className="text-white/60 text-sm leading-relaxed uppercase mb-8">
+                Monix is fully open source under the MIT license. Inspect every
+                line of security logic, contribute improvements, or deploy your
+                own instance. Transparency is fundamental to trustworthy
+                security tooling.
+              </p>
+              <div className="flex flex-wrap gap-6">
+                <a
+                  href="https://github.com/dinexh/monix"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white text-black px-8 py-3 text-[11px] font-black uppercase tracking-widest hover:bg-white/80 transition-all"
+                >
+                  VIEW_ON_GITHUB
+                </a>
+                <a
+                  href="https://dineshkorukonda.in/blogs/monix"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="border border-white/20 px-8 py-3 text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  READ_THE_BLOG
+                </a>
+              </div>
+            </div>
+            <div className="space-y-4">
+              {[
+                {
+                  label: "LICENSE",
+                  value: "MIT — FREE_AND_OPEN",
+                },
+                {
+                  label: "LANGUAGE",
+                  value: "PYTHON + TYPESCRIPT",
+                },
+                {
+                  label: "FRONTEND",
+                  value: "NEXT.JS + TAILWIND_CSS",
+                },
+                {
+                  label: "BACKEND",
+                  value: "FLASK_REST_API",
+                },
+                {
+                  label: "DEPLOYMENT",
+                  value: "VERCEL + DOCKER_READY",
+                },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between border border-white/10 px-6 py-4 hover:border-white/20 transition-all group cursor-default"
+                >
+                  <span className="text-[10px] font-bold text-white/40 tracking-widest group-hover:text-white/60 transition-colors">
+                    {item.label}
+                  </span>
+                  <span className="text-[11px] font-bold tracking-widest group-hover:text-white/80 transition-colors">
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
