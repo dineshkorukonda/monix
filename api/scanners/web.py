@@ -689,7 +689,7 @@ def analyze_web_security(url: str, include_port_scan: bool = False, include_meta
     headers_dict = {k.lower(): v for k, v in http_headers_result.get("headers", {}).items()}
     results["security_headers_analysis"] = analyze_security_headers(headers_dict)
 
-    # Add threat analysis using Monix engine
+    # Add threat analysis using Monix core
     suspicious = is_suspicious_url(path)
     
     threat_score = 0
