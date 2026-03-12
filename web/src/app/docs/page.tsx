@@ -2,41 +2,42 @@
 
 import Link from "next/link";
 import Navigation from "@/components/Navigation";
+import { motion } from "framer-motion";
 
 const sections = [
   {
     id: "overview",
-    title: "OVERVIEW",
-    body: "MONIX WEB IS A TECHNICAL WEB ANALYSIS INTERFACE BUILT OVER THE MONIX SCANNER CORE. IT PROVIDES A DETAILED OPERATOR VIEW OF THREAT SCORE, TLS STATE, HEADERS, DNS, ROUTING, COOKIES, INFRASTRUCTURE, AND TARGET GEOLOCATION.",
+    title: "Overview",
+    body: "Monix Web is a technical analysis interface built over the Monix scanner core. It provides a detailed view of threat score, TLS state, headers, DNS, routing, cookies, infrastructure, and target geolocation.",
   },
   {
     id: "architecture",
-    title: "ARCHITECTURE",
+    title: "Architecture",
     blocks: [
-      "FRONTEND: NEXT.JS APP ROUTER INTERFACE WITH MAPLIBRE VISUALS AND DENSE SCAN OUTPUT PANELS.",
-      "API LAYER: FLASK ENDPOINTS FOR URL ANALYSIS, SYSTEM METRICS, CONNECTION DATA, AND DASHBOARD AGGREGATION.",
-      "CORE: PYTHON SCANNERS AND ANALYZERS HANDLE TLS, DNS, HEADER SCORING, TECHNOLOGY DETECTION, TRAFFIC HEURISTICS, AND EXPOSURE CHECKS.",
+      "Frontend: Next.js App Router interface with data tables and dense scan output panels.",
+      "API Layer: Flask endpoints for URL analysis, system metrics, connection data, and dashboard aggregation.",
+      "Core: Python scanners and analyzers handle TLS, DNS, header scoring, tech detection, traffic heuristics, and exposure checks.",
     ],
   },
   {
     id: "scan-engine",
-    title: "SCAN_ENGINE",
+    title: "Scan Engine",
     blocks: [
-      "INPUT IS NORMALIZED TO A PUBLIC URL WITH OPTIONAL DEEP COLLECTION FLAGS.",
-      "TASKS RUN IN PARALLEL WHEN POSSIBLE TO REDUCE END-TO-END LATENCY.",
-      "RESULTS ARE COMBINED INTO SCORE, FINDINGS, RECOMMENDATIONS, SUMMARY METRICS, AND RAW TELEMETRY.",
+      "Input is normalized to a public URL with optional deep collection flags.",
+      "Tasks run in parallel when possible to reduce end-to-end latency.",
+      "Results are combined into score, findings, recommendations, summary metrics, and raw telemetry.",
     ],
   },
   {
     id: "signals",
-    title: "ANALYSIS_SIGNALS",
+    title: "Analysis Signals",
     blocks: [
-      "TLS_CERTIFICATE_VALIDITY_AND_EXPIRY",
-      "HTTP_SECURITY_HEADERS_AND_PERCENTAGE_SCORE",
-      "DNS_AAAA_MX_NS_TXT_RECORD_MAPPING",
-      "COOKIE_SECURE_HTTPONLY_SAMESITE_REVIEW",
-      "REDIRECT_CHAIN_AND_FINAL_URL_RESOLUTION",
-      "IP_PROVIDER_LOCATION_AND_OPEN_PORT_CONTEXT",
+      "TLS Certificate validity and expiry",
+      "HTTP Security Headers and percentage score",
+      "DNS A, AAAA, MX, NS, TXT record mapping",
+      "Cookie (Secure, HttpOnly, SameSite) review",
+      "Redirect chain and final URL resolution",
+      "IP provider location and open port context",
     ],
   },
 ];
@@ -46,85 +47,109 @@ export default function DocsPage() {
     <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black">
       <Navigation />
 
-      <div className="mx-auto grid max-w-[1600px] gap-16 px-6 py-20 lg:grid-cols-12">
-        <aside className="lg:col-span-3">
-          <div className="sticky top-28 border-l border-white/10 pl-6">
-            <div className="text-[10px] font-bold tracking-[0.4em] text-white/40">
-              [DOCS_NAV]
+      <main className="relative pt-32 px-6">
+        <div className="mx-auto grid max-w-[1600px] gap-16 lg:grid-cols-12 relative z-10 pb-32">
+          <aside className="lg:col-span-3">
+            <div className="sticky top-32 border-l border-white/10 pl-6">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="inline-block px-3 py-1 mb-4 rounded-full border border-white/20 bg-white/5 text-xs text-white/70">
+                  Documentation Nav
+                </div>
+                <div className="mt-8 space-y-4">
+                  {sections.map((section, i) => (
+                    <motion.a
+                      key={section.id}
+                      href={`#${section.id}`}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: i * 0.1 }}
+                      className="block text-sm font-semibold text-white/40 transition-colors hover:text-white"
+                    >
+                      {section.title}
+                    </motion.a>
+                  ))}
+                </div>
+                <div className="mt-12 border-t border-white/10 pt-8">
+                  <Link
+                    href="/web"
+                    className="text-sm font-semibold text-white hover:text-white/70 transition-colors"
+                  >
+                    Go to Scanner &rarr;
+                  </Link>
+                </div>
+              </motion.div>
             </div>
-            <div className="mt-8 space-y-5">
-              {sections.map((section) => (
-                <a
+          </aside>
+
+          <motion.div
+            className="lg:col-span-9"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+          >
+            <div className="mb-20">
+              <div className="inline-block px-3 py-1 mb-6 rounded-full border border-white/20 bg-white/5 text-xs text-white/70">
+                System Guide
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">
+                Monix Platform Docs
+              </h1>
+              <p className="mt-6 max-w-2xl text-lg text-white/50 leading-relaxed">
+                Technical guide mapping the web analyzer, core scan engine, response
+                model, and operations.
+              </p>
+            </div>
+
+            <div className="space-y-24">
+              {sections.map((section, i) => (
+                <motion.section
                   key={section.id}
-                  href={`#${section.id}`}
-                  className="block text-[11px] font-black uppercase tracking-[0.25em] text-white/40 transition-all hover:text-white"
+                  id={section.id}
+                  className="scroll-mt-32"
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
                 >
-                  {section.title}
-                </a>
+                  <h2 className="mb-8 text-2xl font-bold text-white flex items-center">
+                    <span className="mr-3 text-white/20">#</span>
+                    {section.title}
+                  </h2>
+
+                  {section.body ? (
+                    <p className="max-w-3xl text-base text-white/60 leading-relaxed mb-8">
+                      {section.body}
+                    </p>
+                  ) : null}
+
+                  {section.blocks ? (
+                    <div className="grid gap-6 md:grid-cols-2">
+                      {section.blocks.map((block, i) => (
+                        <motion.div
+                          key={block}
+                          initial={{ opacity: 0, y: 10 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 0.4, delay: i * 0.1 }}
+                          className="p-6 rounded-2xl border border-white/10 bg-white/5 transition-colors hover:bg-white/10 group"
+                        >
+                          <p className="text-sm font-medium leading-relaxed text-white/70 group-hover:text-white transition-colors">
+                            {block}
+                          </p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : null}
+                </motion.section>
               ))}
             </div>
-            <div className="mt-16 border-t border-white/10 pt-10">
-              <Link
-                href="/web"
-                className="text-[11px] font-black uppercase tracking-[0.25em] text-white underline underline-offset-8"
-              >
-                GO_TO_WEB_TOOL
-              </Link>
-            </div>
-          </div>
-        </aside>
-
-        <main className="lg:col-span-9">
-          <div className="mb-20">
-            <div className="text-[10px] font-bold tracking-[0.4em] text-white/40">
-              [SYSTEM_GUIDE]
-            </div>
-            <h1 className="mt-4 text-6xl font-black uppercase tracking-[-0.06em]">
-              MONIX WEB DOCS
-            </h1>
-            <p className="mt-6 max-w-3xl text-sm uppercase leading-8 tracking-[0.18em] text-white/60">
-              TECHNICAL GUIDE TO THE WEB ANALYZER, CORE SCAN ENGINE, RESPONSE
-              MODEL, AND OPERATOR WORKFLOW.
-            </p>
-          </div>
-
-          <div className="space-y-24">
-            {sections.map((section) => (
-              <section
-                key={section.id}
-                id={section.id}
-                className="scroll-mt-32"
-              >
-                <h2 className="mb-10 text-2xl font-black uppercase tracking-[0.18em]">
-                  <span className="mr-3 text-white/20">#</span>
-                  {section.title}
-                </h2>
-
-                {section.body ? (
-                  <p className="max-w-4xl text-[11px] uppercase leading-8 tracking-[0.18em] text-white/60">
-                    {section.body}
-                  </p>
-                ) : null}
-
-                {section.blocks ? (
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {section.blocks.map((block) => (
-                      <div
-                        key={block}
-                        className="border border-white/10 bg-white/[0.02] p-6 transition-all hover:border-white/20 hover:bg-white/[0.03]"
-                      >
-                        <p className="text-[11px] uppercase leading-7 tracking-[0.18em] text-white/70">
-                          {block}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
-            ))}
-          </div>
-        </main>
-      </div>
+          </motion.div>
+        </div>
+      </main>
     </div>
   );
 }

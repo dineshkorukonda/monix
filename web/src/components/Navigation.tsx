@@ -2,46 +2,44 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const navItems = [
-  { href: "/", label: "HOME" },
-  { href: "/web", label: "MONIX_WEB" },
-  { href: "/docs", label: "DOCS" },
-];
+import { motion } from "framer-motion";
 
 export default function Navigation() {
   const pathname = usePathname();
 
+  const links = [
+    { href: "/", label: "Home" },
+    { href: "/web", label: "Scanner" },
+    { href: "/docs", label: "Docs" },
+  ];
+
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/10 bg-black/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-6">
-        <Link href="/" className="group flex items-center gap-4">
-          <span className="text-xl font-bold tracking-tighter text-white">
-            [ MONIX ]
-          </span>
-          <span className="hidden text-[10px] tracking-[0.28em] text-white/35 transition-colors group-hover:text-white/60 sm:inline">
-            AUTONOMOUS_WEB_DEFENSE
+    <nav className="fixed top-8 left-1/2 z-50 -translate-x-1/2">
+      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black px-4 py-2 shadow-2xl backdrop-blur-md">
+        <Link href="/" className="mr-4 flex items-center">
+          <span className="text-sm font-bold tracking-widest text-white">
+            MONIX
           </span>
         </Link>
-
-        <div className="flex items-center gap-8">
-          {navItems.map((item) => {
-            const active =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname?.startsWith(item.href);
-
+        <div className="h-4 w-px bg-white/10" />
+        <div className="ml-2 flex items-center gap-1">
+          {links.map((link) => {
+            const isActive = pathname === link.href;
             return (
               <Link
-                key={item.href}
-                href={item.href}
-                className={`text-[11px] font-bold tracking-[0.24em] transition-colors ${
-                  active
-                    ? "text-white underline underline-offset-6"
-                    : "text-white/35 hover:text-white"
-                }`}
+                key={link.href}
+                href={link.href}
+                className={`relative rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${isActive ? "text-black" : "text-white/60 hover:text-white"
+                  }`}
               >
-                {item.label}
+                {isActive && (
+                  <motion.div
+                    layoutId="active-nav-pill"
+                    className="absolute inset-0 z-0 rounded-full bg-white"
+                    transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
+                  />
+                )}
+                <span className="relative z-10">{link.label}</span>
               </Link>
             );
           })}

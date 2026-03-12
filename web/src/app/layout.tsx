@@ -3,6 +3,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import Footer from "@/components/Footer";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -30,9 +31,11 @@ export default function RootLayout({
         className={`${poppins.variable} bg-background text-foreground antialiased`}
       >
         {children}
+        <Footer />
         <SpeedInsights />
         <Analytics />
       </body>
     </html>
   );
 }
+
