@@ -29,22 +29,22 @@
 :root {
   --background: #000000;
   --foreground: #ffffff;
-  --card: #050505;
+  --card: rgba(10, 10, 12, 0.6);
   --card-foreground: #ffffff;
-  --popover: #050505;
+  --popover: rgba(10, 10, 12, 0.8);
   --popover-foreground: #ffffff;
   --primary: #ffffff;
   --primary-foreground: #000000;
   --secondary: #111111;
   --secondary-foreground: #ffffff;
-  --muted: #111111;
-  --muted-foreground: #8a8a8a;
-  --accent: #ffffff;
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1aa;
+  --accent: #22d3ee; /* Cyan-400 */
   --accent-foreground: #000000;
   --destructive: #ef4444;
-  --border: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.08);
   --input: rgba(255, 255, 255, 0.04);
-  --ring: rgba(255, 255, 255, 0.22);
+  --ring: rgba(34, 211, 238, 0.5); /* Glowing cyan ring */
   --font-space-grotesk:
     var(--font-poppins), "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica,
     Arial, sans-serif;
@@ -56,6 +56,11 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  ::selection {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
   }
 
   html {
@@ -84,5 +89,18 @@
 
   .maplibregl-popup-tip {
     @apply hidden;
+  }
+
+  /* Custom Glass Utilities */
+  .glass-panel {
+    @apply bg-white/[0.02] border border-white/5 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)];
+  }
+
+  .glow-text {
+    text-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  }
+
+  .glow-border {
+    box-shadow: 0 0 15px rgba(34, 211, 238, 0.15), inset 0 0 20px rgba(34, 211, 238, 0.05);
   }
 }
