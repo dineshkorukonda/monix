@@ -34,6 +34,7 @@ from api.collectors.connection import collect_connections
 from api.monitoring.state import state
 from api.collectors.system import get_system_stats, get_top_processes
 from api.monitoring.engine import start_monitor
+from api.db import save_scan
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js frontend
@@ -196,6 +197,14 @@ def analyze_url_endpoint():
             include_port_scan=include_port_scan,
             include_metadata=include_metadata
         )
+
+        # Persist scan result to the shared PostgreSQL database so Django can
+        # retrieve it for report management and admin.
+        score = result.get("threat_score", 0)
+        report_id = save_scan(url=url, score=score, results=result)
+        if report_id:
+            result["report_id"] = report_id
+
         return jsonify(result)
         
     except Exception as e:

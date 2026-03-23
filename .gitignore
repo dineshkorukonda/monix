@@ -44,3 +44,5 @@ Thumbs.db
 # Project specific
 web/.next/
 web/node_modules/
+# SQLite development databases
+*.sqlite3
