@@ -1,0 +1,34 @@
+name: Create Feature Issues
+
+# Runs once on every push to this branch so the 12 feature issues are
+# created automatically.  The script is idempotent — it skips any issue
+# that already exists.
+on:
+  push:
+    branches:
+      - "copilot/**"
+  workflow_dispatch:
+
+jobs:
+  create-issues:
+    name: Create feature issues
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install requests
+        run: pip install requests --quiet
+
+      - name: Create issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/create_issues.py
