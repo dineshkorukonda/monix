@@ -37,6 +37,7 @@ from api.monitoring.engine import start_monitor
 from api.db import save_scan
 from api.seo_checker import run_seo_checks
 from api.performance_checker import run_performance_checks
+from api.scoring import calculate_overall_score
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js frontend
@@ -208,10 +209,16 @@ def analyze_url_endpoint():
         performance_result = run_performance_checks(url)
         result["performance"] = performance_result
 
+        # Calculate composite score from all three categories.
+        # ``result`` is the security scan output from analyze_web_security;
+        # the seo/performance keys merged into it are ignored by
+        # calculate_security_score, which reads only security-specific keys.
+        scores = calculate_overall_score(result, seo_result, performance_result)
+        result["scores"] = scores
+
         # Persist scan result to the shared PostgreSQL database so Django can
         # retrieve it for report management and admin.
-        score = result.get("threat_score", 0)
-        report_id = save_scan(url=url, score=score, results=result)
+        report_id = save_scan(url=url, score=scores["overall"], results=result)
         if report_id:
             result["report_id"] = report_id
 
