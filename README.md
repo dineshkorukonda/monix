@@ -91,3 +91,35 @@ POST /api/scan    GET /api/reports/:id
 (scan engine)   (reports + admin)
       ↓               ↓
       └──── PostgreSQL ────┘
+```
+
+## Admin Panel
+
+The Django admin panel is available at `/admin/`. It lets administrators
+inspect, filter, and bulk-manage scan records and reports without building
+a custom dashboard.
+
+### Creating a superuser
+
+Run the following command inside the `core/` directory (where `manage.py`
+lives) to create an admin account:
+
+```bash
+cd core
+python manage.py createsuperuser
+```
+
+You will be prompted for a username, email address, and password. Once
+created, log in at `http://localhost:8000/admin/` with those credentials.
+
+### Admin features
+
+- **Scan list** — columns: URL, score, created at, report ID  
+  - Filter by score range (Safe / Low / Medium / High) and creation date  
+  - Search by URL or report ID  
+  - Bulk action: *Delete scans older than 30 days*
+
+- **Report list** — columns: URL, expired status, expiry timestamp  
+  - Filter by expired status and expiry date  
+  - Search by URL  
+  - Bulk action: *Mark selected reports as expired*
