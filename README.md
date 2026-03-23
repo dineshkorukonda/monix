@@ -1,37 +1,56 @@
 # Monix
 
-Intrusion Monitoring & Defense for Linux Servers
+Web security and performance analysis platform. Scan any public URL and get 
+a comprehensive, shareable report covering security vulnerabilities, SEO 
+health, and performance metrics — no login required.
 
-Monix is an open-source security tool that provides real-time threat monitoring, connection intelligence, and behavior-based attack detection.
+Built for developers who want to audit their web properties before shipping.
 
-## About This Repository
+## What It Does
 
-This repository contains **monix-core** — the security logic and analysis system that powers the Monix ecosystem. It includes CLI tools for server monitoring and a comprehensive web application for URL security analysis.
+Submit any public URL. Monix runs parallel checks across security, SEO, and 
+performance, calculates an overall score, and generates a shareable report 
+link that persists for 30 days.
 
-**Primary Product:** [monix-web](./web) — A modern web application for comprehensive URL security scanning, SSL validation, DNS analysis, and threat detection. Built with Next.js and powered by monix-core.
+## Checks
 
-**CLI Tools:** This repository also includes command-line tools for Linux server monitoring and intrusion detection. These tools leverage the same monix-core logic that powers monix-web. The CLI entry point is `monix-cli`.
+**Security**
+- SSL/TLS certificate chain validation
+- Security headers (HSTS, CSP, X-Frame-Options, referrer policy)
+- DNS intelligence (A, AAAA, MX, NS, TXT records)
+- Port survey (common service exposure)
+- Technology detection (server, CMS, framework fingerprinting)
+- Geo intelligence (IP location, provider mapping)
 
-📖 **Read about Monix Core:** Learn about the architecture, design decisions, and the story behind Monix at [dineshkorukonda.in/blogs/monix](https://dineshkorukonda.in/blogs/monix)
+**SEO**
+- Meta title and description (presence + length scoring)
+- Open Graph tags (og:title, og:description, og:image)
+- robots.txt and sitemap.xml presence
+- Canonical tag and H1 tag validation
 
-For more technical articles and updates, visit: [dineshkorukonda.in/blogs](https://dineshkorukonda.in/blogs)
+**Performance**
+- Google Lighthouse score via PageSpeed Insights API
+- Core Web Vitals (LCP, FID, CLS)
+- Accessibility and best practices scores
 
-## Testing
+## Stack
 
-Monix includes a comprehensive test suite with 103 tests covering all core functionality:
-- Core collectors (system stats, processes)
-- Threat analyzers (SYN floods, port scans, connection analysis)
-- Traffic analyzers (log parsing, suspicious URLs, malicious bots)
-- Web security scanners (SSL, DNS, HTTP headers, port scanning)
-- API server endpoints
+| Layer | Technology |
+|---|---|
+| Scan API | Python + Flask |
+| Data & Admin | Django + Django ORM |
+| Database | PostgreSQL |
+| Frontend | Next.js (static export) |
+| HTML Parsing | BeautifulSoup4 |
+| Performance | Google PageSpeed Insights API |
 
-Run tests with:
-```bash
-pytest tests/
+## Architecture
 ```
-
-See [tests/README.md](./tests/README.md) for detailed test documentation.
-
-## License
-
-MIT License - Developed by [dineshkorukonda.in](https://dineshkorukonda.in)
+Next.js frontend
+      ↓               ↓
+POST /api/scan    GET /api/reports/:id
+      ↓               ↓
+ Flask API        Django API
+(scan engine)   (reports + admin)
+      ↓               ↓
+      └──── PostgreSQL ────┘
