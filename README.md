@@ -1,125 +1,117 @@
 # Monix
 
-Web security and performance analysis platform. Scan any public URL and get 
-a comprehensive, shareable report covering security vulnerabilities, SEO 
-health, and performance metrics — no login required.
+Monix is a web security, SEO, and performance analysis platform. It scans a
+public URL, calculates category scores plus an overall score, and stores a
+shareable report for later retrieval.
 
-Built for developers who want to audit their web properties before shipping.
+## Project Layout
 
-## What It Does
+- `api/` Flask scan API and analysis engine
+- `core/` Django project for reports and admin
+- `web/` Next.js frontend
+- `tests/` centralized backend test suite
+- `GET_STARTED.txt` fastest local setup path
 
-Submit any public URL. Monix runs parallel checks across security, SEO, and 
-performance, calculates an overall score, and generates a shareable report 
-link that persists for 30 days.
+## What Monix Checks
 
-## Checks
+### Security
+- SSL/TLS certificate validity
+- Security header coverage
+- DNS and host intelligence
+- Port exposure checks
+- Technology fingerprinting
+- Geo and IP enrichment
 
-**Security**
-- SSL/TLS certificate chain validation
-- Security headers (HSTS, CSP, X-Frame-Options, referrer policy)
-- DNS intelligence (A, AAAA, MX, NS, TXT records)
-- Port survey (common service exposure)
-- Technology detection (server, CMS, framework fingerprinting)
-- Geo intelligence (IP location, provider mapping)
+### SEO
+- Meta title and description quality
+- Open Graph tags
+- `robots.txt` and `sitemap.xml`
+- Canonical and H1 validation
 
-**SEO**
-- Meta title and description (presence + length scoring)
-- Open Graph tags (og:title, og:description, og:image)
-- robots.txt and sitemap.xml presence
-- Canonical tag and H1 tag validation
+### Performance
+- Google PageSpeed Insights results
+- Core Web Vitals
+- Accessibility and best-practices scores
 
-**Performance**
-- Google Lighthouse score via PageSpeed Insights API
-- Core Web Vitals (LCP, FID, CLS)
-- Accessibility and best practices scores
+## Architecture
 
-## Stack
+```text
+Next.js frontend
+      |
+      v
+Flask API (`api/`)
+      |
+      +--> scan results + scoring
+      |
+      v
+PostgreSQL
+      ^
+      |
+Django reports/admin (`core/`)
+```
 
-| Layer | Technology |
-|---|---|
-| Scan API | Python + Flask |
-| Data & Admin | Django + Django ORM |
-| Database | PostgreSQL |
-| Frontend | Next.js (static export) |
-| HTML Parsing | BeautifulSoup4 |
-| Performance | Google PageSpeed Insights API |
+## Local Setup
 
-## Admin Panel
+Detailed quickstart steps live in `GET_STARTED.txt`.
 
-The Django admin panel (`/admin/`) is protected by authentication. Only
-superusers can access scan data and reports.
+### Backend
 
-### Creating a superuser
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e ".[dev]"
+cp .env.example .env
+python app.py
+```
+
+### Django Admin
 
 ```bash
 cd core
-python manage.py migrate          # apply all migrations (including axes)
-python manage.py createsuperuser  # follow prompts for username / email / password
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
 
-Then visit `http://localhost:8000/admin/` and log in with those credentials.
+The admin panel is available at `http://localhost:8000/admin/`.
 
-### Login rate limiting
+### Frontend
 
-The admin login page is protected by
-[django-axes](https://django-axes.readthedocs.io/). After **5** consecutive
-failed login attempts from the same IP address that IP address is locked out for
-**1 hour**. Both limits are configurable via environment variables:
+```bash
+cd web
+bun install
+bun run dev
+```
+
+## Environment Notes
+
+- `DATABASE_URL` connects Flask and Django to the same PostgreSQL database.
+- `DJANGO_SECRET_KEY` should be set for local and production Django usage.
+- `PAGESPEED_API_KEY` enables live PageSpeed Insights data.
+
+Generate a Django secret key with:
+
+```bash
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+## Admin Security
+
+The Django admin login is rate-limited with
+[django-axes](https://django-axes.readthedocs.io/).
 
 | Variable | Default | Description |
 |---|---|---|
 | `AXES_FAILURE_LIMIT` | `5` | Failed attempts before lockout |
 | `AXES_COOLOFF_TIME` | `1` | Lockout duration in hours |
 
-### Environment variables
+## Testing
 
-Copy `.env.example` to `.env` and fill in the values.  The most important
-variable for production deployments is `DJANGO_SECRET_KEY` — generate a fresh
-one with:
+Run the backend suite with coverage from the repo root:
 
 ```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+./.venv/bin/pytest
 ```
 
-## Architecture
-```
-Next.js frontend
-      ↓               ↓
-POST /api/scan    GET /api/reports/:id
-      ↓               ↓
- Flask API        Django API
-(scan engine)   (reports + admin)
-      ↓               ↓
-      └──── PostgreSQL ────┘
-```
-
-## Admin Panel
-
-The Django admin panel is available at `/admin/`. It lets administrators
-inspect, filter, and bulk-manage scan records and reports without building
-a custom dashboard.
-
-### Creating a superuser
-
-Run the following command inside the `core/` directory (where `manage.py`
-lives) to create an admin account:
-
-```bash
-cd core
-python manage.py createsuperuser
-```
-
-You will be prompted for a username, email address, and password. Once
-created, log in at `http://localhost:8000/admin/` with those credentials.
-
-### Admin features
-
-- **Scan list** — columns: URL, score, created at, report ID  
-  - Filter by score range (Safe / Low / Medium / High) and creation date  
-  - Search by URL or report ID  
-  - Bulk action: *Delete scans older than 30 days*
-
-- **Report list** — columns: URL, expired status, expiry timestamp  
-  - Filter by expired status and expiry date  
-  - Search by URL  
-  - Bulk action: *Mark selected reports as expired*
+CI also builds the frontend with Bun and runs the backend suite on Python 3.11.
