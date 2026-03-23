@@ -35,6 +35,7 @@ from api.monitoring.state import state
 from api.collectors.system import get_system_stats, get_top_processes
 from api.monitoring.engine import start_monitor
 from api.db import save_scan
+from api.seo_checker import run_seo_checks
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js frontend
@@ -197,6 +198,10 @@ def analyze_url_endpoint():
             include_port_scan=include_port_scan,
             include_metadata=include_metadata
         )
+
+        # Run SEO checks and merge results
+        seo_result = run_seo_checks(url)
+        result["seo"] = seo_result
 
         # Persist scan result to the shared PostgreSQL database so Django can
         # retrieve it for report management and admin.
