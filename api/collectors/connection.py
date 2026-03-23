@@ -75,7 +75,7 @@ def collect_connections():
                     try:
                         p = psutil.Process(c.pid)
                         conn["pname"] = p.name()
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    except Exception:
                         pass
                 
                 if conn["remote_ip"] not in ["127.0.0.1", "0.0.0.0", "::1", "::", ""]:
