@@ -36,6 +36,7 @@ from api.collectors.system import get_system_stats, get_top_processes
 from api.monitoring.engine import start_monitor
 from api.db import save_scan
 from api.seo_checker import run_seo_checks
+from api.performance_checker import run_performance_checks
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js frontend
@@ -202,6 +203,10 @@ def analyze_url_endpoint():
         # Run SEO checks and merge results
         seo_result = run_seo_checks(url)
         result["seo"] = seo_result
+
+        # Run PageSpeed / performance checks and merge results
+        performance_result = run_performance_checks(url)
+        result["performance"] = performance_result
 
         # Persist scan result to the shared PostgreSQL database so Django can
         # retrieve it for report management and admin.
