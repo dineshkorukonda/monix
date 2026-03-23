@@ -221,6 +221,7 @@ def analyze_url_endpoint():
         report_id = save_scan(url=url, score=scores["overall"], results=result)
         if report_id:
             result["report_id"] = report_id
+            result["report_url"] = f"/report/{report_id}"
 
         return jsonify(result)
         
