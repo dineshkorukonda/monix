@@ -43,6 +43,8 @@ class TestSaveScanWithDatabase:
         """save_scan returns a valid UUID string when the database write succeeds."""
         session_mock = self._make_session_mock()
         session_factory = MagicMock(return_value=session_mock)
+        added_objects = []
+        session_mock.add.side_effect = added_objects.append
 
         with patch("api.db._SessionLocal", session_factory):
             from api.db import save_scan
@@ -53,6 +55,10 @@ class TestSaveScanWithDatabase:
         # Must be a valid UUID
         parsed = uuid.UUID(result)
         assert str(parsed) == result
+        scan_record, report_record = added_objects
+        ttl = report_record.expires_at - scan_record.created_at
+        assert ttl.days == 30
+        assert report_record.is_expired is False
 
     def test_clamps_score_below_zero(self):
         """Scores below 0 are clamped to 0 before storing."""
