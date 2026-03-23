@@ -1,0 +1,29 @@
+MONIX GET STARTED
+
+1. Create and activate a virtual environment.
+   python3 -m venv .venv
+   source .venv/bin/activate
+
+2. Install backend dependencies.
+   pip install -r requirements.txt
+   pip install -e ".[dev]"
+
+3. Create environment config.
+   cp .env.example .env
+
+4. Run the Flask API from the repo root.
+   python app.py
+
+5. Run Django admin in a second terminal.
+   cd core
+   python manage.py migrate
+   python manage.py createsuperuser
+   python manage.py runserver
+
+6. Run the web app in a third terminal.
+   cd web
+   bun install
+   bun run dev
+
+7. Run tests with coverage from the repo root.
+   ./.venv/bin/pytest
