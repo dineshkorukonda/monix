@@ -19,7 +19,7 @@ import os
 import time
 import psutil
 from typing import Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
 
 def get_system_stats() -> Dict[str, Any]:
@@ -77,7 +77,7 @@ def get_system_stats() -> Dict[str, Any]:
             "uptime": int(uptime),
             "load_avg": [round(load, 2) for load in load_avg],
             "process_count": process_count,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         # Return minimal stats on error
@@ -91,7 +91,7 @@ def get_system_stats() -> Dict[str, Any]:
             "load_avg": [0.0, 0.0, 0.0],
             "process_count": 0,
             "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 
@@ -112,7 +112,7 @@ def get_top_processes(limit: int = 10) -> list:
             try:
                 proc.info['cpu_percent'] = proc.cpu_percent(interval=0.1)
                 processes.append(proc.info)
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            except Exception:
                 pass
         
         # Sort by CPU usage
