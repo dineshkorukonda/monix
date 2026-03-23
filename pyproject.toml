@@ -40,6 +40,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-django>=4.0.0",
     "black>=23.0.0",
     "flake8>=6.0.0",
 ]
@@ -63,3 +64,5 @@ target-version = ['py38', 'py39', 'py310', 'py311']
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+DJANGO_SETTINGS_MODULE = "core.settings"
+pythonpath = ["core"]
