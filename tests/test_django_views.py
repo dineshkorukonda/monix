@@ -22,7 +22,7 @@ _CORE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "core")
 if _CORE_DIR not in sys.path:
     sys.path.insert(0, _CORE_DIR)
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 # ---------------------------------------------------------------------------

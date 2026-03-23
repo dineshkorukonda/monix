@@ -98,7 +98,7 @@ def analyze_url(url: str) -> dict:
                         coordinates = {"latitude": lat, "longitude": lon}
                 except:
                     pass
-            except (socket.gaierror, socket.herror):
+            except (socket.gaierror, socket.herror, OSError):
                 pass
         
         # Calculate threat score

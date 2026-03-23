@@ -34,6 +34,11 @@ dependencies = [
     "flask-cors>=4.0.0",
     "dnspython>=2.4.0",
     "beautifulsoup4>=4.12.0",
+    "django>=4.2",
+    "django-axes>=8.3.1",
+    "python-dotenv>=1.0.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
     "gunicorn",
 ]
 
@@ -41,6 +46,7 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-django>=4.0.0",
+    "pytest-cov>=4.0.0",
     "black>=23.0.0",
     "flake8>=6.0.0",
 ]
@@ -64,5 +70,6 @@ target-version = ['py38', 'py39', 'py310', 'py311']
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-DJANGO_SETTINGS_MODULE = "core.settings"
+DJANGO_SETTINGS_MODULE = "config.settings"
 pythonpath = ["core"]
+addopts = "--cov=api --cov=core/reports --cov-report=term-missing"
