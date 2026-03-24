@@ -1,8 +1,9 @@
 "use client";
 
+import { motion } from "framer-motion";
+import { Suspense } from "react";
 import Navigation from "@/components/Navigation";
 import UrlAnalyzer from "@/components/UrlAnalyzer";
-import { motion } from "framer-motion";
 
 const scanFeatures = [
   {
@@ -56,7 +57,8 @@ export default function MonixWebPage() {
             Web Analyzer
           </h1>
           <p className="text-lg text-white/50 max-w-2xl mx-auto">
-            Detailed URL security workspace. Review TLS, headers, DNS, and server details.
+            Detailed URL security workspace. Review TLS, headers, DNS, and
+            server details.
           </p>
         </motion.div>
 
@@ -67,7 +69,15 @@ export default function MonixWebPage() {
           transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
           className="w-full max-w-[1400px] mx-auto"
         >
-          <UrlAnalyzer />
+          <Suspense
+            fallback={
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 text-white/60">
+                Loading scanner…
+              </div>
+            }
+          >
+            <UrlAnalyzer />
+          </Suspense>
         </motion.div>
 
         {/* What We Scan */}
@@ -81,7 +91,8 @@ export default function MonixWebPage() {
           >
             <h2 className="text-3xl font-bold text-white mb-3">What we scan</h2>
             <p className="text-white/40 max-w-xl">
-              Every scan runs these checks in parallel and combines the result into a single threat score.
+              Every scan runs these checks in parallel and combines the result
+              into a single threat score.
             </p>
           </motion.div>
 
@@ -96,7 +107,9 @@ export default function MonixWebPage() {
                 className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:bg-white/[0.05] transition-colors"
               >
                 <p className="font-semibold text-white mb-2">{f.title}</p>
-                <p className="text-sm text-white/50 leading-relaxed">{f.desc}</p>
+                <p className="text-sm text-white/50 leading-relaxed">
+                  {f.desc}
+                </p>
               </motion.div>
             ))}
           </div>
@@ -112,10 +125,13 @@ export default function MonixWebPage() {
             className="grid md:grid-cols-2 gap-12 items-center"
           >
             <div>
-              <h2 className="text-3xl font-bold text-white mb-4">How scoring works</h2>
+              <h2 className="text-3xl font-bold text-white mb-4">
+                How scoring works
+              </h2>
               <p className="text-white/50 leading-relaxed mb-6">
-                Each scan produces a threat score from 0–100. A higher score means more risk signals detected.
-                The score is computed from the weighted sum of header coverage, TLS health, cookie hygiene,
+                Each scan produces a threat score from 0–100. A higher score
+                means more risk signals detected. The score is computed from the
+                weighted sum of header coverage, TLS health, cookie hygiene,
                 exposed ports, and active findings.
               </p>
               <div className="space-y-3">
@@ -125,7 +141,9 @@ export default function MonixWebPage() {
                   ["70 – 100", "Low risk — mostly secure configuration"],
                 ].map(([range, label]) => (
                   <div key={range} className="flex items-center gap-4">
-                    <span className="text-sm font-semibold text-white w-20 shrink-0">{range}</span>
+                    <span className="text-sm font-semibold text-white w-20 shrink-0">
+                      {range}
+                    </span>
                     <div className="flex-1 h-px bg-white/10" />
                     <span className="text-sm text-white/50">{label}</span>
                   </div>
@@ -151,7 +169,11 @@ export default function MonixWebPage() {
                       initial={{ width: 0 }}
                       whileInView={{ width: `${pct}%` }}
                       viewport={{ once: true }}
-                      transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+                      transition={{
+                        duration: 0.8,
+                        ease: "easeOut",
+                        delay: 0.1,
+                      }}
                       className="h-full bg-white rounded-full"
                     />
                   </div>

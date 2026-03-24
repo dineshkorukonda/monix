@@ -23,7 +23,8 @@ const markers = [
     lng: 8.6821,
     lat: 50.1109,
     severity: "medium",
-    pulse: "shadow-[0_0_15px_rgba(245,158,11,0.8)] border-amber-500 bg-amber-400",
+    pulse:
+      "shadow-[0_0_15px_rgba(245,158,11,0.8)] border-amber-500 bg-amber-400",
   },
   {
     city: "Virginia",
@@ -47,10 +48,17 @@ export default function LiveThreatMap() {
       <CardHeader className="border-b border-white/5 bg-white/[0.02]">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="eyebrow text-cyan-500 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">Global activity</p>
-            <CardTitle className="mt-2 text-white">Live tracking surface</CardTitle>
+            <p className="eyebrow text-cyan-500 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">
+              Global activity
+            </p>
+            <CardTitle className="mt-2 text-white">
+              Live tracking surface
+            </CardTitle>
           </div>
-          <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.15)]">
+          <Badge
+            variant="outline"
+            className="border-cyan-500/30 bg-cyan-500/10 text-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.15)]"
+          >
             MapLibre live view
           </Badge>
         </div>
@@ -89,7 +97,9 @@ export default function LiveThreatMap() {
               className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 hover:border-cyan-500/30 transition-colors group"
             >
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-white group-hover:text-cyan-300 transition-colors">{marker.city}</p>
+                <p className="text-sm font-medium text-white group-hover:text-cyan-300 transition-colors">
+                  {marker.city}
+                </p>
                 <Badge
                   variant="outline"
                   className="border-white/5 bg-white/[0.02] text-[10px] uppercase tracking-[0.2em] group-hover:border-cyan-500/20 group-hover:text-cyan-400 group-hover:bg-cyan-500/10 transition-colors"
@@ -110,7 +120,10 @@ export default function LiveThreatMap() {
             </p>
             <div className="mt-3 space-y-2 relative z-10">
               {feed.map((item) => (
-                <p key={item} className="text-sm leading-6 text-white/70 flex items-start gap-2">
+                <p
+                  key={item}
+                  className="text-sm leading-6 text-white/70 flex items-start gap-2"
+                >
                   <span className="mt-2.5 h-1 w-1 rounded-full bg-cyan-400 shadow-[0_0_5px_rgba(34,211,238,0.8)]" />
                   {item}
                 </p>
