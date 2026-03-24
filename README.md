@@ -10,7 +10,7 @@ shareable report for later retrieval.
 - `core/` Django project for reports and admin
 - `web/` Next.js frontend
 - `tests/` centralized backend test suite
-- `GET_STARTED.txt` fastest local setup path
+- `GET_STARTED.sh` fastest local setup path
 
 ## What Monix Checks
 
@@ -52,7 +52,7 @@ Django reports/admin (`core/`)
 
 ## Local Setup
 
-Detailed quickstart steps live in `GET_STARTED.txt`.
+Detailed quickstart steps live in `GET_STARTED.sh`.
 
 ### Backend
 

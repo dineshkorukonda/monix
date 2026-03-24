@@ -1,21 +1,25 @@
 "use client";
 
+import { motion, type Variants } from "framer-motion";
 import Link from "next/link";
 import Navigation from "@/components/Navigation";
 import WorldMap from "@/components/WorldMap";
-import { motion, type Variants } from "framer-motion";
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.15 }
-  }
+    transition: { staggerChildren: 0.15 },
+  },
 };
 
 const itemVariants: Variants = {
   hidden: { opacity: 0, y: 30 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 300, damping: 24 },
+  },
 };
 
 const features = [
@@ -64,7 +68,8 @@ export default function Home() {
             </h1>
             <p className="text-lg md:text-xl text-white/50 mb-10 max-w-2xl mx-auto leading-relaxed">
               Comprehensive web security analysis platform for public targets.
-              Real-time URL scanning, routing inspection, and threat scoring in one workspace.
+              Real-time URL scanning, routing inspection, and threat scoring in
+              one workspace.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
@@ -98,7 +103,9 @@ export default function Home() {
           <div className="absolute top-0 left-0 right-0 px-6 py-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-              <span className="text-sm font-semibold text-white">Live Global Threat Map</span>
+              <span className="text-sm font-semibold text-white">
+                Live Global Threat Map
+              </span>
             </div>
             <div className="flex items-center gap-6">
               <div className="text-center">
@@ -119,8 +126,17 @@ export default function Home() {
           {/* Overlay: bottom location tags */}
           <div className="absolute bottom-0 left-0 right-0 px-6 py-4 flex items-end justify-between bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
             <div className="flex gap-3 flex-wrap">
-              {["Singapore · APAC", "Frankfurt · EU", "Virginia · US", "Tokyo · JP", "London · UK"].map((loc) => (
-                <span key={loc} className="text-xs font-medium text-white/50 bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+              {[
+                "Singapore · APAC",
+                "Frankfurt · EU",
+                "Virginia · US",
+                "Tokyo · JP",
+                "London · UK",
+              ].map((loc) => (
+                <span
+                  key={loc}
+                  className="text-xs font-medium text-white/50 bg-white/5 border border-white/10 px-3 py-1 rounded-full"
+                >
                   {loc}
                 </span>
               ))}
@@ -152,9 +168,7 @@ export default function Home() {
                 transition={{ delay: i * 0.1, duration: 0.5 }}
                 className="p-8 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors group"
               >
-                <p className="text-lg font-semibold text-white">
-                  {title}
-                </p>
+                <p className="text-lg font-semibold text-white">{title}</p>
                 <p className="mt-2 text-sm text-white/50 leading-relaxed group-hover:text-white/70 transition-colors">
                   {detail}
                 </p>
