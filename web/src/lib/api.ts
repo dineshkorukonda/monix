@@ -6,6 +6,20 @@
  */
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030";
+const REPORTS_API_BASE_URL =
+  process.env.NEXT_PUBLIC_REPORTS_API_URL ||
+  process.env.NEXT_PUBLIC_DJANGO_URL ||
+  "http://localhost:8000";
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
 
 export interface WebSecurityAnalysis {
   status: "success" | "error";
@@ -90,7 +104,11 @@ export interface WebSecurityAnalysis {
     }>;
     final_url?: string;
   };
-  metadata?: Record<string, any>;
+  metadata?: {
+    title?: string;
+    description?: string;
+    [key: string]: unknown;
+  };
   findings?: Array<{
     severity: "info" | "low" | "medium" | "high";
     title: string;
@@ -107,6 +125,54 @@ export interface WebSecurityAnalysis {
     security_txt_present: boolean;
   };
   error?: string;
+}
+
+export interface SeoCheckResult {
+  status: "pass" | "warn" | "fail";
+  detail: string;
+}
+
+export interface SeoResults {
+  checks: Record<string, SeoCheckResult>;
+  seo_score: number;
+  error?: string;
+}
+
+export interface PerformanceStrategyResult {
+  performance_score: number | null;
+  accessibility_score: number | null;
+  best_practices_score: number | null;
+  lcp: string | null;
+  fid: string | null;
+  cls: string | null;
+  error: string | null;
+}
+
+export interface PerformanceResults {
+  mobile?: PerformanceStrategyResult;
+  desktop?: PerformanceStrategyResult;
+}
+
+export interface ScoreBreakdown {
+  overall: number;
+  security: number;
+  seo: number;
+  performance: number;
+}
+
+export interface StoredReportResults extends WebSecurityAnalysis {
+  scores?: ScoreBreakdown;
+  seo?: SeoResults;
+  performance?: PerformanceResults;
+}
+
+export interface ScanReport {
+  report_id: string;
+  url: string;
+  score: number;
+  created_at: string;
+  expires_at: string;
+  results: StoredReportResults;
 }
 
 export interface Connection {
@@ -282,6 +348,31 @@ export async function getAlerts(): Promise<string[]> {
 
   const data = await response.json();
   return data.alerts || [];
+}
+
+/**
+ * Get a persisted shareable report by UUID.
+ */
+export async function getReport(reportId: string): Promise<ScanReport> {
+  const response = await fetch(
+    `${REPORTS_API_BASE_URL}/api/reports/${reportId}/`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new ApiError(
+      errorData.error || `Failed to fetch report: ${response.statusText}`,
+      response.status,
+    );
+  }
+
+  return response.json();
 }
 
 /**
