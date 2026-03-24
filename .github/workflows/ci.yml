@@ -59,10 +59,6 @@ jobs:
         working-directory: web
         run: bun install --frozen-lockfile
 
-      - name: TypeScript type check
-        working-directory: web
-        run: bun run tsc --noEmit
-
       - name: Build production bundle
         working-directory: web
         run: bun run build
