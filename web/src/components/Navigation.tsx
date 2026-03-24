@@ -1,8 +1,8 @@
 "use client";
 
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -29,8 +29,9 @@ export default function Navigation() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`relative rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${isActive ? "text-black" : "text-white/60 hover:text-white"
-                  }`}
+                className={`relative rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+                  isActive ? "text-black" : "text-white/60 hover:text-white"
+                }`}
               >
                 {isActive && (
                   <motion.div
