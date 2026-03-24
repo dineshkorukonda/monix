@@ -1,8 +1,8 @@
 "use client";
 
+import { motion } from "framer-motion";
 import Link from "next/link";
 import Navigation from "@/components/Navigation";
-import { motion } from "framer-motion";
 
 const sections = [
   {
@@ -99,13 +99,13 @@ export default function DocsPage() {
                 Monix Platform Docs
               </h1>
               <p className="mt-6 max-w-2xl text-lg text-white/50 leading-relaxed">
-                Technical guide mapping the web analyzer, core scan engine, response
-                model, and operations.
+                Technical guide mapping the web analyzer, core scan engine,
+                response model, and operations.
               </p>
             </div>
 
             <div className="space-y-24">
-              {sections.map((section, i) => (
+              {sections.map((section) => (
                 <motion.section
                   key={section.id}
                   id={section.id}
