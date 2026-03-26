@@ -67,7 +67,10 @@ setup() {
 
 Setup complete.
 
-Next steps:
+[!] WARNING: The Next.js UI is now natively mapped to your PostgreSQL Django backend.
+For the Dashboard to load and fetch your tracking Targets, Django must be actively running!
+
+Next steps (execute these in three separate terminal tabs):
   ./GET_STARTED.sh api
   ./GET_STARTED.sh django
   ./GET_STARTED.sh web
@@ -84,6 +87,8 @@ run_django() {
   ensure_venv
   cd "$ROOT_DIR/core"
   python manage.py migrate
+  echo "Ensuring Monix backend admin account is uniquely initialized for frontend React context..."
+  echo "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.create_superuser('admin', 'admin@monix.com', 'admin') if not User.objects.exists() else None" | python manage.py shell
   python manage.py runserver
 }
 

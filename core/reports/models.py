@@ -8,11 +8,29 @@ Both are persisted to the shared PostgreSQL database that Flask also writes to.
 
 import uuid
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.contrib.auth.models import User
 from django.db import models
+
+class Target(models.Model):
+    """A Monitored Target belonging to a User."""
+
+    id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="targets")
+    url = models.URLField(max_length=2048, help_text="The core production URL being monitored.")
+    environment = models.CharField(max_length=64, blank=True, default="Production")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.url} (Owner: {self.owner.username})"
 
 
 class Scan(models.Model):
     """Represents one URL security scan result."""
+
+    target = models.ForeignKey(Target, on_delete=models.SET_NULL, null=True, blank=True, related_name="scans")
 
     report_id = models.UUIDField(
         default=uuid.uuid4,
