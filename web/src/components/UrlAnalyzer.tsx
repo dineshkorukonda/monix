@@ -372,6 +372,12 @@ export default function UrlAnalyzer() {
             transition={{ duration: 0.5 }}
             className="space-y-6"
           >
+            <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4 shadow-sm mb-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-[pulse_2s_infinite]" />
+                <span className="text-[15px] font-semibold tracking-tight text-foreground">Active Monix Report Stream</span>
+              </div>
+            </div>
             {/* Top stat strip */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
@@ -719,76 +725,6 @@ export default function UrlAnalyzer() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Map Section: shows target location as soon as URL is typed */}
-      <div
-        className="rounded-2xl border border-white/10 overflow-hidden"
-        style={{ height: "480px" }}
-      >
-        <div className="px-5 py-3.5 border-b border-white/10 bg-white/[0.02] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span
-              className={`h-2 w-2 rounded-full ${geoLoading ? "bg-white/40 animate-pulse" : mapCoords ? "bg-white animate-pulse" : "bg-white/20"}`}
-            />
-            <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">
-              {geoLoading
-                ? "Locating…"
-                : mapCoords
-                  ? "Server Location"
-                  : "Global Network — Enter a URL to locate target"}
-            </p>
-          </div>
-          {mapLabel && <p className="text-sm text-white/60">{mapLabel}</p>}
-        </div>
-
-        <AnimatePresence mode="wait">
-          {mapCoords ? (
-            <motion.div
-              key={`${mapCoords.lat}-${mapCoords.lon}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="w-full h-[calc(100%-52px)]"
-            >
-              <TargetMap
-                center={[mapCoords.lon, mapCoords.lat]}
-                zoom={5}
-                styles={{
-                  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                  light:
-                    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                }}
-              >
-                <MapMarker longitude={mapCoords.lon} latitude={mapCoords.lat}>
-                  <MarkerContent>
-                    <div className="h-5 w-5 rounded-full bg-white shadow-[0_0_0_10px_rgba(255,255,255,0.12)] animate-pulse" />
-                  </MarkerContent>
-                </MapMarker>
-              </TargetMap>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="world"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="w-full h-[calc(100%-52px)]"
-            >
-              <TargetMap
-                center={[15, 26]}
-                zoom={1.5}
-                styles={{
-                  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                  light:
-                    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
     </div>
   );
 }
