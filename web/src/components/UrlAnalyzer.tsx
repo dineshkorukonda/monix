@@ -186,19 +186,8 @@ export default function UrlAnalyzer() {
       setQuickGeo(null);
       return;
     }
-    setGeoLoading(true);
-    try {
-      const res = await fetch(
-        `https://ip-api.com/json/${domain}?fields=status,city,country,lat,lon,org,query`,
-      );
-      const data = await res.json();
-      if (data.status === "success") setQuickGeo(data as QuickGeo);
-      else setQuickGeo(null);
-    } catch {
-      setQuickGeo(null);
-    } finally {
-      setGeoLoading(false);
-    }
+    setQuickGeo(null);
+    setGeoLoading(false);
   }, []);
 
   // Debounce URL input for geo-lookup (600ms)
@@ -701,6 +690,32 @@ export default function UrlAnalyzer() {
                 </div>
               </Card>
             </div>
+
+            {/* Performance (PageSpeed Insights) */}
+            {result.performance && (result.performance.mobile || result.performance.desktop) && (
+              <div className="grid gap-6 lg:grid-cols-2">
+                {(['mobile', 'desktop'] as const).map((strategy) => {
+                  const data = result.performance![strategy];
+                  if (!data) return null;
+                  return (
+                    <Card key={strategy} title={`PageSpeed Insights (${strategy === 'mobile' ? 'Mobile' : 'Desktop'})`}>
+                      {data.error ? (
+                        <p className="text-sm text-white/40 leading-relaxed">{data.error}</p>
+                      ) : (
+                        <>
+                          <InfoRow label="Performance" value={data.performance_score != null ? `${data.performance_score} / 100` : null} />
+                          <InfoRow label="Accessibility" value={data.accessibility_score != null ? `${data.accessibility_score} / 100` : null} />
+                          <InfoRow label="Best Practices" value={data.best_practices_score != null ? `${data.best_practices_score} / 100` : null} />
+                          <InfoRow label="LCP" value={data.lcp} />
+                          <InfoRow label="FID" value={data.fid} />
+                          <InfoRow label="CLS" value={data.cls} />
+                        </>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

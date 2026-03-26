@@ -124,6 +124,9 @@ export interface WebSecurityAnalysis {
     missing_header_count: number;
     security_txt_present: boolean;
   };
+  scores?: ScoreBreakdown;
+  seo?: SeoResults;
+  performance?: PerformanceResults;
   error?: string;
 }
 
@@ -161,9 +164,6 @@ export interface ScoreBreakdown {
 }
 
 export interface StoredReportResults extends WebSecurityAnalysis {
-  scores?: ScoreBreakdown;
-  seo?: SeoResults;
-  performance?: PerformanceResults;
 }
 
 export interface ScanReport {

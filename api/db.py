@@ -27,7 +27,7 @@ from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 # directly (e.g. ``python app.py``).
 dotenv.load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
-_DATABASE_URL: Optional[str] = os.environ.get("DATABASE_URL")
+_DATABASE_URL: Optional[str] = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix")
 
 # ---------------------------------------------------------------------------
 # Engine & session factory — only created when DATABASE_URL is configured
