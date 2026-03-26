@@ -184,7 +184,9 @@ def analyze_url_endpoint():
             "error": "Missing 'url' in request body"
         }), 400
     
-    url = data["url"]
+    url = data["url"].strip()
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
     
     # Check for full scan parameter (query param or request body)
     full_scan = request.args.get("full", "false").lower() == "true"

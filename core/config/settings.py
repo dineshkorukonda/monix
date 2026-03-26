@@ -3,14 +3,20 @@ Django settings for the Monix reports/admin project.
 """
 
 import os
+import urllib.parse
 from pathlib import Path
+from dotenv import load_dotenv
 
-import dotenv
-
+# 1. Define BASE_DIR (This is /core)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from the repo root.
-dotenv.load_dotenv(BASE_DIR.parent / ".env")
+# 2. Load .env from the root folder (/monix/.env)
+# BASE_DIR is /core, so .parent is the root.
+env_path = BASE_DIR.parent / ".env"
+load_dotenv(dotenv_path=env_path, override=True)
+
+print(f"--- DEBUG: Loading env from: {env_path} ---")
+print(f"--- DEBUG: DATABASE_URL is: {os.environ.get('DATABASE_URL')} ---")
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
@@ -75,29 +81,19 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-_database_url = os.environ.get("DATABASE_URL", "")
+_database_url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix")
+_parsed = urllib.parse.urlparse(_database_url)
 
-if _database_url:
-    import urllib.parse
-
-    _parsed = urllib.parse.urlparse(_database_url)
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": _parsed.path.lstrip("/"),
-            "USER": _parsed.username or "",
-            "PASSWORD": _parsed.password or "",
-            "HOST": _parsed.hostname or "localhost",
-            "PORT": str(_parsed.port or 5432),
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": _parsed.path.lstrip("/") or "monix",
+        "USER": _parsed.username or "postgres",
+        "PASSWORD": _parsed.password or "postgres",
+        "HOST": _parsed.hostname or "127.0.0.1",
+        "PORT": str(_parsed.port or 5432),
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
