@@ -61,6 +61,9 @@ class ScanRecord(_Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     report_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True, default=uuid.uuid4)
+    # target_id links this scan to the Django Target that triggered it.
+    # NULL when a scan is run ad-hoc without a saved target.
+    target_id = Column(UUID(as_uuid=True), ForeignKey("reports_target.id", ondelete="SET NULL"), nullable=True, index=True)
     url = Column(String(2048), nullable=False)
     score = Column(Integer, nullable=False)
     results = Column(JSONB, nullable=False)
@@ -92,17 +95,22 @@ class ReportRecord(_Base):
 DEFAULT_REPORT_TTL_DAYS = 30
 
 
-def save_scan(url: str, score: int, results: dict, ttl_days: int = DEFAULT_REPORT_TTL_DAYS) -> Optional[str]:
+def save_scan(
+    url: str,
+    score: int,
+    results: dict,
+    target_id: Optional[str] = None,
+    ttl_days: int = DEFAULT_REPORT_TTL_DAYS,
+) -> Optional[str]:
     """Persist a scan result and its associated report record.
 
-    Writes one :class:`ScanRecord` and one :class:`ReportRecord` to the shared
-    PostgreSQL database inside a single transaction.
-
     Args:
-        url:      The URL that was scanned.
-        score:    Threat score (0–100).
-        results:  Full scan result dict (stored as JSONB).
-        ttl_days: Number of days before the report expires (default 30).
+        url:       The URL that was scanned.
+        score:     Threat score (0–100).
+        results:   Full scan result dict (stored as JSONB).
+        target_id: UUID string of the Django Target this scan belongs to, or
+                   ``None`` for ad-hoc scans not tied to a saved target.
+        ttl_days:  Number of days before the report expires (default 30).
 
     Returns:
         The ``report_id`` UUID string of the newly created scan, or ``None``
@@ -120,6 +128,7 @@ def save_scan(url: str, score: int, results: dict, ttl_days: int = DEFAULT_REPOR
         with _SessionLocal() as session:  # type: Session
             scan = ScanRecord(
                 report_id=report_id,
+                target_id=uuid.UUID(target_id) if target_id else None,
                 url=url,
                 score=max(0, min(100, score)),
                 results=results,

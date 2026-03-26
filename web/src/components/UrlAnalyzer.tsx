@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -149,6 +149,8 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 
 export default function UrlAnalyzer() {
   const searchParams = useSearchParams();
+  const params = useParams();
+  const targetId = params?.id as string | undefined;
   const [url, setUrl] = useState("");
   const [includePortScan, setIncludePortScan] = useState(true);
   const [includeMetadata, setIncludeMetadata] = useState(true);
@@ -167,7 +169,7 @@ export default function UrlAnalyzer() {
     query: string;
   };
   const [quickGeo, setQuickGeo] = useState<QuickGeo | null>(null);
-  const [geoLoading, setGeoLoading] = useState(false);
+  const [_geoLoading, setGeoLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefilledUrl = searchParams.get("url")?.trim() ?? "";
 
@@ -204,7 +206,7 @@ export default function UrlAnalyzer() {
   }, [url, lookupGeo]);
 
   // Prefer scan result coordinates when available
-  const mapCoords = result?.server_location?.coordinates
+  const _mapCoords = result?.server_location?.coordinates
     ? {
         lat: result.server_location.coordinates.latitude,
         lon: result.server_location.coordinates.longitude,
@@ -213,7 +215,7 @@ export default function UrlAnalyzer() {
       ? { lat: quickGeo.lat, lon: quickGeo.lon }
       : null;
 
-  const mapLabel = result?.server_location
+  const _mapLabel = result?.server_location
     ? [
         result.server_location.city,
         result.server_location.region,
@@ -244,6 +246,7 @@ export default function UrlAnalyzer() {
       const analysis = await analyzeUrl(url, {
         includePortScan,
         includeMetadata,
+        targetId,
       });
       setResult(analysis);
       if (analysis.status === "error") {
@@ -375,7 +378,9 @@ export default function UrlAnalyzer() {
             <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4 shadow-sm mb-4">
               <div className="flex items-center gap-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-[pulse_2s_infinite]" />
-                <span className="text-[15px] font-semibold tracking-tight text-foreground">Active Monix Report Stream</span>
+                <span className="text-[15px] font-semibold tracking-tight text-foreground">
+                  Active Monix Report Stream
+                </span>
               </div>
             </div>
             {/* Top stat strip */}
@@ -698,30 +703,57 @@ export default function UrlAnalyzer() {
             </div>
 
             {/* Performance (PageSpeed Insights) */}
-            {result.performance && (result.performance.mobile || result.performance.desktop) && (
-              <div className="grid gap-6 lg:grid-cols-2">
-                {(['mobile', 'desktop'] as const).map((strategy) => {
-                  const data = result.performance![strategy];
-                  if (!data) return null;
-                  return (
-                    <Card key={strategy} title={`PageSpeed Insights (${strategy === 'mobile' ? 'Mobile' : 'Desktop'})`}>
-                      {data.error ? (
-                        <p className="text-sm text-white/40 leading-relaxed">{data.error}</p>
-                      ) : (
-                        <>
-                          <InfoRow label="Performance" value={data.performance_score != null ? `${data.performance_score} / 100` : null} />
-                          <InfoRow label="Accessibility" value={data.accessibility_score != null ? `${data.accessibility_score} / 100` : null} />
-                          <InfoRow label="Best Practices" value={data.best_practices_score != null ? `${data.best_practices_score} / 100` : null} />
-                          <InfoRow label="LCP" value={data.lcp} />
-                          <InfoRow label="FID" value={data.fid} />
-                          <InfoRow label="CLS" value={data.cls} />
-                        </>
-                      )}
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+            {result.performance &&
+              (result.performance.mobile || result.performance.desktop) && (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {(["mobile", "desktop"] as const).map((strategy) => {
+                    const data = result.performance?.[strategy];
+                    if (!data) return null;
+                    return (
+                      <Card
+                        key={strategy}
+                        title={`PageSpeed Insights (${strategy === "mobile" ? "Mobile" : "Desktop"})`}
+                      >
+                        {data.error ? (
+                          <p className="text-sm text-white/40 leading-relaxed">
+                            {data.error}
+                          </p>
+                        ) : (
+                          <>
+                            <InfoRow
+                              label="Performance"
+                              value={
+                                data.performance_score != null
+                                  ? `${data.performance_score} / 100`
+                                  : null
+                              }
+                            />
+                            <InfoRow
+                              label="Accessibility"
+                              value={
+                                data.accessibility_score != null
+                                  ? `${data.accessibility_score} / 100`
+                                  : null
+                              }
+                            />
+                            <InfoRow
+                              label="Best Practices"
+                              value={
+                                data.best_practices_score != null
+                                  ? `${data.best_practices_score} / 100`
+                                  : null
+                              }
+                            />
+                            <InfoRow label="LCP" value={data.lcp} />
+                            <InfoRow label="FID" value={data.fid} />
+                            <InfoRow label="CLS" value={data.cls} />
+                          </>
+                        )}
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
           </motion.div>
         )}
       </AnimatePresence>

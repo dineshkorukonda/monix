@@ -220,7 +220,9 @@ def analyze_url_endpoint():
 
         # Persist scan result to the shared PostgreSQL database so Django can
         # retrieve it for report management and admin.
-        report_id = save_scan(url=url, score=scores["overall"], results=result)
+        # target_id (optional) links this scan to the Django Target that owns it.
+        target_id = data.get("target_id")
+        report_id = save_scan(url=url, score=scores["overall"], results=result, target_id=target_id)
         if report_id:
             result["report_id"] = report_id
             result["report_url"] = f"/report/{report_id}"

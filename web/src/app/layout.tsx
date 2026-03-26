@@ -31,9 +31,7 @@ export default function RootLayout({
       <body
         className={`${poppins.variable} bg-background text-foreground antialiased`}
       >
-        <TooltipProvider>
-          {children}
-        </TooltipProvider>
+        <TooltipProvider>{children}</TooltipProvider>
         <SpeedInsights />
         <Analytics />
       </body>
