@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Globe, LayoutDashboard, Settings, User } from "lucide-react";
+import { Activity, LayoutDashboard, Settings, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -48,7 +48,10 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <SidebarHeader className="h-[60px] flex justify-center px-6 border-b border-sidebar-border">
-        <Link href="/dashboard" className="font-bold text-xl tracking-tight text-sidebar-foreground hover:opacity-80 transition-opacity flex items-center gap-2.5">
+        <Link
+          href="/dashboard"
+          className="font-bold text-xl tracking-tight text-sidebar-foreground hover:opacity-80 transition-opacity flex items-center gap-2.5"
+        >
           <div className="flex items-center justify-center p-1 bg-foreground rounded shadow-sm">
             <div className="h-3 w-3 rounded-sm bg-background" />
           </div>
@@ -64,18 +67,19 @@ export function AppSidebar() {
             <SidebarMenu className="px-3 gap-1">
               {data.navMain.map((item) => {
                 // A soft exact match heuristic for sidebar links to highlight properly.
-                const isActive = item.url === "/dashboard" 
-                  ? pathname === "/dashboard" 
-                  : pathname?.startsWith(item.url);
+                const isActive =
+                  item.url === "/dashboard"
+                    ? pathname === "/dashboard"
+                    : pathname?.startsWith(item.url);
 
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive}>
-                      <Link 
-                        href={item.url} 
+                      <Link
+                        href={item.url}
                         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-medium border border-transparent ${
-                          isActive 
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground border-border shadow-sm pointer-events-none" 
+                          isActive
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground border-border shadow-sm pointer-events-none"
                             : "text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent"
                         }`}
                       >

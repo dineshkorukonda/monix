@@ -6,10 +6,11 @@
  */
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030";
-const REPORTS_API_BASE_URL =
-  process.env.NEXT_PUBLIC_REPORTS_API_URL ||
-  process.env.NEXT_PUBLIC_DJANGO_URL ||
-  "http://localhost:8000";
+// Django exposes CORS headers (django-cors-headers) allowing direct browser calls.
+// Do NOT proxy through Next.js /api/* — that creates a redirect loop with Django's APPEND_SLASH.
+const DJANGO_BASE =
+	process.env.NEXT_PUBLIC_DJANGO_URL || "http://localhost:8000";
+const REPORTS_API_BASE_URL = DJANGO_BASE;
 
 export class ApiError extends Error {
   status: number;
@@ -163,8 +164,7 @@ export interface ScoreBreakdown {
   performance: number;
 }
 
-export interface StoredReportResults extends WebSecurityAnalysis {
-}
+export interface StoredReportResults extends WebSecurityAnalysis {}
 
 export interface ScanReport {
   report_id: string;
@@ -228,9 +228,14 @@ export async function analyzeUrl(
   options?: {
     includePortScan?: boolean;
     includeMetadata?: boolean;
+    targetId?: string;
   },
 ): Promise<WebSecurityAnalysis> {
-  const { includePortScan = true, includeMetadata = false } = options || {};
+  const {
+    includePortScan = true,
+    includeMetadata = false,
+    targetId,
+  } = options || {};
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/analyze-url`, {
@@ -242,6 +247,7 @@ export async function analyzeUrl(
         url,
         include_port_scan: includePortScan,
         include_metadata: includeMetadata,
+        target_id: targetId,
       }),
       signal: AbortSignal.timeout(60000), // 60 second timeout for analysis
     });
@@ -418,3 +424,157 @@ export async function checkHealth(): Promise<{
 export function getApiUrl(): string {
   return API_BASE_URL;
 }
+
+// ---------------------------------------------------------------------------
+// Django typed helpers — use relative paths so Next.js rewrites route to :8000
+// ---------------------------------------------------------------------------
+
+export interface Target {
+  id: string;
+  name: string;
+  url: string;
+  environment: string;
+  ip?: string;
+  location?: string;
+  activity?: string;
+  status?: string;
+  lastScan?: string;
+  score?: number;
+  created_at?: string;
+  scan_count?: number;
+}
+
+export interface UserProfile {
+  username: string;
+  name: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  initials: string;
+}
+
+export interface ScanSummary {
+  id: string;
+  report_id: string;
+  url: string;
+  score: number;
+  created_at: string;
+  target_id: string | null;
+  target_name: string;
+}
+
+/** Fetch all targets for the current user. */
+export async function getTargets(): Promise<Target[]> {
+  const res = await fetch(`${DJANGO_BASE}/api/targets/`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch targets");
+  return res.json();
+}
+
+/** Create a new monitored target. */
+export async function createTarget(
+  url: string,
+  environment = "Production",
+): Promise<Target> {
+  const res = await fetch(`${DJANGO_BASE}/api/targets/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ url, environment }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to create target");
+  }
+  return res.json();
+}
+
+/** Fetch a single target by UUID. */
+export async function getTarget(id: string): Promise<Target> {
+  const res = await fetch(`${DJANGO_BASE}/api/targets/${id}/`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Target not found");
+  return res.json();
+}
+
+/** Delete a monitored target. */
+export async function deleteTarget(id: string): Promise<void> {
+  const res = await fetch(`${DJANGO_BASE}/api/targets/${id}/`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to delete target");
+}
+
+/** Fetch all scans belonging to the current user's targets. */
+export async function getScans(): Promise<ScanSummary[]> {
+  const res = await fetch(`${DJANGO_BASE}/api/scans/`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch scans");
+  return res.json();
+}
+
+/** Get the current user's profile. */
+export async function getMe(): Promise<UserProfile> {
+  const res = await fetch(`${DJANGO_BASE}/api/auth/me/`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Not authenticated");
+  return res.json();
+}
+
+/** Update first and/or last name. */
+export async function updateProfile(data: {
+  first_name?: string;
+  last_name?: string;
+}): Promise<{ ok: boolean; name: string; initials: string }> {
+  const res = await fetch(`${DJANGO_BASE}/api/auth/profile/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to update profile");
+  }
+  return res.json();
+}
+
+/** Change the authenticated user's password. */
+export async function changePassword(
+  old_password: string,
+  new_password: string,
+): Promise<void> {
+  const res = await fetch(`${DJANGO_BASE}/api/auth/password/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ old_password, new_password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to change password");
+  }
+}
+
+/** End the current session. */
+export async function logout(): Promise<void> {
+  await fetch(`${DJANGO_BASE}/api/auth/logout/`, {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+/** Permanently delete the user account and all data. */
+export async function deleteAccount(): Promise<void> {
+  const res = await fetch(`${DJANGO_BASE}/api/auth/account/`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to delete account");
+}
+

@@ -2,8 +2,8 @@
 
 import { motion, type Variants } from "framer-motion";
 import Link from "next/link";
-import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import Navigation from "@/components/Navigation";
 import WorldMap from "@/components/WorldMap";
 
 const containerVariants: Variants = {
