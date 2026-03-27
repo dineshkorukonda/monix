@@ -36,10 +36,10 @@ function ScoreRing({ score }: { score: number }) {
   const level = score >= 70 ? "low" : score >= 40 ? "medium" : "high";
   const color =
     level === "low"
-      ? "text-white"
+      ? "text-emerald-400"
       : level === "medium"
-        ? "text-white/70"
-        : "text-white/50";
+        ? "text-amber-400"
+        : "text-rose-400";
   const label =
     level === "low"
       ? "Low Risk"
@@ -48,7 +48,7 @@ function ScoreRing({ score }: { score: number }) {
         : "High Risk";
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 border border-white/10 rounded-2xl bg-white/[0.02] gap-4">
+    <div className="flex flex-col items-center justify-center p-8 border border-border rounded-2xl bg-card gap-4 shadow-sm">
       <div className="relative flex items-center justify-center w-28 h-28">
         <svg
           viewBox="0 0 100 100"
@@ -60,7 +60,7 @@ function ScoreRing({ score }: { score: number }) {
             cy="50"
             r="40"
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="rgba(255,255,255,0.04)"
             strokeWidth="8"
           />
           <circle
@@ -68,26 +68,26 @@ function ScoreRing({ score }: { score: number }) {
             cy="50"
             r="40"
             fill="none"
-            stroke="white"
+            stroke="currentColor"
             strokeWidth="8"
             strokeDasharray={`${2 * Math.PI * 40}`}
             strokeDashoffset={`${2 * Math.PI * 40 * (1 - score / 100)}`}
             strokeLinecap="round"
-            className="transition-all duration-700"
+            className={`transition-all duration-700 ${color}`}
           />
         </svg>
         <div className="text-center">
-          <div className="text-3xl font-bold text-white">{score}</div>
-          <div className="text-[10px] text-white/40 uppercase tracking-widest">
+          <div className="text-3xl font-bold text-foreground">{score}</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-widest">
             / 100
           </div>
         </div>
       </div>
       <div>
-        <div className={`text-sm font-semibold text-center ${color}`}>
+        <div className={`text-sm font-bold text-center ${color}`}>
           {label}
         </div>
-        <div className="text-xs text-white/40 text-center mt-1">
+        <div className="text-xs text-muted-foreground text-center mt-1">
           Threat Score
         </div>
       </div>
@@ -97,14 +97,14 @@ function ScoreRing({ score }: { score: number }) {
 
 function HeaderBar({ name, present }: { name: string; present: boolean }) {
   return (
-    <div className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
-      <span className="text-sm text-white/70">{name}</span>
+    <div className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0">
+      <span className="text-sm text-foreground/70">{name}</span>
       <div className="flex items-center gap-2">
         <div
-          className={`h-2 w-2 rounded-full ${present ? "bg-white" : "bg-white/15"}`}
+          className={`h-2 w-2 rounded-full ${present ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-muted-foreground/20"}`}
         />
         <span
-          className={`text-xs font-medium ${present ? "text-white" : "text-white/30"}`}
+          className={`text-xs font-semibold ${present ? "text-foreground" : "text-muted-foreground/40"}`}
         >
           {present ? "Present" : "Missing"}
         </span>
@@ -124,10 +124,10 @@ function Card({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden ${className}`}
+      className={`rounded-2xl border border-border bg-card overflow-hidden shadow-sm ${className}`}
     >
-      <div className="px-5 py-3.5 border-b border-white/5">
-        <p className="text-xs font-semibold text-white/40 uppercase tracking-widest">
+      <div className="px-5 py-3.5 border-b border-border/50 bg-muted/20">
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
           {title}
         </p>
       </div>
@@ -138,9 +138,9 @@ function Card({
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-white/5 last:border-0">
-      <span className="text-sm text-white/40 shrink-0">{label}</span>
-      <span className="text-sm text-white text-right break-all">
+    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border/50 last:border-0">
+      <span className="text-sm text-muted-foreground shrink-0">{label}</span>
+      <span className="text-sm text-foreground font-medium text-right break-all">
         {value || "—"}
       </span>
     </div>

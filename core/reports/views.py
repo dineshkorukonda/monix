@@ -13,22 +13,9 @@ from .models import Report, Scan, Target
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _auto_login(request) -> bool:
-    """Auto-login the first user for local development if no session exists."""
-    first_user = User.objects.first()
-    if first_user:
-        # Explicitly specify the backend to avoid ValueError when multiple
-        # AUTHENTICATION_BACKENDS are configured (Django requires this).
-        login(request, first_user, backend="django.contrib.auth.backends.ModelBackend")
-        return True
-    return False
-
-
 def _ensure_auth(request) -> bool:
-    """Return True if the request is authenticated (auto-login for local dev)."""
-    if request.user.is_authenticated:
-        return True
-    return _auto_login(request)
+    """Return True if the request is authenticated."""
+    return request.user.is_authenticated
 
 
 def _user_initials(user: User) -> str:

@@ -118,7 +118,16 @@ def save_scan(
     """
     if _SessionLocal is None:
         # DATABASE_URL not configured — skip persistence silently.
+        print("--- DEBUG: save_scan failed - _SessionLocal is None")
         return None
+
+    # Handle empty string target_id from frontend
+    t_id = None
+    if target_id and target_id.strip():
+        try:
+            t_id = uuid.UUID(target_id.strip())
+        except (ValueError, TypeError):
+            print(f"--- DEBUG: save_scan - Invalid target_id: {target_id}")
 
     report_id = uuid.uuid4()
     now = datetime.now(timezone.utc)
@@ -128,7 +137,7 @@ def save_scan(
         with _SessionLocal() as session:  # type: Session
             scan = ScanRecord(
                 report_id=report_id,
-                target_id=uuid.UUID(target_id) if target_id else None,
+                target_id=t_id,
                 url=url,
                 score=max(0, min(100, score)),
                 results=results,
@@ -144,6 +153,10 @@ def save_scan(
             )
             session.add(report)
             session.commit()
+            print(f"--- DEBUG: save_scan success - report_id: {report_id}")
             return str(report_id)
-    except Exception:  # pragma: no cover — DB errors must not break the scan API
+    except Exception as e:  # pragma: no cover — DB errors must not break the scan API
+        print(f"--- DEBUG: save_scan exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
