@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Navigation from "@/components/Navigation";
 import UrlAnalyzer from "@/components/UrlAnalyzer";
 import Footer from "@/components/Footer";
@@ -20,7 +21,14 @@ export default function PublicScannerPage() {
           </p>
         </div>
         
-        <UrlAnalyzer />
+        <Suspense fallback={
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-12 flex flex-col items-center justify-center text-center">
+            <div className="h-8 w-8 rounded-full border-2 border-white/20 border-t-white animate-spin mb-4" />
+            <p className="text-white/40 text-sm">Initializing analysis engine...</p>
+          </div>
+        }>
+          <UrlAnalyzer />
+        </Suspense>
       </main>
       
       <Footer />
