@@ -48,7 +48,8 @@ def delete_old_scans(modeladmin, request, queryset):
             "%d scan older than 30 days was deleted.",
             "%d scans older than 30 days were deleted.",
             count,
-        ) % count,
+        )
+        % count,
     )
 
 
@@ -74,7 +75,8 @@ def mark_reports_as_expired(modeladmin, request, queryset):
             "%d report was marked as expired.",
             "%d reports were marked as expired.",
             count,
-        ) % count,
+        )
+        % count,
     )
 
 

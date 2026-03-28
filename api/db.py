@@ -18,16 +18,18 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import dotenv
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
 # Load .env from repo root so DATABASE_URL is available when running Flask
 # directly (e.g. ``python app.py``).
 dotenv.load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
-_DATABASE_URL: Optional[str] = os.environ.get("DATABASE_URL")
+_DATABASE_URL: Optional[str] = os.environ.get(
+    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix"
+)
 
 # ---------------------------------------------------------------------------
 # Engine & session factory — only created when DATABASE_URL is configured
@@ -60,11 +62,23 @@ class ScanRecord(_Base):
     __tablename__ = "reports_scan"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    report_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True, default=uuid.uuid4)
+    report_id = Column(
+        UUID(as_uuid=True), nullable=False, unique=True, index=True, default=uuid.uuid4
+    )
+    # target_id links this scan to the Django Target that triggered it.
+    # NULL when a scan is run ad-hoc without a saved target.
+    target_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("reports_target.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     url = Column(String(2048), nullable=False)
     score = Column(Integer, nullable=False)
     results = Column(JSONB, nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
 
     report = relationship("ReportRecord", back_populates="scan", uselist=False)
 
@@ -92,17 +106,22 @@ class ReportRecord(_Base):
 DEFAULT_REPORT_TTL_DAYS = 30
 
 
-def save_scan(url: str, score: int, results: dict, ttl_days: int = DEFAULT_REPORT_TTL_DAYS) -> Optional[str]:
+def save_scan(
+    url: str,
+    score: int,
+    results: dict,
+    target_id: Optional[str] = None,
+    ttl_days: int = DEFAULT_REPORT_TTL_DAYS,
+) -> Optional[str]:
     """Persist a scan result and its associated report record.
 
-    Writes one :class:`ScanRecord` and one :class:`ReportRecord` to the shared
-    PostgreSQL database inside a single transaction.
-
     Args:
-        url:      The URL that was scanned.
-        score:    Threat score (0–100).
-        results:  Full scan result dict (stored as JSONB).
-        ttl_days: Number of days before the report expires (default 30).
+        url:       The URL that was scanned.
+        score:     Threat score (0–100).
+        results:   Full scan result dict (stored as JSONB).
+        target_id: UUID string of the Django Target this scan belongs to, or
+                   ``None`` for ad-hoc scans not tied to a saved target.
+        ttl_days:  Number of days before the report expires (default 30).
 
     Returns:
         The ``report_id`` UUID string of the newly created scan, or ``None``
@@ -110,7 +129,16 @@ def save_scan(url: str, score: int, results: dict, ttl_days: int = DEFAULT_REPOR
     """
     if _SessionLocal is None:
         # DATABASE_URL not configured — skip persistence silently.
+        print("--- DEBUG: save_scan failed - _SessionLocal is None")
         return None
+
+    # Handle empty string target_id from frontend
+    t_id = None
+    if target_id and target_id.strip():
+        try:
+            t_id = uuid.UUID(target_id.strip())
+        except (ValueError, TypeError):
+            print(f"--- DEBUG: save_scan - Invalid target_id: {target_id}")
 
     report_id = uuid.uuid4()
     now = datetime.now(timezone.utc)
@@ -120,6 +148,7 @@ def save_scan(url: str, score: int, results: dict, ttl_days: int = DEFAULT_REPOR
         with _SessionLocal() as session:  # type: Session
             scan = ScanRecord(
                 report_id=report_id,
+                target_id=t_id,
                 url=url,
                 score=max(0, min(100, score)),
                 results=results,
@@ -135,6 +164,11 @@ def save_scan(url: str, score: int, results: dict, ttl_days: int = DEFAULT_REPOR
             )
             session.add(report)
             session.commit()
+            print(f"--- DEBUG: save_scan success - report_id: {report_id}")
             return str(report_id)
-    except Exception:  # pragma: no cover — DB errors must not break the scan API
+    except Exception as e:  # pragma: no cover — DB errors must not break the scan API
+        print(f"--- DEBUG: save_scan exception: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
         return None

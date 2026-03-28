@@ -55,9 +55,7 @@ class ReportModelTest(TestCase):
         older_report = _make_report(older_scan)
         newer_report = _make_report(newer_scan)
 
-        Scan.objects.filter(pk=older_scan.pk).update(
-            created_at=timezone.now() - timedelta(days=1)
-        )
+        Scan.objects.filter(pk=older_scan.pk).update(created_at=timezone.now() - timedelta(days=1))
 
         ordered_ids = list(Report.objects.values_list("id", flat=True))
         assert ordered_ids == [newer_report.id, older_report.id]

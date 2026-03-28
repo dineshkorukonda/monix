@@ -1,7 +1,6 @@
 """Tests for api.seo_checker module."""
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from bs4 import BeautifulSoup
 
 from api.seo_checker import (
@@ -64,30 +63,22 @@ class TestCheckMetaDescription:
         assert "missing" in result["detail"].lower()
 
     def test_empty_content_fails(self):
-        result = check_meta_description(
-            _soup('<meta name="description" content="   ">')
-        )
+        result = check_meta_description(_soup('<meta name="description" content="   ">'))
         assert result["status"] == "fail"
 
     def test_ideal_length_passes(self):
         content = "B" * 155  # within 150-160
-        result = check_meta_description(
-            _soup(f'<meta name="description" content="{content}">')
-        )
+        result = check_meta_description(_soup(f'<meta name="description" content="{content}">'))
         assert result["status"] == "pass"
 
     def test_too_short_warns(self):
-        result = check_meta_description(
-            _soup('<meta name="description" content="Too short">')
-        )
+        result = check_meta_description(_soup('<meta name="description" content="Too short">'))
         assert result["status"] == "warn"
         assert "short" in result["detail"].lower()
 
     def test_too_long_warns(self):
         content = "C" * 200
-        result = check_meta_description(
-            _soup(f'<meta name="description" content="{content}">')
-        )
+        result = check_meta_description(_soup(f'<meta name="description" content="{content}">'))
         assert result["status"] == "warn"
         assert "long" in result["detail"].lower()
 
@@ -199,21 +190,48 @@ class TestCheckH1Tag:
 # ---------------------------------------------------------------------------
 class TestCalculateSeoScore:
     def test_all_pass_gives_100(self):
-        checks = {name: {"status": "pass"} for name in
-                  ["meta_title", "meta_description", "og_tags",
-                   "robots_txt", "sitemap_xml", "canonical_tag", "h1_tag"]}
+        checks = {
+            name: {"status": "pass"}
+            for name in [
+                "meta_title",
+                "meta_description",
+                "og_tags",
+                "robots_txt",
+                "sitemap_xml",
+                "canonical_tag",
+                "h1_tag",
+            ]
+        }
         assert calculate_seo_score(checks) == 100
 
     def test_all_fail_gives_0(self):
-        checks = {name: {"status": "fail"} for name in
-                  ["meta_title", "meta_description", "og_tags",
-                   "robots_txt", "sitemap_xml", "canonical_tag", "h1_tag"]}
+        checks = {
+            name: {"status": "fail"}
+            for name in [
+                "meta_title",
+                "meta_description",
+                "og_tags",
+                "robots_txt",
+                "sitemap_xml",
+                "canonical_tag",
+                "h1_tag",
+            ]
+        }
         assert calculate_seo_score(checks) == 0
 
     def test_all_warn_gives_50(self):
-        checks = {name: {"status": "warn"} for name in
-                  ["meta_title", "meta_description", "og_tags",
-                   "robots_txt", "sitemap_xml", "canonical_tag", "h1_tag"]}
+        checks = {
+            name: {"status": "warn"}
+            for name in [
+                "meta_title",
+                "meta_description",
+                "og_tags",
+                "robots_txt",
+                "sitemap_xml",
+                "canonical_tag",
+                "h1_tag",
+            ]
+        }
         assert calculate_seo_score(checks) == 50
 
     def test_partial_score(self):
@@ -260,8 +278,15 @@ class TestRunSeoChecks:
         assert isinstance(result["seo_score"], int)
         assert 0 <= result["seo_score"] <= 100
         # All checks should be present
-        for key in ["meta_title", "meta_description", "og_tags",
-                    "robots_txt", "sitemap_xml", "canonical_tag", "h1_tag"]:
+        for key in [
+            "meta_title",
+            "meta_description",
+            "og_tags",
+            "robots_txt",
+            "sitemap_xml",
+            "canonical_tag",
+            "h1_tag",
+        ]:
             assert key in result["checks"]
         # All checks should have status and detail
         for check in result["checks"].values():

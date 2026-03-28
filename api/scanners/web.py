@@ -13,7 +13,7 @@ Technical Rationale:
     Web security analysis requires multiple layers of checks to assess
     the security posture of a website. This module consolidates various
     security checks while maintaining separation from UI concerns.
-    
+
 Performance Optimization:
     Uses ThreadPoolExecutor for parallel execution of independent checks,
     significantly reducing total analysis time from 60+ seconds to ~5-10 seconds.
@@ -24,19 +24,22 @@ import ssl
 import requests
 from urllib.parse import urlparse
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 
-from api.analyzers.traffic import (
-    is_suspicious_url,
-    classify_threat_level
-)
+from api.analyzers.traffic import is_suspicious_url, classify_threat_level
 
 # Global configuration for scanner requests
 DEFAULT_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
+        "image/webp,image/apng,*/*;q=0.8"
+    ),
     "Accept-Language": "en-US,en;q=0.9",
 }
 
@@ -44,6 +47,7 @@ DEFAULT_HEADERS = {
 try:
     import dns.resolver
     import dns.exception
+
     DNS_AVAILABLE = True
 except ImportError:
     DNS_AVAILABLE = False
@@ -52,10 +56,10 @@ except ImportError:
 def check_ssl_certificate(url: str) -> Dict:
     """
     Check SSL/TLS certificate information for a URL.
-    
+
     Args:
         url: URL to check (must be HTTPS)
-        
+
     Returns:
         Dictionary with certificate details
     """
@@ -68,32 +72,32 @@ def check_ssl_certificate(url: str) -> Dict:
         "serial_number": "",
         "fingerprint": "",
         "extended_key_usage": [],
-        "error": None
+        "error": None,
     }
-    
+
     try:
         parsed = urlparse(url)
         if parsed.scheme != "https":
             result["error"] = "URL must use HTTPS"
             return result
-        
+
         hostname = parsed.netloc.split(":")[0]
         port = parsed.port or 443
-        
+
         # Create SSL context with minimum TLS 1.2 for security
         context = ssl.create_default_context()
         context.minimum_version = ssl.TLSVersion.TLSv1_2
-        
+
         with socket.create_connection((hostname, port), timeout=3) as sock:
             with context.wrap_socket(sock, server_hostname=hostname) as ssock:
                 cert = ssock.getpeercert()
-                
+
                 # Parse certificate
                 result["valid"] = True
                 # Subject and issuer format: [((key, value),), ...]
                 subject_list = cert.get("subject", [])
                 issuer_list = cert.get("issuer", [])
-                
+
                 # Convert to dict format - handle nested tuple structure
                 def parse_name(name_list):
                     if not name_list:
@@ -105,31 +109,35 @@ def check_ssl_certificate(url: str) -> Dict:
                                 key, value = item[0]
                                 result_dict[key] = value
                     return result_dict
-                
+
                 result["subject"] = parse_name(subject_list)
                 result["issuer"] = parse_name(issuer_list)
-                
+
                 # Dates
                 not_after = cert.get("notAfter", "")
                 not_before = cert.get("notBefore", "")
-                
+
                 if not_after:
-                    result["expires"] = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").isoformat()
+                    result["expires"] = datetime.strptime(
+                        not_after, "%b %d %H:%M:%S %Y %Z"
+                    ).isoformat()
                 if not_before:
-                    result["renewed"] = datetime.strptime(not_before, "%b %d %H:%M:%S %Y %Z").isoformat()
-                
+                    result["renewed"] = datetime.strptime(
+                        not_before, "%b %d %H:%M:%S %Y %Z"
+                    ).isoformat()
+
                 # Serial number
                 result["serial_number"] = cert.get("serialNumber", "")
-                
+
                 # Extended key usage
                 try:
                     ext_key_usage = cert.get("extensions", [])
                     for ext in ext_key_usage:
                         if ext[0] == "extendedKeyUsage":
                             result["extended_key_usage"] = ext[1]
-                except:
+                except Exception:
                     pass
-                
+
     except socket.timeout:
         result["error"] = "Connection timeout"
     except socket.gaierror:
@@ -138,90 +146,82 @@ def check_ssl_certificate(url: str) -> Dict:
         result["error"] = f"SSL error: {str(e)}"
     except Exception as e:
         result["error"] = f"Error: {str(e)}"
-    
+
     return result
 
 
 def check_dns_records(domain: str) -> Dict:
     """
     Check DNS records for a domain.
-    
+
     Args:
         domain: Domain name to check
-        
+
     Returns:
         Dictionary with DNS record information
     """
-    result = {
-        "a": [],
-        "aaaa": [],
-        "cname": [],
-        "mx": [],
-        "ns": [],
-        "txt": [],
-        "error": None
-    }
-    
+    result = {"a": [], "aaaa": [], "cname": [], "mx": [], "ns": [], "txt": [], "error": None}
+
     if not DNS_AVAILABLE:
         result["error"] = "dnspython not installed. Install with: pip install dnspython"
         return result
-    
+
     try:
         # A records
         try:
             answers = dns.resolver.resolve(domain, "A")
             result["a"] = [str(rdata) for rdata in answers]
-        except:
+        except Exception:
             pass
-        
+
         # AAAA records
         try:
             answers = dns.resolver.resolve(domain, "AAAA")
             result["aaaa"] = [str(rdata) for rdata in answers]
-        except:
+        except Exception:
             pass
-        
+
         # CNAME records
         try:
             answers = dns.resolver.resolve(domain, "CNAME")
             result["cname"] = [str(rdata) for rdata in answers]
-        except:
+        except Exception:
             pass
-        
+
         # MX records
         try:
             answers = dns.resolver.resolve(domain, "MX")
             result["mx"] = [str(rdata) for rdata in answers]
-        except:
+        except Exception:
             pass
-        
+
         # NS records
         try:
             answers = dns.resolver.resolve(domain, "NS")
             result["ns"] = [str(rdata) for rdata in answers]
-        except:
+        except Exception:
             pass
-        
+
         # TXT records
         try:
             answers = dns.resolver.resolve(domain, "TXT")
             result["txt"] = [str(rdata).strip('"') for rdata in answers]
-        except:
+        except Exception:
             pass
-            
+
     except Exception as e:
         result["error"] = str(e)
-    
+
     return result
 
 
 def check_http_headers(url: str) -> Dict:
     """
     Check HTTP security headers.
-    
+
     Args:
         url: URL to check
-        
+
     Returns:
         Dictionary with header information
     """
@@ -233,19 +233,23 @@ def check_http_headers(url: str) -> Dict:
         "content_type": "",
         "content_length": None,
         "response_time_ms": None,
-        "error": None
+        "error": None,
     }
-    
+
     try:
-        response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True, verify=True)
+        response = requests.get(
+            url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True, verify=True
+        )
         result["headers"] = dict(response.headers)
         result["status_code"] = response.status_code
         result["final_url"] = response.url
         result["content_type"] = response.headers.get("content-type", "")
         content_length = response.headers.get("content-length")
-        result["content_length"] = int(content_length) if content_length and content_length.isdigit() else None
+        result["content_length"] = (
+            int(content_length) if content_length and content_length.isdigit() else None
+        )
         result["response_time_ms"] = int(response.elapsed.total_seconds() * 1000)
-        
+
         # Check for security headers
         security_headers = [
             "strict-transport-security",
@@ -254,18 +258,21 @@ def check_http_headers(url: str) -> Dict:
             "x-xss-protection",
             "content-security-policy",
             "referrer-policy",
-            "permissions-policy"
+            "permissions-policy",
         ]
-        
+
         for header in security_headers:
-            if header in response.headers:
-                result["security_headers"][header] = response.headers[header]
-            else:
+            try:
+                if header in response.headers:
+                    result["security_headers"][header] = response.headers[header]
+                else:
+                    result["security_headers"][header] = None
+            except Exception:
                 result["security_headers"][header] = None
-                
+
     except requests.exceptions.RequestException as e:
         result["error"] = str(e)
-    
+
     return result
 
 
@@ -291,92 +298,128 @@ def build_findings_and_recommendations(results: Dict) -> Tuple[List[Dict], List[
     insecure_cookies = [
         cookie
         for cookie in cookies
-        if not cookie.get("secure")
-        or not cookie.get("httponly")
-        or not cookie.get("samesite")
+        if not cookie.get("secure") or not cookie.get("httponly") or not cookie.get("samesite")
     ]
 
     if results.get("threat_score", 0) >= 50:
-        findings.append({
-            "severity": "high",
-            "title": "Elevated exposure score",
-            "detail": f"Threat score reached {results.get('threat_score', 0)} based on URL patterns, TLS posture, and hardening gaps.",
-        })
-
-    if missing_headers:
-        findings.append({
-            "severity": "medium",
-            "title": "Missing defensive headers",
-            "detail": f"Missing {len(missing_headers)} recommended HTTP headers: {', '.join(missing_headers[:4])}.",
-        })
-        recommendations.append(
-            f"Add missing security headers: {', '.join(missing_headers[:4])}."
+        findings.append(
+            {
+                "severity": "high",
+                "title": "Elevated exposure score",
+                "detail": (
+                    f"Threat score reached {results.get('threat_score', 0)} based on URL patterns, "
+                    "TLS posture, and hardening gaps."
+                ),
+            }
         )
 
+    if missing_headers:
+        findings.append(
+            {
+                "severity": "medium",
+                "title": "Missing defensive headers",
+                "detail": (
+                    f"Missing {len(missing_headers)} recommended HTTP headers: "
+                    f"{', '.join(missing_headers[:4])}."
+                ),
+            }
+        )
+        recommendations.append(f"Add missing security headers: {', '.join(missing_headers[:4])}.")
+
     if ssl_info.get("error") == "Not HTTPS" or not ssl_info.get("valid"):
-        findings.append({
-            "severity": "high",
-            "title": "TLS needs attention",
-            "detail": ssl_info.get("error") or "The endpoint did not present a valid TLS certificate.",
-        })
+        findings.append(
+            {
+                "severity": "high",
+                "title": "TLS needs attention",
+                "detail": ssl_info.get("error")
+                or "The endpoint did not present a valid TLS certificate.",
+            }
+        )
         recommendations.append(
             "Serve the target over HTTPS with a valid TLS certificate and renew it before expiry."
         )
     elif ssl_info.get("expires"):
-        findings.append({
-            "severity": "low",
-            "title": "TLS certificate available",
-            "detail": f"Certificate is valid and currently expires on {ssl_info.get('expires')}.",
-        })
+        findings.append(
+            {
+                "severity": "low",
+                "title": "TLS certificate available",
+                "detail": (
+                    f"Certificate is valid and currently expires on {ssl_info.get('expires')}."
+                ),
+            }
+        )
 
     if not security_txt.get("present"):
-        findings.append({
-            "severity": "low",
-            "title": "No security.txt policy",
-            "detail": "Researchers do not have a published vulnerability disclosure file.",
-        })
+        findings.append(
+            {
+                "severity": "low",
+                "title": "No security.txt policy",
+                "detail": "Researchers do not have a published vulnerability disclosure file.",
+            }
+        )
         recommendations.append(
-            "Publish a /.well-known/security.txt file so researchers have a disclosure path."
+            "Publish a /.well-known/security.txt file so researchers have a " "disclosure path."
         )
 
     if insecure_cookies:
-        findings.append({
-            "severity": "medium",
-            "title": "Cookie hardening gaps",
-            "detail": f"{len(insecure_cookies)} cookies are missing Secure, HttpOnly, or SameSite protections.",
-        })
-        recommendations.append(
-            "Set Secure, HttpOnly, and SameSite on session or identity cookies."
+        findings.append(
+            {
+                "severity": "medium",
+                "title": "Cookie hardening gaps",
+                "detail": (
+                    f"{len(insecure_cookies)} cookies are missing Secure, HttpOnly, "
+                    "or SameSite protections."
+                ),
+            }
         )
+        recommendations.append("Set Secure, HttpOnly, and SameSite on session or identity cookies.")
 
     open_ports = port_scan.get("open_ports", [])
     if open_ports:
-        findings.append({
-            "severity": "medium" if any(port not in {80, 443, 8080} for port in open_ports) else "low",
-            "title": "Open network services detected",
-            "detail": f"Detected open ports: {', '.join(str(port) for port in sorted(open_ports))}.",
-        })
+        findings.append(
+            {
+                "severity": (
+                    "medium" if any(port not in {80, 443, 8080} for port in open_ports) else "low"
+                ),
+                "title": "Open network services detected",
+                "detail": (
+                    f"Detected open ports: "
+                    f"{', '.join(str(port) for port in sorted(open_ports))}."
+                ),
+            }
+        )
         if any(port not in {80, 443, 8080} for port in open_ports):
             recommendations.append(
-                "Review exposed non-web ports and restrict them to trusted networks if they are not required."
+                "Review exposed non-web ports and restrict them to trusted networks "
+                "if they are not required."
             )
 
     if len(redirects) > 1:
-        findings.append({
-            "severity": "low",
-            "title": "Redirect chain is longer than ideal",
-            "detail": f"Request resolution required {len(redirects)} redirect hops before reaching the final URL.",
-        })
+        findings.append(
+            {
+                "severity": "low",
+                "title": "Redirect chain is longer than ideal",
+                "detail": (
+                    f"Request resolution required {len(redirects)} redirect hops "
+                    "before reaching the final URL."
+                ),
+            }
+        )
         recommendations.append(
-            "Reduce redirect hops to improve reliability and limit confusing edge-case routing."
+            "Reduce redirect hops to improve reliability and limit confusing " "edge-case routing."
         )
 
     if metadata.get("title") or metadata.get("description"):
-        findings.append({
-            "severity": "info",
-            "title": "Page metadata collected",
-            "detail": "Optional page title and description were successfully extracted for content context.",
-        })
+        findings.append(
+            {
+                "severity": "info",
+                "title": "Page metadata collected",
+                "detail": (
+                    "Optional page title and description were successfully extracted "
+                    "for content context."
+                ),
+            }
+        )
 
     deduped_recommendations = []
     for recommendation in recommendations:
@@ -389,50 +432,49 @@ def build_findings_and_recommendations(results: Dict) -> Tuple[List[Dict], List[
 def check_security_txt(url: str) -> Dict:
     """
     Check for security.txt file.
-    
+
     Args:
         url: Base URL to check
-        
+
     Returns:
         Dictionary with security.txt information
     """
-    result = {
-        "present": False,
-        "content": "",
-        "url": "",
-        "error": None
-    }
-    
+    result = {"present": False, "content": "", "url": "", "error": None}
+
     try:
         parsed = urlparse(url)
         base_url = f"{parsed.scheme}://{parsed.netloc}"
-        
+
         # Check /.well-known/security.txt
         security_txt_url = f"{base_url}/.well-known/security.txt"
         try:
-            response = requests.get(security_txt_url, headers=DEFAULT_HEADERS, timeout=2, allow_redirects=True)
+            response = requests.get(
+                security_txt_url, headers=DEFAULT_HEADERS, timeout=2, allow_redirects=True
+            )
             if response.status_code == 200:
                 result["present"] = True
                 result["content"] = response.text
                 result["url"] = security_txt_url
                 return result
-        except:
+        except Exception:
             pass
-        
+
         # Check /security.txt as fallback
         security_txt_url = f"{base_url}/security.txt"
         try:
-            response = requests.get(security_txt_url, headers=DEFAULT_HEADERS, timeout=2, allow_redirects=True)
+            response = requests.get(
+                security_txt_url, headers=DEFAULT_HEADERS, timeout=2, allow_redirects=True
+            )
             if response.status_code == 200:
                 result["present"] = True
                 result["content"] = response.text
                 result["url"] = security_txt_url
-        except:
+        except Exception:
             pass
-            
+
     except Exception as e:
         result["error"] = str(e)
-    
+
     return result
 
 
@@ -440,10 +482,10 @@ def check_security_txt(url: str) -> Dict:
 def get_server_location(ip: str) -> Dict:
     """
     Get server location information from IP address.
-    
+
     Args:
         ip: IP address
-        
+
     Returns:
         Dictionary with location information
     """
@@ -456,44 +498,44 @@ def get_server_location(ip: str) -> Dict:
         "timezone": "",
         "coordinates": None,
         "org": "",
-        "error": None
+        "error": None,
     }
-    
+
     try:
         response = requests.get(f"https://ipinfo.io/{ip}/json", timeout=2)
         data = response.json()
-        
+
         result["city"] = data.get("city", "")
         result["country"] = data.get("country", "")
         result["country_code"] = data.get("country", "")
         result["region"] = data.get("region", "")
         result["timezone"] = data.get("timezone", "")
         result["org"] = data.get("org", "")
-        
+
         # Parse coordinates
         loc = data.get("loc", "")
         if loc:
             try:
                 lat, lon = map(float, loc.split(","))
                 result["coordinates"] = {"latitude": lat, "longitude": lon}
-            except:
+            except Exception:
                 pass
-                
+
     except Exception as e:
         result["error"] = str(e)
-    
+
     return result
 
 
 def _check_single_port(host: str, port: int, timeout: float = 0.3) -> Tuple[int, str]:
     """
     Check if a single port is open.
-    
+
     Args:
         host: Hostname or IP address
         port: Port number to check
         timeout: Connection timeout in seconds
-        
+
     Returns:
         Tuple of (port, status) where status is 'open', 'closed', or 'filtered'
     """
@@ -502,7 +544,7 @@ def _check_single_port(host: str, port: int, timeout: float = 0.3) -> Tuple[int,
         sock.settimeout(timeout)
         result_code = sock.connect_ex((host, port))
         sock.close()
-        
+
         if result_code == 0:
             return (port, "open")
         else:
@@ -516,12 +558,12 @@ def _check_single_port(host: str, port: int, timeout: float = 0.3) -> Tuple[int,
 def scan_ports(host: str, ports: List[int] = None, full_scan: bool = False) -> Dict:
     """
     Scan common ports on a host using concurrent execution.
-    
+
     Args:
         host: Hostname or IP address
         ports: List of ports to scan (defaults to essential web ports)
         full_scan: If True, scan all common ports; otherwise only essential ports
-        
+
     Returns:
         Dictionary with open ports information
     """
@@ -532,19 +574,16 @@ def scan_ports(host: str, ports: List[int] = None, full_scan: bool = False) -> D
         else:
             # Essential web ports only
             ports = [80, 443, 8080]
-    
-    result = {
-        "open_ports": [],
-        "closed_ports": [],
-        "filtered_ports": [],
-        "error": None
-    }
-    
+
+    result = {"open_ports": [], "closed_ports": [], "filtered_ports": [], "error": None}
+
     try:
         # Use ThreadPoolExecutor for concurrent port scanning
         with ThreadPoolExecutor(max_workers=min(10, len(ports))) as executor:
-            future_to_port = {executor.submit(_check_single_port, host, port): port for port in ports}
-            
+            future_to_port = {
+                executor.submit(_check_single_port, host, port): port for port in ports
+            }
+
             for future in as_completed(future_to_port):
                 try:
                     port, status = future.result(timeout=2)
@@ -562,33 +601,28 @@ def scan_ports(host: str, ports: List[int] = None, full_scan: bool = False) -> D
                     result["filtered_ports"].append(port)
     except Exception as e:
         result["error"] = str(e)
-    
+
     return result
 
 
 def detect_technologies(url: str) -> Dict:
     """
     Detect technologies used by the website.
-    
+
     Args:
         url: URL to analyze
-        
+
     Returns:
         Dictionary with detected technologies
     """
-    result = {
-        "server": "",
-        "cms": "",
-        "framework": "",
-        "languages": [],
-        "cdn": "",
-        "error": None
-    }
-    
+    result = {"server": "", "cms": "", "framework": "", "languages": [], "cdn": "", "error": None}
+
     try:
-        response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True, verify=True)
+        response = requests.get(
+            url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True, verify=True
+        )
         headers = response.headers
-        
+
         # Detect server
         server = headers.get("server", "").lower()
         if "nginx" in server:
@@ -603,7 +637,7 @@ def detect_technologies(url: str) -> Dict:
             result["server"] = "Netlify"
         else:
             result["server"] = server or "Unknown"
-        
+
         # Detect CMS from headers and content
         content = response.text.lower()
         if "wp-content" in content or "wordpress" in content:
@@ -612,7 +646,7 @@ def detect_technologies(url: str) -> Dict:
             result["cms"] = "Joomla"
         elif "drupal" in content:
             result["cms"] = "Drupal"
-        
+
         # Detect framework from headers
         powered_by = headers.get("x-powered-by", "").lower()
         if "php" in powered_by:
@@ -623,7 +657,7 @@ def detect_technologies(url: str) -> Dict:
             result["languages"].append("Python")
         if "ruby" in powered_by or "rails" in powered_by:
             result["languages"].append("Ruby")
-        
+
         # Detect CDN
         if "cloudflare" in server or "cf-ray" in headers:
             result["cdn"] = "Cloudflare"
@@ -631,20 +665,20 @@ def detect_technologies(url: str) -> Dict:
             result["cdn"] = "Amazon CloudFront"
         elif "x-served-by" in headers:
             result["cdn"] = "Fastly"
-        
+
     except Exception as e:
         result["error"] = str(e)
-    
+
     return result
 
 
 def analyze_security_headers(headers: Dict) -> Dict:
     """
     Analyze HTTP security headers for best practices.
-    
+
     Args:
         headers: Dictionary of HTTP headers
-        
+
     Returns:
         Dictionary with security header analysis
     """
@@ -657,10 +691,10 @@ def analyze_security_headers(headers: Dict) -> Dict:
         "referrer-policy": {"present": False, "value": None, "score": 0},
         "permissions-policy": {"present": False, "value": None, "score": 0},
     }
-    
+
     total_score = 0
     max_score = len(security_headers) * 10
-    
+
     for header_name in security_headers:
         header_value = headers.get(header_name, None)
         if header_value:
@@ -668,12 +702,12 @@ def analyze_security_headers(headers: Dict) -> Dict:
             security_headers[header_name]["value"] = header_value
             security_headers[header_name]["score"] = 10
             total_score += 10
-    
+
     return {
         "headers": security_headers,
         "score": total_score,
         "max_score": max_score,
-        "percentage": int((total_score / max_score) * 100) if max_score > 0 else 0
+        "percentage": int((total_score / max_score) * 100) if max_score > 0 else 0,
     }
 
 
@@ -683,15 +717,17 @@ def check_cookies(url: str) -> Dict:
     try:
         response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True)
         for cookie in response.cookies:
-            result["cookies"].append({
-                "name": cookie.name,
-                "value": cookie.value[:20] + "..." if len(cookie.value) > 20 else cookie.value,
-                "domain": cookie.domain,
-                "path": cookie.path,
-                "secure": cookie.secure,
-                "httponly": cookie.has_nonstandard_attr('HttpOnly'),
-                "samesite": cookie.get_nonstandard_attr('SameSite')
-            })
+            result["cookies"].append(
+                {
+                    "name": cookie.name,
+                    "value": cookie.value[:20] + "..." if len(cookie.value) > 20 else cookie.value,
+                    "domain": cookie.domain,
+                    "path": cookie.path,
+                    "secure": cookie.secure,
+                    "httponly": cookie.has_nonstandard_attr("HttpOnly"),
+                    "samesite": cookie.get_nonstandard_attr("SameSite"),
+                }
+            )
     except Exception as e:
         result["error"] = str(e)
     return result
@@ -704,10 +740,7 @@ def check_redirects(url: str) -> Dict:
         response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5, allow_redirects=True)
         result["final_url"] = response.url
         for resp in response.history:
-            result["chain"].append({
-                "status_code": resp.status_code,
-                "url": resp.url
-            })
+            result["chain"].append({"status_code": resp.status_code, "url": resp.url})
     except Exception as e:
         result["error"] = str(e)
     return result
@@ -719,7 +752,8 @@ def check_page_metadata(url: str) -> Dict:
     try:
         response = requests.get(url, headers=DEFAULT_HEADERS, timeout=5)
         from bs4 import BeautifulSoup
-        soup = BeautifulSoup(response.text, 'html.parser')
+
+        soup = BeautifulSoup(response.text, "html.parser")
         result["title"] = soup.title.string if soup.title else ""
         desc = soup.find("meta", attrs={"name": "description"})
         result["description"] = desc["content"] if desc else ""
@@ -730,18 +764,20 @@ def check_page_metadata(url: str) -> Dict:
     return result
 
 
-def analyze_web_security(url: str, include_port_scan: bool = False, include_metadata: bool = False) -> Dict:
+def analyze_web_security(
+    url: str, include_port_scan: bool = False, include_metadata: bool = False
+) -> Dict:
     """
     Perform comprehensive web security analysis with parallel execution.
-    
+
     Args:
         url: URL to analyze
         include_port_scan: If True, includes port scanning (slower)
         include_metadata: If True, includes page metadata extraction (slower)
-        
+
     Returns:
         Dictionary with complete security analysis
-        
+
     Performance:
         Uses ThreadPoolExecutor to run independent checks concurrently,
         reducing total analysis time by 80-90%.
@@ -753,53 +789,53 @@ def analyze_web_security(url: str, include_port_scan: bool = False, include_meta
     parsed = urlparse(url)
     domain = parsed.netloc.split(":")[0] if parsed.netloc else ""
     path = parsed.path or "/"
-    
+
     # Get IP address
     ip_address = None
     try:
         ip_address = socket.gethostbyname(domain)
-    except:
+    except Exception:
         pass
-    
+
     # Define all checks as tasks for parallel execution
     tasks = {}
-    
+
     with ThreadPoolExecutor(max_workers=10) as executor:
         # Submit all independent tasks
         if parsed.scheme == "https":
             tasks["ssl_certificate"] = executor.submit(check_ssl_certificate, url)
-        
+
         if domain:
             tasks["dns_records"] = executor.submit(check_dns_records, domain)
-        
+
         tasks["http_headers"] = executor.submit(check_http_headers, url)
         tasks["security_txt"] = executor.submit(check_security_txt, url)
         tasks["technologies"] = executor.submit(detect_technologies, url)
         tasks["cookies"] = executor.submit(check_cookies, url)
         tasks["redirects"] = executor.submit(check_redirects, url)
-        
+
         if ip_address:
             tasks["server_location"] = executor.submit(get_server_location, ip_address)
             if include_port_scan:
                 tasks["port_scan"] = executor.submit(scan_ports, ip_address, None, False)
-        
+
         if include_metadata:
             tasks["metadata"] = executor.submit(check_page_metadata, url)
-        
+
         # Collect results as they complete
         results = {
             "url": url,
             "domain": domain,
             "ip_address": ip_address,
         }
-        
+
         # Wait for all tasks to complete with timeout
         for task_name, future in tasks.items():
             try:
                 results[task_name] = future.result(timeout=10)
             except Exception as e:
                 results[task_name] = {"error": f"Task failed: {str(e)}"}
-        
+
         # Add default values for optional checks not performed
         if "ssl_certificate" not in results:
             results["ssl_certificate"] = {"error": "Not HTTPS"}
@@ -808,10 +844,16 @@ def analyze_web_security(url: str, include_port_scan: bool = False, include_meta
         if "server_location" not in results:
             results["server_location"] = {"error": "No IP address"}
         if "port_scan" not in results:
-            results["port_scan"] = {"error": "Port scan not requested" if not include_port_scan else "No IP address"}
+            results["port_scan"] = {
+                "error": "Port scan not requested" if not include_port_scan else "No IP address"
+            }
         if "metadata" not in results:
-            results["metadata"] = {"title": "", "description": "", "error": "Metadata not requested" if not include_metadata else None}
-    
+            results["metadata"] = {
+                "title": "",
+                "description": "",
+                "error": "Metadata not requested" if not include_metadata else None,
+            }
+
     # Analyze security headers (requires http_headers result)
     http_headers_result = results.get("http_headers", {})
     headers_dict = {k.lower(): v for k, v in http_headers_result.get("headers", {}).items()}
@@ -819,27 +861,36 @@ def analyze_web_security(url: str, include_port_scan: bool = False, include_meta
 
     # Add threat analysis using Monix core
     suspicious = is_suspicious_url(path)
-    
+
     threat_score = 0
     threats = []
-    
+
     if suspicious:
         threat_score += 25
         threats.append("High-risk endpoint detected")
-    
+
     # Check for suspicious patterns
     suspicious_patterns = [
-        "..", "//", "eval", "exec", "cmd", "shell",
-        ".env", ".git", ".htaccess", "passwd", "shadow"
+        "..",
+        "//",
+        "eval",
+        "exec",
+        "cmd",
+        "shell",
+        ".env",
+        ".git",
+        ".htaccess",
+        "passwd",
+        "shadow",
     ]
-    
+
     path_lower = path.lower()
     for pattern in suspicious_patterns:
         if pattern in path_lower:
             threat_score += 10
             threats.append(f"Suspicious pattern in path: {pattern}")
             break
-    
+
     # Check security headers
     security_headers = results.get("http_headers", {}).get("security_headers", {})
     missing_security_headers = []
@@ -847,27 +898,29 @@ def analyze_web_security(url: str, include_port_scan: bool = False, include_meta
         if not security_headers.get(header):
             missing_security_headers.append(header)
             threat_score += 5
-    
+
     if missing_security_headers:
         threats.append(f"Missing security headers: {', '.join(missing_security_headers)}")
-    
+
     # Check SSL
     ssl_info = results.get("ssl_certificate", {})
     if not ssl_info.get("valid") and ssl_info.get("error") != "Not HTTPS":
         threat_score += 30
         threats.append("SSL certificate issue detected")
-    
+
     # Classify threat level
     level_name, level_color = classify_threat_level(threat_score)
-    
+
     # Combine results
-    results.update({
-        "status": "success",
-        "threat_score": threat_score,
-        "threat_level": level_name,
-        "threat_color": level_color,
-        "threats": threats
-    })
+    results.update(
+        {
+            "status": "success",
+            "threat_score": threat_score,
+            "threat_level": level_name,
+            "threat_color": level_color,
+            "threats": threats,
+        }
+    )
 
     findings, recommendations = build_findings_and_recommendations(results)
     results["findings"] = findings
@@ -878,12 +931,16 @@ def analyze_web_security(url: str, include_port_scan: bool = False, include_meta
         "redirect_hops": len(results.get("redirects", {}).get("chain", [])),
         "cookie_count": len(results.get("cookies", {}).get("cookies", [])),
         "open_port_count": len(results.get("port_scan", {}).get("open_ports", [])),
-        "missing_header_count": len([
-            header
-            for header, state in results.get("security_headers_analysis", {}).get("headers", {}).items()
-            if not state.get("present")
-        ]),
+        "missing_header_count": len(
+            [
+                header
+                for header, state in results.get("security_headers_analysis", {})
+                .get("headers", {})
+                .items()
+                if not state.get("present")
+            ]
+        ),
         "security_txt_present": bool(results.get("security_txt", {}).get("present")),
     }
-    
+
     return results

@@ -32,6 +32,7 @@ class TestSaveScanWithDatabase:
         session = MagicMock()
         session.__enter__ = MagicMock(return_value=session)
         session.__exit__ = MagicMock(return_value=False)
+
         # flush() assigns an id to the scan; simulate that here
         def fake_flush():
             pass
@@ -114,8 +115,9 @@ class TestAnalyzeUrlEndpointPersistence:
 
         app.config["TESTING"] = True
         with app.test_client() as client:
-            with patch("api.server.analyze_web_security", return_value=mock_result), \
-                 patch("api.server.save_scan", return_value=fake_report_id):
+            with patch("api.server.analyze_web_security", return_value=mock_result), patch(
+                "api.server.save_scan", return_value=fake_report_id
+            ):
                 resp = client.post(
                     "/api/analyze-url",
                     data=json.dumps({"url": "https://example.com"}),
@@ -133,8 +135,9 @@ class TestAnalyzeUrlEndpointPersistence:
 
         app.config["TESTING"] = True
         with app.test_client() as client:
-            with patch("api.server.analyze_web_security", return_value=mock_result), \
-                 patch("api.server.save_scan", return_value=None):
+            with patch("api.server.analyze_web_security", return_value=mock_result), patch(
+                "api.server.save_scan", return_value=None
+            ):
                 resp = client.post(
                     "/api/analyze-url",
                     data=json.dumps({"url": "https://example.com"}),
