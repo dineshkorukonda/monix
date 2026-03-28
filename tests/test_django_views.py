@@ -11,7 +11,6 @@ import uuid
 from datetime import timedelta
 
 import django
-import pytest
 
 # ---------------------------------------------------------------------------
 # Django setup — must happen before any Django imports
@@ -34,7 +33,6 @@ from django.urls import reverse  # noqa: E402
 from django.utils import timezone  # noqa: E402
 
 from reports.models import Report, Scan  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Helpers

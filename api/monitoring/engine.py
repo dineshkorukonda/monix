@@ -6,15 +6,16 @@ from threading import Thread
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from api.monitoring.state import state
-from api.analyzers.traffic import get_traffic_summary, DEFAULT_LOG_PATH
-from utils.network import TCP_STATES, hex_ip, hex_port
-from utils.geo import geo_lookup, reverse_dns
-from utils.processes import get_process_map
+from api.monitoring.state import state  # noqa: E402
+from api.analyzers.traffic import get_traffic_summary, DEFAULT_LOG_PATH  # noqa: E402
+from utils.network import TCP_STATES, hex_ip, hex_port  # noqa: E402
+from utils.geo import geo_lookup, reverse_dns  # noqa: E402
+from utils.processes import get_process_map  # noqa: E402
 
 PORT_SCAN_WINDOW = 10
 PORT_SCAN_THRESHOLD = 5
 port_activity = defaultdict(lambda: defaultdict(float))
+
 
 def detect_attacks(conns):
     syn_count = defaultdict(int)
@@ -24,7 +25,7 @@ def detect_attacks(conns):
     for c in conns:
         if c["state"] == "SYN_RECV":
             syn_count[c["remote_ip"]] += 1
-        
+
         if c["state"] == "ESTABLISHED":
             conn_count[c["remote_ip"]] += 1
 
@@ -36,7 +37,7 @@ def detect_attacks(conns):
     for ip, count in syn_count.items():
         if count >= 100:
             state.add_alert(f"SYN_FLOOD from {ip} (half-open={count})", key=f"syn_{ip}")
-    
+
     for ip, count in conn_count.items():
         if count >= 50:
             state.add_alert(f"HIGH_CONN from {ip} (total={count})", key=f"high_conn_{ip}")
@@ -46,15 +47,16 @@ def detect_attacks(conns):
         if len(recent) >= PORT_SCAN_THRESHOLD:
             state.add_alert(f"PORT_SCAN from {ip} (ports: {recent})", key=f"scan_{ip}")
 
+
 def collector_loop():
     while True:
         conns = []
         process_map = get_process_map()
-        
+
         for proc_file in ["/proc/net/tcp", "/proc/net/tcp6"]:
             if not os.path.exists(proc_file):
                 continue
-                
+
             with open(proc_file, "r") as f:
                 lines = f.readlines()[1:]
 
@@ -82,7 +84,7 @@ def collector_loop():
 
         state.update_connections(conns)
         detect_attacks(conns)
-        
+
         # Update traffic analysis every 5 seconds to reduce I/O
         if int(time.time()) % 5 == 0:
             try:
@@ -90,8 +92,9 @@ def collector_loop():
                 state.update_traffic(traffic_summary)
             except Exception:
                 pass  # Log file may not be accessible
-        
+
         time.sleep(1)
+
 
 def start_monitor():
     t = Thread(target=collector_loop, daemon=True)

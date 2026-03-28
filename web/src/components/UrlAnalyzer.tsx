@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,10 +36,10 @@ function ScoreRing({ score }: { score: number }) {
   const level = score >= 70 ? "low" : score >= 40 ? "medium" : "high";
   const color =
     level === "low"
-      ? "text-white"
+      ? "text-emerald-400"
       : level === "medium"
-        ? "text-white/70"
-        : "text-white/50";
+        ? "text-amber-400"
+        : "text-rose-400";
   const label =
     level === "low"
       ? "Low Risk"
@@ -48,7 +48,7 @@ function ScoreRing({ score }: { score: number }) {
         : "High Risk";
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 border border-white/10 rounded-2xl bg-white/[0.02] gap-4">
+    <div className="flex flex-col items-center justify-center p-8 border border-border rounded-2xl bg-card gap-4 shadow-sm">
       <div className="relative flex items-center justify-center w-28 h-28">
         <svg
           viewBox="0 0 100 100"
@@ -60,7 +60,7 @@ function ScoreRing({ score }: { score: number }) {
             cy="50"
             r="40"
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="rgba(255,255,255,0.04)"
             strokeWidth="8"
           />
           <circle
@@ -68,26 +68,24 @@ function ScoreRing({ score }: { score: number }) {
             cy="50"
             r="40"
             fill="none"
-            stroke="white"
+            stroke="currentColor"
             strokeWidth="8"
             strokeDasharray={`${2 * Math.PI * 40}`}
             strokeDashoffset={`${2 * Math.PI * 40 * (1 - score / 100)}`}
             strokeLinecap="round"
-            className="transition-all duration-700"
+            className={`transition-all duration-700 ${color}`}
           />
         </svg>
         <div className="text-center">
-          <div className="text-3xl font-bold text-white">{score}</div>
-          <div className="text-[10px] text-white/40 uppercase tracking-widest">
+          <div className="text-3xl font-bold text-foreground">{score}</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-widest">
             / 100
           </div>
         </div>
       </div>
       <div>
-        <div className={`text-sm font-semibold text-center ${color}`}>
-          {label}
-        </div>
-        <div className="text-xs text-white/40 text-center mt-1">
+        <div className={`text-sm font-bold text-center ${color}`}>{label}</div>
+        <div className="text-xs text-muted-foreground text-center mt-1">
           Threat Score
         </div>
       </div>
@@ -97,14 +95,14 @@ function ScoreRing({ score }: { score: number }) {
 
 function HeaderBar({ name, present }: { name: string; present: boolean }) {
   return (
-    <div className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
-      <span className="text-sm text-white/70">{name}</span>
+    <div className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0">
+      <span className="text-sm text-foreground/70">{name}</span>
       <div className="flex items-center gap-2">
         <div
-          className={`h-2 w-2 rounded-full ${present ? "bg-white" : "bg-white/15"}`}
+          className={`h-2 w-2 rounded-full ${present ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-muted-foreground/20"}`}
         />
         <span
-          className={`text-xs font-medium ${present ? "text-white" : "text-white/30"}`}
+          className={`text-xs font-semibold ${present ? "text-foreground" : "text-muted-foreground/40"}`}
         >
           {present ? "Present" : "Missing"}
         </span>
@@ -124,10 +122,10 @@ function Card({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden ${className}`}
+      className={`rounded-2xl border border-border bg-card overflow-hidden shadow-sm ${className}`}
     >
-      <div className="px-5 py-3.5 border-b border-white/5">
-        <p className="text-xs font-semibold text-white/40 uppercase tracking-widest">
+      <div className="px-5 py-3.5 border-b border-border/50 bg-muted/20">
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
           {title}
         </p>
       </div>
@@ -138,9 +136,9 @@ function Card({
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-white/5 last:border-0">
-      <span className="text-sm text-white/40 shrink-0">{label}</span>
-      <span className="text-sm text-white text-right break-all">
+    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border/50 last:border-0">
+      <span className="text-sm text-muted-foreground shrink-0">{label}</span>
+      <span className="text-sm text-foreground font-medium text-right break-all">
         {value || "—"}
       </span>
     </div>
@@ -149,6 +147,8 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 
 export default function UrlAnalyzer() {
   const searchParams = useSearchParams();
+  const params = useParams();
+  const targetId = params?.id as string | undefined;
   const [url, setUrl] = useState("");
   const [includePortScan, setIncludePortScan] = useState(true);
   const [includeMetadata, setIncludeMetadata] = useState(true);
@@ -167,7 +167,7 @@ export default function UrlAnalyzer() {
     query: string;
   };
   const [quickGeo, setQuickGeo] = useState<QuickGeo | null>(null);
-  const [geoLoading, setGeoLoading] = useState(false);
+  const [_geoLoading, setGeoLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefilledUrl = searchParams.get("url")?.trim() ?? "";
 
@@ -186,19 +186,8 @@ export default function UrlAnalyzer() {
       setQuickGeo(null);
       return;
     }
-    setGeoLoading(true);
-    try {
-      const res = await fetch(
-        `https://ip-api.com/json/${domain}?fields=status,city,country,lat,lon,org,query`,
-      );
-      const data = await res.json();
-      if (data.status === "success") setQuickGeo(data as QuickGeo);
-      else setQuickGeo(null);
-    } catch {
-      setQuickGeo(null);
-    } finally {
-      setGeoLoading(false);
-    }
+    setQuickGeo(null);
+    setGeoLoading(false);
   }, []);
 
   // Debounce URL input for geo-lookup (600ms)
@@ -215,7 +204,7 @@ export default function UrlAnalyzer() {
   }, [url, lookupGeo]);
 
   // Prefer scan result coordinates when available
-  const mapCoords = result?.server_location?.coordinates
+  const _mapCoords = result?.server_location?.coordinates
     ? {
         lat: result.server_location.coordinates.latitude,
         lon: result.server_location.coordinates.longitude,
@@ -224,7 +213,7 @@ export default function UrlAnalyzer() {
       ? { lat: quickGeo.lat, lon: quickGeo.lon }
       : null;
 
-  const mapLabel = result?.server_location
+  const _mapLabel = result?.server_location
     ? [
         result.server_location.city,
         result.server_location.region,
@@ -255,6 +244,7 @@ export default function UrlAnalyzer() {
       const analysis = await analyzeUrl(url, {
         includePortScan,
         includeMetadata,
+        targetId,
       });
       setResult(analysis);
       if (analysis.status === "error") {
@@ -383,6 +373,14 @@ export default function UrlAnalyzer() {
             transition={{ duration: 0.5 }}
             className="space-y-6"
           >
+            <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4 shadow-sm mb-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-[pulse_2s_infinite]" />
+                <span className="text-[15px] font-semibold tracking-tight text-foreground">
+                  Active Monix Report Stream
+                </span>
+              </div>
+            </div>
             {/* Top stat strip */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
@@ -701,79 +699,62 @@ export default function UrlAnalyzer() {
                 </div>
               </Card>
             </div>
+
+            {/* Performance (PageSpeed Insights) */}
+            {result.performance &&
+              (result.performance.mobile || result.performance.desktop) && (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {(["mobile", "desktop"] as const).map((strategy) => {
+                    const data = result.performance?.[strategy];
+                    if (!data) return null;
+                    return (
+                      <Card
+                        key={strategy}
+                        title={`PageSpeed Insights (${strategy === "mobile" ? "Mobile" : "Desktop"})`}
+                      >
+                        {data.error ? (
+                          <p className="text-sm text-white/40 leading-relaxed">
+                            {data.error}
+                          </p>
+                        ) : (
+                          <>
+                            <InfoRow
+                              label="Performance"
+                              value={
+                                data.performance_score != null
+                                  ? `${data.performance_score} / 100`
+                                  : null
+                              }
+                            />
+                            <InfoRow
+                              label="Accessibility"
+                              value={
+                                data.accessibility_score != null
+                                  ? `${data.accessibility_score} / 100`
+                                  : null
+                              }
+                            />
+                            <InfoRow
+                              label="Best Practices"
+                              value={
+                                data.best_practices_score != null
+                                  ? `${data.best_practices_score} / 100`
+                                  : null
+                              }
+                            />
+                            <InfoRow label="LCP" value={data.lcp} />
+                            <InfoRow label="FID" value={data.fid} />
+                            <InfoRow label="CLS" value={data.cls} />
+                          </>
+                        )}
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Map Section: shows target location as soon as URL is typed */}
-      <div
-        className="rounded-2xl border border-white/10 overflow-hidden"
-        style={{ height: "480px" }}
-      >
-        <div className="px-5 py-3.5 border-b border-white/10 bg-white/[0.02] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span
-              className={`h-2 w-2 rounded-full ${geoLoading ? "bg-white/40 animate-pulse" : mapCoords ? "bg-white animate-pulse" : "bg-white/20"}`}
-            />
-            <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">
-              {geoLoading
-                ? "Locating…"
-                : mapCoords
-                  ? "Server Location"
-                  : "Global Network — Enter a URL to locate target"}
-            </p>
-          </div>
-          {mapLabel && <p className="text-sm text-white/60">{mapLabel}</p>}
-        </div>
-
-        <AnimatePresence mode="wait">
-          {mapCoords ? (
-            <motion.div
-              key={`${mapCoords.lat}-${mapCoords.lon}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="w-full h-[calc(100%-52px)]"
-            >
-              <TargetMap
-                center={[mapCoords.lon, mapCoords.lat]}
-                zoom={5}
-                styles={{
-                  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                  light:
-                    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                }}
-              >
-                <MapMarker longitude={mapCoords.lon} latitude={mapCoords.lat}>
-                  <MarkerContent>
-                    <div className="h-5 w-5 rounded-full bg-white shadow-[0_0_0_10px_rgba(255,255,255,0.12)] animate-pulse" />
-                  </MarkerContent>
-                </MapMarker>
-              </TargetMap>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="world"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              className="w-full h-[calc(100%-52px)]"
-            >
-              <TargetMap
-                center={[15, 26]}
-                zoom={1.5}
-                styles={{
-                  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                  light:
-                    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
     </div>
   );
 }

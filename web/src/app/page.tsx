@@ -2,6 +2,7 @@
 
 import { motion, type Variants } from "framer-motion";
 import Link from "next/link";
+import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import WorldMap from "@/components/WorldMap";
 
@@ -219,6 +220,7 @@ export default function Home() {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   );
 }
