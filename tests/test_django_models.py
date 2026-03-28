@@ -20,7 +20,9 @@ from django.core.management import call_command  # noqa: E402
 from django.test import TestCase  # noqa: E402
 from django.utils import timezone  # noqa: E402
 
-from reports.models import Report, Scan  # noqa: E402
+from django.contrib.auth.models import User  # noqa: E402
+
+from reports.models import Report, Scan, Target  # noqa: E402
 
 
 def _make_scan(url="https://example.com", score=20, results=None):
@@ -99,3 +101,31 @@ class ExpireReportsCommandTest(TestCase):
         call_command("expire_reports", stdout=out)
 
         assert "Marked 0 report(s) as expired." in out.getvalue()
+
+
+class TargetModelTest(TestCase):
+    def test_str_contains_url_and_owner_hint(self):
+        owner = User.objects.create_user(
+            username="owner@example.com",
+            email="owner@example.com",
+            password="test-pass-11",
+        )
+        t = Target.objects.create(owner=owner, url="https://app.example.com/")
+        s = str(t)
+        assert "app.example.com" in s
+        assert "owner@example.com" in s
+
+    def test_ordering_newest_first(self):
+        owner = User.objects.create_user(
+            username="own2@example.com",
+            email="own2@example.com",
+            password="test-pass-22",
+        )
+        older = Target.objects.create(owner=owner, url="https://old.example.com")
+        newer = Target.objects.create(owner=owner, url="https://new.example.com")
+        Target.objects.filter(pk=older.pk).update(
+            created_at=timezone.now() - timedelta(days=1)
+        )
+
+        ids = list(Target.objects.values_list("id", flat=True))
+        assert ids == [newer.id, older.id]
