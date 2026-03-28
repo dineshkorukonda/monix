@@ -150,16 +150,25 @@ type UrlAnalyzerProps = {
   variant?: "full" | "compact";
   /** Called after a successful scan so the parent can refetch lists. */
   onScanComplete?: () => void;
+  /** Pre-fill the URL input. */
+  initialUrl?: string;
+  /** Automatically start the scan once the URL is ready. */
+  autoStart?: boolean;
+  /** Override the target ID (falls back to route param). */
+  explicitTargetId?: string;
 };
 
 export default function UrlAnalyzer({
   variant = "full",
   onScanComplete,
+  initialUrl,
+  autoStart = false,
+  explicitTargetId,
 }: UrlAnalyzerProps) {
   const searchParams = useSearchParams();
   const params = useParams();
-  const targetId = params?.id as string | undefined;
-  const [url, setUrl] = useState("");
+  const targetId = explicitTargetId ?? (params?.id as string | undefined);
+  const [url, setUrl] = useState(initialUrl ?? "");
   const [includePortScan, setIncludePortScan] = useState(false);
   const [includeMetadata, setIncludeMetadata] = useState(false);
   const [includePerformance, setIncludePerformance] = useState(false);
@@ -167,6 +176,7 @@ export default function UrlAnalyzer({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<WebSecurityAnalysis | null>(null);
+  const autoStartFiredRef = useRef(false);
 
   // Quick geo-lookup state (runs fast before full scan)
   type QuickGeo = {
@@ -183,10 +193,9 @@ export default function UrlAnalyzer({
   const prefilledUrl = searchParams.get("url")?.trim() ?? "";
 
   useEffect(() => {
-    if (prefilledUrl) {
-      setUrl(prefilledUrl);
-    }
-  }, [prefilledUrl]);
+    if (initialUrl) return; // prop wins
+    if (prefilledUrl) setUrl(prefilledUrl);
+  }, [prefilledUrl, initialUrl]);
 
   const lookupGeo = useCallback(async (raw: string) => {
     const domain = raw
@@ -236,7 +245,7 @@ export default function UrlAnalyzer({
       ? `${quickGeo.city}, ${quickGeo.country} · ${quickGeo.org}`
       : null;
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = useCallback(async () => {
     if (!url.trim()) {
       setError("Please enter a URL to analyze.");
       return;
@@ -276,7 +285,14 @@ export default function UrlAnalyzer({
       setLoading(false);
       setTimeout(() => setProgress(0), 800);
     }
-  };
+  }, [url, includePortScan, includeMetadata, includePerformance, targetId, onScanComplete]);
+
+  // Auto-start scan when autoStart prop is true and url is ready
+  useEffect(() => {
+    if (!autoStart || !url.trim() || autoStartFiredRef.current) return;
+    autoStartFiredRef.current = true;
+    handleAnalyze();
+  }, [autoStart, url, handleAnalyze]);
 
   const findings = result?.findings?.length
     ? result.findings

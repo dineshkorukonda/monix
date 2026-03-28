@@ -1,46 +1,57 @@
 "use client";
 
-import { ExternalLink, Loader2, Plus } from "lucide-react";
+import type React from "react";
+import {
+  Clock,
+  ExternalLink,
+  Globe,
+  Loader2,
+  Plus,
+  Search,
+  Shield,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ApiError, createTarget, getTargets, type Target } from "@/lib/api";
+  ApiError,
+  createTarget,
+  deleteTarget,
+  getTargets,
+  type Target,
+} from "@/lib/api";
 
-function ScrollToAddFromQuery() {
-  const searchParams = useSearchParams();
-  const done = useRef(false);
-  useEffect(() => {
-    if (done.current || searchParams.get("add") !== "1") return;
-    done.current = true;
-    document
-      .getElementById("add-project")
-      ?.scrollIntoView({ behavior: "smooth" });
-    window.history.replaceState(null, "", "/dashboard/projects");
-  }, [searchParams]);
-  return null;
-}
-
-function scoreClass(score: number) {
-  if (score >= 80) return "text-emerald-400 font-semibold tabular-nums";
-  if (score >= 50) return "text-amber-400 font-semibold tabular-nums";
-  return "text-rose-400 font-semibold tabular-nums";
+function ScoreBadge({ score }: { score: number | null | undefined }) {
+  if (score == null)
+    return (
+      <span className="text-xs text-white/30 font-mono">—</span>
+    );
+  const cls =
+    score >= 80
+      ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+      : score >= 50
+        ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+        : "text-rose-400 bg-rose-500/10 border-rose-500/20";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold border ${cls}`}
+    >
+      <Shield className="h-2.5 w-2.5" />
+      {score}
+    </span>
+  );
 }
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Target[]>([]);
   const [loading, setLoading] = useState(true);
   const [url, setUrl] = useState("");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const t = await getTargets();
@@ -64,186 +75,188 @@ export default function ProjectsPage() {
     run();
   }, [reload]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.location.hash === "#add-project") {
-      requestAnimationFrame(() => {
-        document.getElementById("add-project")?.scrollIntoView({
-          behavior: "smooth",
-        });
-      });
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    setDeletingId(id);
+    try {
+      await deleteTarget(id);
+      await reload();
+    } catch (err) {
+      console.error("Failed to delete project:", err);
+    } finally {
+      setDeletingId(null);
     }
-  }, []);
+  };
 
-  const handleAddProject = async (e: React.FormEvent) => {
+  const handleAddAndScan = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
     setAdding(true);
     setAddError("");
     try {
-      await createTarget(url.trim());
-      setUrl("");
-      await reload();
+      const target = await createTarget(url.trim());
+      router.push(`/dashboard/project/${target.id}?autoscan=1`);
     } catch (err: unknown) {
       setAddError(
         err instanceof Error
           ? err.message
           : "Could not add project. Is the backend running?",
       );
-    } finally {
       setAdding(false);
     }
   };
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto pb-20">
-      <Suspense fallback={null}>
-        <ScrollToAddFromQuery />
-      </Suspense>
-
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">
-            Projects
+    <div className="space-y-10 max-w-5xl mx-auto pb-20">
+      {/* Hero scan input */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 sm:p-10">
+        <div className="max-w-2xl mx-auto text-center space-y-3 mb-8">
+          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-white/10 border border-white/10 mb-2">
+            <Search className="h-5 w-5 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">
+            Add a project
           </h2>
-          <p className="text-white/50 mt-1 text-sm max-w-xl">
-            All monitored URLs in your workspace. Add a new one below or open a
-            row for scans and reports.
+          <p className="text-sm text-white/50">
+            Enter any URL — we&apos;ll create the project and kick off a full
+            security scan immediately.
           </p>
         </div>
-        <Button
-          asChild
-          variant="outline"
-          className="border-white/10 hover:bg-white/5 shrink-0"
-        >
-          <Link href="/dashboard/scans">Scan history</Link>
-        </Button>
-      </div>
 
-      <section
-        id="add-project"
-        className="rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:p-6"
-      >
-        <div className="flex items-start gap-3 mb-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white">
-            <Plus className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white">Add a project</h3>
-            <p className="text-xs text-white/45 mt-0.5">
-              Enter a URL to monitor. It appears in the table as soon as it is
-              saved.
-            </p>
-          </div>
-        </div>
         <form
-          onSubmit={handleAddProject}
-          className="flex flex-col sm:flex-row gap-3 sm:items-end"
+          onSubmit={handleAddAndScan}
+          className="flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto"
         >
           <div className="flex-1 space-y-1.5">
-            <label htmlFor="projects-new-url" className="sr-only">
-              Project URL
-            </label>
             <input
-              id="projects-new-url"
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com"
-              className="flex h-11 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+              disabled={adding}
+              className="flex h-12 w-full rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-sm text-white placeholder:text-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 disabled:opacity-50"
             />
-            {addError && <p className="text-xs text-rose-400">{addError}</p>}
+            {addError && (
+              <p className="text-xs text-rose-400 text-center">{addError}</p>
+            )}
           </div>
           <Button
             type="submit"
             disabled={!url.trim() || adding}
-            className="bg-white text-black hover:bg-white/90 font-semibold h-11 px-6 shrink-0"
+            className="bg-white text-black hover:bg-white/90 font-semibold h-12 px-8 shrink-0 rounded-xl"
           >
-            {adding && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            {adding ? "Adding…" : "Add project"}
+            {adding ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Starting…
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Add &amp; Scan
+              </>
+            )}
           </Button>
         </form>
-      </section>
+      </div>
 
-      <section className="space-y-3">
-        <div className="px-1">
-          <h3 className="text-sm font-semibold text-white tracking-tight">
-            All projects
-          </h3>
-          <p className="text-xs text-white/40 mt-0.5">
-            {loading
-              ? "Loading…"
-              : `${projects.length} project${projects.length !== 1 ? "s" : ""}`}
-          </p>
+      {/* Projects list */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-white">
+              Your projects
+            </h3>
+            <p className="text-xs text-white/40 mt-0.5">
+              {loading
+                ? "Loading…"
+                : `${projects.length} project${projects.length !== 1 ? "s" : ""}`}
+            </p>
+          </div>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="border-white/10 hover:bg-white/5 text-white/60 hover:text-white"
+          >
+            <Link href="/dashboard/scans">Scan history</Link>
+          </Button>
         </div>
-        <div className="rounded-xl border border-white/10 bg-card/30 overflow-hidden">
-          {loading ? (
-            <div className="p-12 text-center text-sm text-white/40">
-              Loading projects…
-            </div>
-          ) : projects.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-white/40 text-sm">No projects yet.</p>
-              <p className="text-white/25 text-xs mt-2">
-                Add a URL above to create your first project.
-              </p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-white/10 hover:bg-transparent">
-                  <TableHead className="text-white/50 font-medium">
-                    Project
-                  </TableHead>
-                  <TableHead className="text-white/50 font-medium">
-                    URL
-                  </TableHead>
-                  <TableHead className="text-white/50 font-medium text-right w-24">
-                    Score
-                  </TableHead>
-                  <TableHead className="text-white/50 font-medium text-right w-36">
-                    Last scan
-                  </TableHead>
-                  <TableHead className="text-white/50 font-medium text-right w-28">
-                    Open
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projects.map((p) => (
-                  <TableRow
-                    key={p.id}
-                    className="border-white/10 hover:bg-white/[0.04]"
+
+        {loading ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-32 rounded-xl bg-white/[0.03] border border-white/10 animate-pulse"
+              />
+            ))}
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-white/10 p-12 text-center">
+            <Globe className="h-8 w-8 mx-auto text-white/20 mb-3" />
+            <p className="text-sm text-white/40">No projects yet.</p>
+            <p className="text-xs text-white/25 mt-1">
+              Add a URL above to create your first project.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((p) => (
+              <div
+                key={p.id}
+                className="group relative rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.05] hover:border-white/20 transition-all p-5 flex flex-col gap-3"
+              >
+                {/* Delete button */}
+                <button
+                  onClick={() => handleDelete(p.id, p.name)}
+                  disabled={deletingId === p.id}
+                  className="absolute top-3 right-3 h-6 w-6 rounded-md flex items-center justify-center text-white/20 hover:text-rose-400 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-40"
+                  aria-label={`Delete ${p.name}`}
+                >
+                  {deletingId === p.id ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3 w-3" />
+                  )}
+                </button>
+
+                <div className="flex items-start justify-between gap-2 pr-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">
+                      {p.name}
+                    </p>
+                    <p className="text-[11px] text-white/35 font-mono truncate mt-0.5">
+                      {p.url}
+                    </p>
+                  </div>
+                  <ScoreBadge score={p.score} />
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[11px] text-white/30">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{p.lastScan ?? "No scans yet"}</span>
+                </div>
+
+                <div className="flex gap-2 mt-auto pt-1">
+                  <Link
+                    href={`/dashboard/project/${p.id}`}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-xs font-medium text-white/70 hover:text-white py-1.5 transition-all"
                   >
-                    <TableCell className="font-medium text-white max-w-[200px]">
-                      <span className="truncate block">{p.name}</span>
-                    </TableCell>
-                    <TableCell className="text-white/50 text-xs font-mono max-w-[280px]">
-                      <span className="truncate block">{p.url}</span>
-                    </TableCell>
-                    <TableCell
-                      className={`text-right ${scoreClass(p.score ?? 0)}`}
-                    >
-                      {p.score ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right text-white/45 text-xs whitespace-nowrap">
-                      {p.lastScan ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        href={`/dashboard/project/${p.id}?url=${encodeURIComponent(p.url)}`}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-white/70 hover:text-white"
-                      >
-                        Details
-                        <ExternalLink className="h-3 w-3" />
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
+                    Open workspace
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                  <Link
+                    href={`/dashboard/project/${p.id}?autoscan=1`}
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/10 bg-white text-black hover:bg-white/90 text-xs font-semibold px-3 py-1.5 transition-all"
+                  >
+                    Scan
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
