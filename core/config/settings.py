@@ -26,9 +26,7 @@ SECRET_KEY = os.environ.get(
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = (
-    os.environ.get("ALLOWED_HOSTS", "").split(",")
-    if os.environ.get("ALLOWED_HOSTS")
-    else []
+    os.environ.get("ALLOWED_HOSTS", "").split(",") if os.environ.get("ALLOWED_HOSTS") else []
 )
 
 INSTALLED_APPS = [
@@ -95,7 +93,9 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-_database_url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix")
+_database_url = os.environ.get(
+    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix"
+)
 _parsed = urllib.parse.urlparse(_database_url)
 
 DATABASES = {

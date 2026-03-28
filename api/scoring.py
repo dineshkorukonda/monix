@@ -88,8 +88,7 @@ def calculate_security_score(security_result: Dict) -> int:
 
     total_weight = sum(_SECURITY_WEIGHTS.values())
     weighted_score = sum(
-        _SECURITY_WEIGHTS.get(name, 0) * _status_score(status)
-        for name, status in checks.items()
+        _SECURITY_WEIGHTS.get(name, 0) * _status_score(status) for name, status in checks.items()
     )
     return int(round((weighted_score / total_weight) * 100))
 
@@ -168,11 +167,13 @@ def calculate_overall_score(
     seo = calculate_seo_score(seo_result)
     performance = calculate_performance_score(performance_result)
 
-    overall = int(round(
-        security * _WEIGHTS["security"]
-        + seo * _WEIGHTS["seo"]
-        + performance * _WEIGHTS["performance"]
-    ))
+    overall = int(
+        round(
+            security * _WEIGHTS["security"]
+            + seo * _WEIGHTS["seo"]
+            + performance * _WEIGHTS["performance"]
+        )
+    )
 
     return {
         "overall": overall,

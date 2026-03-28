@@ -14,8 +14,8 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import UrlAnalyzer from "@/components/UrlAnalyzer";
-import { getTarget, getScans, type Target, type ScanSummary } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { getScans, getTarget, type ScanSummary, type Target } from "@/lib/api";
 
 function TargetHeader({ target }: { target: Target | null }) {
   if (!target) {
@@ -100,17 +100,17 @@ export default function ProjectWorkspacePage() {
 
   useEffect(() => {
     if (!id) return;
-    
+
     const loadTargetData = async () => {
       try {
         const [targetData, scansData] = await Promise.all([
           getTarget(id),
-          getScans()
+          getScans(),
         ]);
         setTarget(targetData);
-        
+
         // Find latest scan for THIS target
-        const targetScans = scansData.filter(s => s.target_id === id);
+        const targetScans = scansData.filter((s) => s.target_id === id);
         if (targetScans.length > 0) {
           setLatestScan(targetScans[0]); // Scans are sorted by created_at desc in API
         }
@@ -131,19 +131,28 @@ export default function ProjectWorkspacePage() {
       {latestScan && (
         <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <div className={`h-14 w-14 rounded-2xl flex items-center justify-center border ${
-              latestScan.score >= 80 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-amber-500/10 border-amber-500/20 text-amber-500"
-            }`}>
+            <div
+              className={`h-14 w-14 rounded-2xl flex items-center justify-center border ${
+                latestScan.score >= 80
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                  : "bg-amber-500/10 border-amber-500/20 text-amber-500"
+              }`}
+            >
               <span className="text-xl font-black">{latestScan.score}</span>
             </div>
             <div>
-              <h3 className="font-bold text-white text-lg">Most Recent Scan Result</h3>
+              <h3 className="font-bold text-white text-lg">
+                Most Recent Scan Result
+              </h3>
               <p className="text-white/40 text-sm">
                 Generated on {new Date(latestScan.created_at).toLocaleString()}
               </p>
             </div>
           </div>
-          <Button asChild className="bg-white text-black hover:bg-white/90 font-bold h-12 px-8 gap-2 w-full md:w-auto">
+          <Button
+            asChild
+            className="bg-white text-black hover:bg-white/90 font-bold h-12 px-8 gap-2 w-full md:w-auto"
+          >
             <Link href={`/report/${latestScan.report_id}`}>
               <ExternalLink className="h-4 w-4" />
               View Full Report
@@ -154,8 +163,12 @@ export default function ProjectWorkspacePage() {
 
       <div className="pt-2">
         <div className="mb-6">
-          <h3 className="text-xl font-bold text-white mb-1">Trigger New Analysis</h3>
-          <p className="text-white/40 text-sm">Run a fresh security audit for this target environment.</p>
+          <h3 className="text-xl font-bold text-white mb-1">
+            Trigger New Analysis
+          </h3>
+          <p className="text-white/40 text-sm">
+            Run a fresh security audit for this target environment.
+          </p>
         </div>
         <Suspense
           fallback={

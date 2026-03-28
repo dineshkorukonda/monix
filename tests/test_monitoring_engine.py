@@ -17,7 +17,12 @@ class TestDetectAttacks:
         conns = []
         conns.extend([_conn(remote_ip="9.9.9.9", state="SYN_RECV") for _ in range(100)])
         conns.extend([_conn(remote_ip="8.8.8.8", state="ESTABLISHED") for _ in range(50)])
-        conns.extend([_conn(remote_ip="7.7.7.7", state="ESTABLISHED", local_port=port) for port in range(1, 6)])
+        conns.extend(
+            [
+                _conn(remote_ip="7.7.7.7", state="ESTABLISHED", local_port=port)
+                for port in range(1, 6)
+            ]
+        )
 
         engine.detect_attacks(conns)
 
@@ -31,7 +36,9 @@ class TestDetectAttacks:
     def test_ignores_local_ips_for_port_scan_tracking(self, _mock_time, mock_add_alert):
         engine.port_activity.clear()
 
-        engine.detect_attacks([_conn(remote_ip="127.0.0.1", local_port=port) for port in range(1, 10)])
+        engine.detect_attacks(
+            [_conn(remote_ip="127.0.0.1", local_port=port) for port in range(1, 10)]
+        )
 
         mock_add_alert.assert_not_called()
 

@@ -18,16 +18,18 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import dotenv
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
 # Load .env from repo root so DATABASE_URL is available when running Flask
 # directly (e.g. ``python app.py``).
 dotenv.load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
-_DATABASE_URL: Optional[str] = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix")
+_DATABASE_URL: Optional[str] = os.environ.get(
+    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix"
+)
 
 # ---------------------------------------------------------------------------
 # Engine & session factory — only created when DATABASE_URL is configured
@@ -60,14 +62,23 @@ class ScanRecord(_Base):
     __tablename__ = "reports_scan"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    report_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True, default=uuid.uuid4)
+    report_id = Column(
+        UUID(as_uuid=True), nullable=False, unique=True, index=True, default=uuid.uuid4
+    )
     # target_id links this scan to the Django Target that triggered it.
     # NULL when a scan is run ad-hoc without a saved target.
-    target_id = Column(UUID(as_uuid=True), ForeignKey("reports_target.id", ondelete="SET NULL"), nullable=True, index=True)
+    target_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("reports_target.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     url = Column(String(2048), nullable=False)
     score = Column(Integer, nullable=False)
     results = Column(JSONB, nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
 
     report = relationship("ReportRecord", back_populates="scan", uselist=False)
 
@@ -158,5 +169,6 @@ def save_scan(
     except Exception as e:  # pragma: no cover — DB errors must not break the scan API
         print(f"--- DEBUG: save_scan exception: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return None

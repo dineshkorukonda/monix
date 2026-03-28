@@ -9,7 +9,10 @@ from api.collectors.connection import collect_connections
 class TestCollectConnectionsProcfs:
     @patch("api.collectors.connection.reverse_dns", return_value="example.com")
     @patch("api.collectors.connection.geo_lookup", return_value="US")
-    @patch("api.collectors.connection.get_process_map", return_value={("127.0.0.1", 53): (123, "dnsmasq")})
+    @patch(
+        "api.collectors.connection.get_process_map",
+        return_value={("127.0.0.1", 53): (123, "dnsmasq")},
+    )
     @patch("api.collectors.connection.hex_port")
     @patch("api.collectors.connection.hex_ip")
     def test_reads_procfs_connections(
@@ -24,7 +27,10 @@ class TestCollectConnectionsProcfs:
         mock_hex_ip.side_effect = ["127.0.0.1", "8.8.8.8"]
         mock_hex_port.side_effect = [53, 443]
 
-        with patch("api.collectors.connection.os.path.exists", side_effect=lambda path: path == "/proc/net/tcp"):
+        with patch(
+            "api.collectors.connection.os.path.exists",
+            side_effect=lambda path: path == "/proc/net/tcp",
+        ):
             with patch("builtins.open", mock_open(read_data=f"header\n{line}")):
                 connections = collect_connections()
 
@@ -50,7 +56,10 @@ class TestCollectConnectionsProcfs:
     ):
         line = "0: 0100007F:0050 00000000:0000 01 00000000:00000000 00:00000000 00000000 0 0 0 0 0 0 0 0\n"
 
-        with patch("api.collectors.connection.os.path.exists", side_effect=lambda path: path == "/proc/net/tcp"):
+        with patch(
+            "api.collectors.connection.os.path.exists",
+            side_effect=lambda path: path == "/proc/net/tcp",
+        ):
             with patch("builtins.open", mock_open(read_data=f"header\n{line}")):
                 with patch("api.collectors.connection.geo_lookup") as mock_geo:
                     with patch("api.collectors.connection.reverse_dns") as mock_dns:
@@ -63,7 +72,10 @@ class TestCollectConnectionsProcfs:
 
     @patch("api.collectors.connection.get_process_map", return_value={})
     def test_procfs_read_errors_are_ignored(self, _mock_process_map):
-        with patch("api.collectors.connection.os.path.exists", side_effect=lambda path: path == "/proc/net/tcp"):
+        with patch(
+            "api.collectors.connection.os.path.exists",
+            side_effect=lambda path: path == "/proc/net/tcp",
+        ):
             with patch("builtins.open", side_effect=OSError("boom")):
                 assert collect_connections() == []
 

@@ -15,18 +15,16 @@ TCP_STATES = {
     "0B": "CLOSING",
 }
 
+
 def hex_ip(h):
     if len(h) == 8:
         return socket.inet_ntoa(struct.pack("<L", int(h, 16)))
     else:
         addr_bytes = struct.pack(
-            "<IIII",
-            int(h[0:8], 16),
-            int(h[8:16], 16),
-            int(h[16:24], 16),
-            int(h[24:32], 16)
+            "<IIII", int(h[0:8], 16), int(h[8:16], 16), int(h[16:24], 16), int(h[24:32], 16)
         )
         return socket.inet_ntop(socket.AF_INET6, addr_bytes)
+
 
 def hex_port(h):
     return int(h, 16)

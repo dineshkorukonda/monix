@@ -84,9 +84,7 @@ function ScoreRing({ score }: { score: number }) {
         </div>
       </div>
       <div>
-        <div className={`text-sm font-bold text-center ${color}`}>
-          {label}
-        </div>
+        <div className={`text-sm font-bold text-center ${color}`}>{label}</div>
         <div className="text-xs text-muted-foreground text-center mt-1">
           Threat Score
         </div>

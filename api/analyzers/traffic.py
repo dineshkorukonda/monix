@@ -18,12 +18,13 @@ Technical Rationale:
 import os
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Tuple, NamedTuple
 
 
 class LogEntry(NamedTuple):
     """Parsed Nginx access log entry."""
+
     ip: str
     timestamp: datetime
     method: str
@@ -114,65 +115,64 @@ MALICIOUS_BOT_SIGNATURES: List[str] = [
 DEFAULT_LOG_PATH: str = "/var/log/nginx/access.log"
 
 # Combined log format regex pattern
-# Format: $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"
+# Format: $remote_addr - $remote_user [$time_local] "$request" $status
+#         $body_bytes_sent "$http_referer" "$http_user_agent"
 NGINX_LOG_PATTERN = re.compile(
-    r'^(?P<ip>\S+)\s+'                              # IP address
-    r'\S+\s+'                                        # Identity (usually -)
-    r'\S+\s+'                                        # User (usually -)
-    r'\[(?P<timestamp>[^\]]+)\]\s+'                 # Timestamp
+    r"^(?P<ip>\S+)\s+"  # IP address
+    r"\S+\s+"  # Identity (usually -)
+    r"\S+\s+"  # User (usually -)
+    r"\[(?P<timestamp>[^\]]+)\]\s+"  # Timestamp
     r'"(?P<method>\S+)\s+(?P<url>\S+)\s+[^"]*"\s+'  # Request
-    r'(?P<status>\d+)\s+'                            # Status code
-    r'(?P<size>\d+|-)\s*'                            # Response size
-    r'(?:"[^"]*"\s+)?'                               # Referer (optional)
-    r'"(?P<user_agent>[^"]*)"'                       # User agent
+    r"(?P<status>\d+)\s+"  # Status code
+    r"(?P<size>\d+|-)\s*"  # Response size
+    r'(?:"[^"]*"\s+)?'  # Referer (optional)
+    r'"(?P<user_agent>[^"]*)"'  # User agent
 )
 
 
 def parse_log_line(line: str) -> Optional[LogEntry]:
     """
     Parse a single Nginx access log line.
-    
+
     Args:
         line: Raw log line string
-        
+
     Returns:
         LogEntry if parsing succeeds, None otherwise
     """
     match = NGINX_LOG_PATTERN.match(line.strip())
     if not match:
         return None
-    
+
     try:
         groups = match.groupdict()
-        
+
         # Parse timestamp (format: 30/Dec/2025:14:23:45 +0000)
         # We parse the full timestamp including timezone for accurate comparison
         timestamp_str = groups["timestamp"]
-        
+
         # Try parsing with timezone first
         try:
             # Format: 30/Dec/2025:14:23:45 +0000
-            from datetime import timezone as tz
-            dt_part, tz_part = timestamp_str.rsplit(' ', 1)
+            from datetime import timedelta
+
+            dt_part, tz_part = timestamp_str.rsplit(" ", 1)
             timestamp = datetime.strptime(dt_part, "%d/%b/%Y:%H:%M:%S")
-            
+
             # Parse timezone offset (e.g., +0000, -0500)
-            tz_sign = 1 if tz_part[0] == '+' else -1
+            tz_sign = 1 if tz_part[0] == "+" else -1
             tz_hours = int(tz_part[1:3])
             tz_mins = int(tz_part[3:5])
             tz_offset = timedelta(hours=tz_hours, minutes=tz_mins) * tz_sign
-            
+
             # Convert to UTC for consistent comparison
             timestamp = timestamp - tz_offset
         except (ValueError, IndexError):
             # Fallback: parse without timezone
-            timestamp = datetime.strptime(
-                timestamp_str.split()[0], 
-                "%d/%b/%Y:%H:%M:%S"
-            )
-        
+            timestamp = datetime.strptime(timestamp_str.split()[0], "%d/%b/%Y:%H:%M:%S")
+
         size = int(groups["size"]) if groups["size"] != "-" else 0
-        
+
         return LogEntry(
             ip=groups["ip"],
             timestamp=timestamp,
@@ -180,66 +180,66 @@ def parse_log_line(line: str) -> Optional[LogEntry]:
             url=groups["url"],
             status=int(groups["status"]),
             user_agent=groups["user_agent"],
-            size=size
+            size=size,
         )
     except (ValueError, KeyError):
         return None
 
 
 def read_recent_logs(
-    log_path: str = DEFAULT_LOG_PATH,
-    window_minutes: int = 10,
-    max_lines: int = 50000
+    log_path: str = DEFAULT_LOG_PATH, window_minutes: int = 10, max_lines: int = 50000
 ) -> List[LogEntry]:
     """
     Read and parse recent log entries within the time window.
-    
+
     Args:
         log_path: Path to Nginx access log file
         window_minutes: Time window in minutes to consider
         max_lines: Maximum number of lines to read (from end of file)
-        
+
     Returns:
         List of parsed LogEntry objects within the time window
     """
+    from datetime import timedelta
+
     if not os.path.exists(log_path):
         return []
-    
+
     entries: List[LogEntry] = []
     # Use UTC for consistent comparison with parsed log timestamps
     cutoff_time = datetime.utcnow() - timedelta(minutes=window_minutes)
-    
+
     try:
         with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
             # Read last N lines efficiently
             f.seek(0, 2)  # Seek to end
             file_size = f.tell()
-            
+
             # Estimate bytes to read (average ~200 bytes per line)
             bytes_to_read = min(file_size, max_lines * 200)
             f.seek(max(0, file_size - bytes_to_read))
-            
+
             # Skip partial first line if we didn't start at beginning
             if f.tell() > 0:
                 f.readline()
-            
+
             for line in f:
                 entry = parse_log_line(line)
                 if entry and entry.timestamp >= cutoff_time:
                     entries.append(entry)
     except (IOError, PermissionError):
         return []
-    
+
     return entries
 
 
 def is_suspicious_url(url: str) -> bool:
     """
     Check if URL matches known high-risk endpoints.
-    
+
     Args:
         url: Request URL path
-        
+
     Returns:
         True if URL is suspicious
     """
@@ -250,10 +250,10 @@ def is_suspicious_url(url: str) -> bool:
 def is_malicious_bot(user_agent: str) -> bool:
     """
     Check if user-agent matches known malicious bot signatures.
-    
+
     Args:
         user_agent: User-Agent header value
-        
+
     Returns:
         True if user-agent indicates malicious bot
     """
@@ -263,6 +263,7 @@ def is_malicious_bot(user_agent: str) -> bool:
 
 class SuspiciousIP(NamedTuple):
     """Suspicious IP analysis result."""
+
     ip: str
     total_hits: int
     suspicious_urls: List[str]
@@ -273,126 +274,124 @@ class SuspiciousIP(NamedTuple):
 
 
 def analyze_traffic(
-    entries: List[LogEntry],
-    high_rate_threshold: int = 30,
-    window_minutes: int = 10
+    entries: List[LogEntry], high_rate_threshold: int = 30, window_minutes: int = 10
 ) -> List[SuspiciousIP]:
     """
     Analyze log entries to detect suspicious traffic patterns.
-    
+
     Detection criteria:
     - High request rate (>threshold requests in window)
     - Repeated 404 attempts (reconnaissance)
     - Access to high-risk endpoints
     - Known malicious bot user-agents
-    
+
     Args:
         entries: List of parsed log entries
         high_rate_threshold: Request count threshold for high-rate detection
         window_minutes: Analysis time window in minutes
-        
+
     Returns:
         List of SuspiciousIP objects sorted by threat score (descending)
     """
     # Group entries by IP
-    ip_data: Dict[str, Dict] = defaultdict(lambda: {
-        "hits": 0,
-        "urls": [],
-        "status_404": 0,
-        "user_agents": set(),
-        "suspicious_urls": set()
-    })
-    
+    ip_data: Dict[str, Dict] = defaultdict(
+        lambda: {
+            "hits": 0,
+            "urls": [],
+            "status_404": 0,
+            "user_agents": set(),
+            "suspicious_urls": set(),
+        }
+    )
+
     for entry in entries:
         data = ip_data[entry.ip]
         data["hits"] += 1
         data["urls"].append(entry.url)
         data["user_agents"].add(entry.user_agent)
-        
+
         if entry.status == 404:
             data["status_404"] += 1
-        
+
         if is_suspicious_url(entry.url):
             data["suspicious_urls"].add(entry.url)
-    
+
     # Analyze each IP
     suspicious_ips: List[SuspiciousIP] = []
-    
+
     for ip, data in ip_data.items():
         # Check for malicious bot
         malicious_bot = any(is_malicious_bot(ua) for ua in data["user_agents"])
-        
+
         # Check for high request rate
         high_rate = data["hits"] >= high_rate_threshold
-        
+
         # Calculate threat score
         threat_score = 0
-        
+
         # High request rate
         if high_rate:
             threat_score += 20
-        
+
         # Repeated 404s (reconnaissance indicator)
         if data["status_404"] >= 5:
             threat_score += 15 + min(data["status_404"], 20)
-        
+
         # Access to high-risk endpoints
         suspicious_url_count = len(data["suspicious_urls"])
         if suspicious_url_count > 0:
             threat_score += 25 + (suspicious_url_count * 5)
-        
+
         # Malicious bot detected
         if malicious_bot:
             threat_score += 30
-        
+
         # Only include IPs that meet suspicious criteria
         if threat_score > 0 or high_rate:
-            suspicious_ips.append(SuspiciousIP(
-                ip=ip,
-                total_hits=data["hits"],
-                suspicious_urls=sorted(data["suspicious_urls"]),
-                status_404_count=data["status_404"],
-                malicious_bot=malicious_bot,
-                high_rate=high_rate,
-                threat_score=threat_score
-            ))
-    
+            suspicious_ips.append(
+                SuspiciousIP(
+                    ip=ip,
+                    total_hits=data["hits"],
+                    suspicious_urls=sorted(data["suspicious_urls"]),
+                    status_404_count=data["status_404"],
+                    malicious_bot=malicious_bot,
+                    high_rate=high_rate,
+                    threat_score=threat_score,
+                )
+            )
+
     # Sort by threat score (descending)
     return sorted(suspicious_ips, key=lambda x: x.threat_score, reverse=True)
 
 
 def get_traffic_summary(
-    log_path: str = DEFAULT_LOG_PATH,
-    window_minutes: int = 10,
-    high_rate_threshold: int = 30
+    log_path: str = DEFAULT_LOG_PATH, window_minutes: int = 10, high_rate_threshold: int = 30
 ) -> Dict:
     """
     Generate a comprehensive traffic analysis summary.
-    
+
     Args:
         log_path: Path to Nginx access log file
         window_minutes: Time window in minutes
         high_rate_threshold: Request threshold for high-rate detection
-        
+
     Returns:
         Dictionary containing traffic analysis results
     """
     entries = read_recent_logs(log_path, window_minutes)
     suspicious_ips = analyze_traffic(entries, high_rate_threshold, window_minutes)
-    
+
     # Calculate summary statistics
     total_requests = len(entries)
     unique_ips = len(set(e.ip for e in entries))
     total_404s = sum(1 for e in entries if e.status == 404)
-    
+
     # Count high-risk endpoint hits
     high_risk_hits = sum(1 for e in entries if is_suspicious_url(e.url))
-    
+
     # Count malicious bot requests
-    malicious_bot_requests = sum(
-        1 for e in entries if is_malicious_bot(e.user_agent)
-    )
-    
+    malicious_bot_requests = sum(1 for e in entries if is_malicious_bot(e.user_agent))
+
     return {
         "window_minutes": window_minutes,
         "total_requests": total_requests,
@@ -402,17 +401,17 @@ def get_traffic_summary(
         "malicious_bot_requests": malicious_bot_requests,
         "suspicious_ips": suspicious_ips,
         "log_path": log_path,
-        "log_exists": os.path.exists(log_path)
+        "log_exists": os.path.exists(log_path),
     }
 
 
 def classify_threat_level(threat_score: int) -> Tuple[str, str]:
     """
     Classify threat level based on score.
-    
+
     Args:
         threat_score: Numeric threat score
-        
+
     Returns:
         Tuple of (level name, color code)
     """
@@ -424,4 +423,3 @@ def classify_threat_level(threat_score: int) -> Tuple[str, str]:
         return ("MEDIUM", "cyan")
     else:
         return ("LOW", "white")
-

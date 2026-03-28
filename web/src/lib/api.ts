@@ -9,7 +9,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030";
 // Django exposes CORS headers (django-cors-headers) allowing direct browser calls.
 // Do NOT proxy through Next.js /api/* — that creates a redirect loop with Django's APPEND_SLASH.
 const DJANGO_BASE =
-	process.env.NEXT_PUBLIC_DJANGO_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_DJANGO_URL || "http://localhost:8000";
 const REPORTS_API_BASE_URL = DJANGO_BASE;
 
 export class ApiError extends Error {
@@ -577,4 +577,3 @@ export async function deleteAccount(): Promise<void> {
   });
   if (!res.ok) throw new Error("Failed to delete account");
 }
-

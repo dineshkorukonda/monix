@@ -11,6 +11,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.contrib.auth.models import User
 from django.db import models
 
+
 class Target(models.Model):
     """A Monitored Target belonging to a User."""
 
@@ -30,7 +31,9 @@ class Target(models.Model):
 class Scan(models.Model):
     """Represents one URL security scan result."""
 
-    target = models.ForeignKey(Target, on_delete=models.SET_NULL, null=True, blank=True, related_name="scans")
+    target = models.ForeignKey(
+        Target, on_delete=models.SET_NULL, null=True, blank=True, related_name="scans"
+    )
 
     report_id = models.UUIDField(
         default=uuid.uuid4,
@@ -58,7 +61,9 @@ class Report(models.Model):
 
     scan = models.OneToOneField(Scan, on_delete=models.CASCADE, related_name="report")
     is_expired = models.BooleanField(default=False)
-    expires_at = models.DateTimeField(help_text="Timestamp after which this report is considered expired.")
+    expires_at = models.DateTimeField(
+        help_text="Timestamp after which this report is considered expired."
+    )
 
     class Meta:
         ordering = ["-scan__created_at"]
