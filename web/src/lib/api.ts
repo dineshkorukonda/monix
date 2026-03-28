@@ -128,6 +128,11 @@ export interface WebSecurityAnalysis {
   scores?: ScoreBreakdown;
   seo?: SeoResults;
   performance?: PerformanceResults;
+  /** Present when the scan was persisted (Flask `save_scan`). */
+  report_id?: string;
+  report_url?: string;
+  /** False when PageSpeed was skipped for a fast scan. */
+  lighthouse_ran?: boolean;
   error?: string;
 }
 
@@ -220,46 +225,77 @@ export interface DashboardData {
  *
  * @param url - URL to analyze
  * @param options - Optional configuration
- * @param options.includePortScan - Enable port scanning (default: true for UI)
+ * @param options.includePortScan - Enable port scanning (default: false; slow)
  * @param options.includeMetadata - Enable page metadata extraction (default: false)
+ * @param options.includePerformance - PageSpeed/Lighthouse mobile+desktop (default: false; often +30–60s)
  */
 export async function analyzeUrl(
   url: string,
   options?: {
     includePortScan?: boolean;
     includeMetadata?: boolean;
+    /** Google PageSpeed Insights; expensive — default off for faster scans. */
+    includePerformance?: boolean;
     targetId?: string;
   },
 ): Promise<WebSecurityAnalysis> {
   const {
-    includePortScan = true,
+    includePortScan = false,
     includeMetadata = false,
+    includePerformance = false,
     targetId,
   } = options || {};
 
+  const body = {
+    url,
+    include_port_scan: includePortScan,
+    include_metadata: includeMetadata,
+    include_performance: includePerformance,
+    ...(targetId ? { target_id: targetId } : {}),
+  };
+
+  const timeoutMs = 120000;
+  const parseJson = async (res: Response) => res.json().catch(() => ({}));
+
   try {
-    const response = await fetch(`${API_BASE_URL}/api/analyze-url`, {
+    // Prefer Django proxy (session cookie) so Flask can persist with the internal
+    // secret and scans show up in your account. Falls back to direct Flask when
+    // not logged in (e.g. public /web scanner).
+    const proxied = await fetch(`${DJANGO_BASE}/api/scans/run/`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url,
-        include_port_scan: includePortScan,
-        include_metadata: includeMetadata,
-        target_id: targetId,
-      }),
-      signal: AbortSignal.timeout(60000), // 60 second timeout for analysis
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error || `Analysis failed: ${response.statusText}`,
-      );
+    if (proxied.ok) {
+      return proxied.json() as Promise<WebSecurityAnalysis>;
     }
 
-    return response.json();
+    if (proxied.status === 401 || proxied.status === 403) {
+      const direct = await fetch(`${API_BASE_URL}/api/analyze-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!direct.ok) {
+        const errorData = await parseJson(direct);
+        throw new Error(
+          (errorData as { error?: string }).error ||
+            `Analysis failed: ${direct.statusText}`,
+        );
+      }
+      return direct.json() as Promise<WebSecurityAnalysis>;
+    }
+
+    const errBody = await parseJson(proxied);
+    throw new Error(
+      (errBody as { error?: string; detail?: string }).error ||
+        (errBody as { detail?: string }).detail ||
+        `Analysis failed (${proxied.status})`,
+    );
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === "TimeoutError") {
@@ -433,7 +469,7 @@ export interface Target {
   id: string;
   name: string;
   url: string;
-  environment: string;
+  environment?: string;
   ip?: string;
   location?: string;
   activity?: string;
@@ -445,12 +481,15 @@ export interface Target {
 }
 
 export interface UserProfile {
-  username: string;
   name: string;
   email: string;
   first_name: string;
   last_name: string;
   initials: string;
+}
+
+export interface AuthUser {
+  email: string;
 }
 
 export interface ScanSummary {
@@ -468,20 +507,20 @@ export async function getTargets(): Promise<Target[]> {
   const res = await fetch(`${DJANGO_BASE}/api/targets/`, {
     credentials: "include",
   });
-  if (!res.ok) throw new Error("Failed to fetch targets");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(err.error || "Failed to fetch targets", res.status);
+  }
   return res.json();
 }
 
-/** Create a new monitored target. */
-export async function createTarget(
-  url: string,
-  environment = "Production",
-): Promise<Target> {
+/** Create a new monitored target (URL only). */
+export async function createTarget(url: string): Promise<Target> {
   const res = await fetch(`${DJANGO_BASE}/api/targets/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ url, environment }),
+    body: JSON.stringify({ url }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -513,7 +552,10 @@ export async function getScans(): Promise<ScanSummary[]> {
   const res = await fetch(`${DJANGO_BASE}/api/scans/`, {
     credentials: "include",
   });
-  if (!res.ok) throw new Error("Failed to fetch scans");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(err.error || "Failed to fetch scans", res.status);
+  }
   return res.json();
 }
 
@@ -522,7 +564,55 @@ export async function getMe(): Promise<UserProfile> {
   const res = await fetch(`${DJANGO_BASE}/api/auth/me/`, {
     credentials: "include",
   });
-  if (!res.ok) throw new Error("Not authenticated");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(err.error || "Not authenticated", res.status);
+  }
+  return res.json();
+}
+
+/** Authenticate and create a Django session (email + password; server uses session cookies, not JWT). */
+export async function login(
+  email: string,
+  password: string,
+): Promise<AuthUser> {
+  const res = await fetch(`${DJANGO_BASE}/api/auth/login/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(err.error || "Login failed", res.status);
+  }
+
+  return res.json();
+}
+
+/** Register with full name, email, and password (Django session cookie, not JWT). */
+export async function signup(data: {
+  full_name: string;
+  email: string;
+  password: string;
+}): Promise<AuthUser> {
+  const res = await fetch(`${DJANGO_BASE}/api/auth/signup/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      full_name: data.full_name.trim(),
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(err.error || "Sign up failed", res.status);
+  }
+
   return res.json();
 }
 

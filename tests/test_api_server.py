@@ -1,6 +1,8 @@
 """Tests for API server endpoints."""
 
 import json
+import os
+import uuid
 from types import SimpleNamespace
 from unittest.mock import patch
 import pytest
@@ -118,6 +120,52 @@ class TestAnalyzeUrlEndpoint:
             include_port_scan=True,
             include_metadata=False,
         )
+
+    @patch(
+        "api.server.calculate_overall_score",
+        return_value={"overall": 70, "security": 60, "seo": 80, "performance": 75},
+    )
+    @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
+    @patch("api.server.run_seo_checks", return_value={"seo_score": 80})
+    @patch("api.server.analyze_web_security", return_value={"status": "success"})
+    @patch("api.server.save_scan", return_value=str(uuid.uuid4()))
+    def test_target_id_stripped_without_internal_secret(
+        self, mock_save, _mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
+    ):
+        """Untrusted clients cannot link scans to a target_id."""
+        fake_tid = str(uuid.uuid4())
+        with patch.dict(os.environ, {"MONIX_INTERNAL_SCAN_SECRET": "server-secret"}):
+            resp = client.post(
+                "/api/analyze-url",
+                data=json.dumps({"url": "https://example.com", "target_id": fake_tid}),
+                content_type="application/json",
+            )
+        assert resp.status_code == 200
+        mock_save.assert_called_once()
+        assert mock_save.call_args.kwargs.get("target_id") is None
+
+    @patch(
+        "api.server.calculate_overall_score",
+        return_value={"overall": 70, "security": 60, "seo": 80, "performance": 75},
+    )
+    @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
+    @patch("api.server.run_seo_checks", return_value={"seo_score": 80})
+    @patch("api.server.analyze_web_security", return_value={"status": "success"})
+    @patch("api.server.save_scan", return_value=str(uuid.uuid4()))
+    def test_target_id_honored_with_internal_secret_header(
+        self, mock_save, _mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
+    ):
+        fake_tid = str(uuid.uuid4())
+        with patch.dict(os.environ, {"MONIX_INTERNAL_SCAN_SECRET": "server-secret"}):
+            resp = client.post(
+                "/api/analyze-url",
+                data=json.dumps({"url": "https://example.com", "target_id": fake_tid}),
+                content_type="application/json",
+                headers={"X-Monix-Internal-Scan-Secret": "server-secret"},
+            )
+        assert resp.status_code == 200
+        mock_save.assert_called_once()
+        assert mock_save.call_args.kwargs.get("target_id") == fake_tid
 
 
 class TestAnalyzeUrlHelper:

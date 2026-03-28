@@ -269,3 +269,16 @@ class TestCalculateOverallScore:
                 _performance_result(mob, desk),
             )
             assert 0 <= scores["overall"] <= 100
+
+    def test_skip_performance_reweights_overall(self):
+        """When PageSpeed is skipped, overall uses security + SEO only (62.5% / 37.5%)."""
+        scores = calculate_overall_score(
+            _security_result(True, 100, True),
+            _seo_result(80),
+            _performance_result(100, 100),
+            include_performance=False,
+        )
+        assert scores["security"] == 100
+        assert scores["seo"] == 80
+        assert scores["performance"] == 0
+        assert scores["overall"] == int(round(100 * 0.625 + 80 * 0.375))

@@ -8,14 +8,22 @@ security logic remains in core modules, this is purely an API layer.
 
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
+
+import requests
+import socket
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from urllib.parse import urlparse
-import socket
-import requests
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_CORE_DIR = os.path.join(_REPO_ROOT, "core")
+for _p in (_REPO_ROOT, _CORE_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+# Header Django (or other trusted callers) send when linking a scan to a Target UUID.
+_INTERNAL_SCAN_SECRET_HEADER = "X-Monix-Internal-Scan-Secret"
 
 from api.analyzers.traffic import (  # noqa: E402
     is_suspicious_url,
@@ -35,6 +43,15 @@ from api.db import save_scan  # noqa: E402
 from api.seo_checker import run_seo_checks  # noqa: E402
 from api.performance_checker import run_performance_checks  # noqa: E402
 from api.scoring import calculate_overall_score  # noqa: E402
+from reports.scan_proxy import resolve_internal_scan_secret  # noqa: E402
+
+
+def _internal_scan_secret_ok() -> bool:
+    """True when the request carries the configured internal scan secret."""
+    expected = resolve_internal_scan_secret()
+    if not expected:
+        return False
+    return request.headers.get(_INTERNAL_SCAN_SECRET_HEADER, "") == expected
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js frontend
@@ -174,8 +191,9 @@ def analyze_url_endpoint():
         JSON response with complete security analysis
 
     Performance Note:
-        By default, expensive checks (port scanning, metadata extraction) are disabled
-        for faster responses (~5-10s vs 60s). Enable them only when needed.
+        Port scan and metadata default off. PageSpeed (Lighthouse) defaults off
+        (``include_performance: false``); enable in the JSON body or use ``?full=true``
+        for a deep scan. SEO + security checks still run on every request.
     """
     data = request.get_json()
 
@@ -192,6 +210,10 @@ def analyze_url_endpoint():
     # Optional parameters (default to False for better performance)
     include_port_scan = data.get("include_port_scan", full_scan)
     include_metadata = data.get("include_metadata", full_scan)
+    # Google PageSpeed (mobile + desktop) — omit by default to save ~30–60s.
+    include_performance = bool(data.get("include_performance", False))
+    if full_scan:
+        include_performance = True
 
     try:
         # Perform comprehensive web security analysis with optional checks
@@ -199,29 +221,76 @@ def analyze_url_endpoint():
             url, include_port_scan=include_port_scan, include_metadata=include_metadata
         )
 
-        # Run SEO checks and merge results
-        seo_result = run_seo_checks(url)
-        result["seo"] = seo_result
+        seo_result: dict
+        performance_result: dict
 
-        # Run PageSpeed / performance checks and merge results
-        performance_result = run_performance_checks(url)
+        if include_performance:
+            # SEO + PageSpeed are independent; run concurrently.
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                f_seo = pool.submit(run_seo_checks, url)
+                f_perf = pool.submit(run_performance_checks, url)
+                try:
+                    seo_result = f_seo.result()
+                except Exception as exc:
+                    seo_result = {
+                        "checks": {},
+                        "seo_score": 0,
+                        "error": str(exc),
+                    }
+                try:
+                    performance_result = f_perf.result()
+                except Exception as exc:
+                    performance_result = {
+                        "mobile": {"error": str(exc)},
+                        "desktop": {"error": str(exc)},
+                    }
+        else:
+            try:
+                seo_result = run_seo_checks(url)
+            except Exception as exc:
+                seo_result = {
+                    "checks": {},
+                    "seo_score": 0,
+                    "error": str(exc),
+                }
+            performance_result = {
+                "mobile": {
+                    "performance_score": None,
+                    "error": "skipped_fast_scan",
+                },
+                "desktop": {
+                    "performance_score": None,
+                    "error": "skipped_fast_scan",
+                },
+            }
+
+        result["seo"] = seo_result
         result["performance"] = performance_result
+        result["lighthouse_ran"] = include_performance
 
         # Calculate composite score from all three categories.
         # ``result`` is the security scan output from analyze_web_security;
         # the seo/performance keys merged into it are ignored by
         # calculate_security_score, which reads only security-specific keys.
-        scores = calculate_overall_score(result, seo_result, performance_result)
+        scores = calculate_overall_score(
+            result,
+            seo_result,
+            performance_result,
+            include_performance=include_performance,
+        )
         result["scores"] = scores
 
         # Persist scan result to the shared PostgreSQL database so Django can
         # retrieve it for report management and admin.
-        # target_id (optional) links this scan to the Django Target that owns it.
+        # target_id is only honored from trusted callers (Django proxy) so clients
+        # cannot attach scans to another user's Target.
         target_id = data.get("target_id")
+        if target_id and not _internal_scan_secret_ok():
+            target_id = None
         report_id = save_scan(url=url, score=scores["overall"], results=result, target_id=target_id)
         if report_id:
             result["report_id"] = report_id
-            result["report_url"] = f"/report/{report_id}"
+            result["report_url"] = f"/dashboard/report/{report_id}"
 
         return jsonify(result)
 

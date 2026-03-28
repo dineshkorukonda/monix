@@ -1,5 +1,3 @@
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
@@ -14,7 +12,7 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "monix",
   description:
-    "Web-facing security analysis with infrastructure context, hardening checks, and threat scoring.",
+    "Security, SEO, and performance analysis in one workspace. Sign in for category scores, shareable reports, and a dashboard for projects and scan history.",
 };
 
 export default function RootLayout({
@@ -32,8 +30,6 @@ export default function RootLayout({
         className={`${poppins.variable} bg-background text-foreground antialiased`}
       >
         <TooltipProvider>{children}</TooltipProvider>
-        <SpeedInsights />
-        <Analytics />
       </body>
     </html>
   );

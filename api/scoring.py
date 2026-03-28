@@ -17,7 +17,7 @@ pass/warn/fail mapping used by the SEO checker:
 
 Public API
 ----------
-calculate_overall_score(security_result, seo_result, performance_result)
+``calculate_overall_score(security_result, seo_result, performance_result, *, include_performance=True)``
     Returns ``{"overall": int, "security": int, "seo": int, "performance": int}``.
 """
 
@@ -145,6 +145,8 @@ def calculate_overall_score(
     security_result: Dict,
     seo_result: Dict,
     performance_result: Dict,
+    *,
+    include_performance: bool = True,
 ) -> Dict[str, int]:
     """
     Calculate a single overall score (0-100) for a scan.
@@ -154,26 +156,36 @@ def calculate_overall_score(
         SEO         30 %
         performance 20 %
 
+    When ``include_performance`` is False (fast scan, no PageSpeed), the overall
+    score uses only security + SEO with weights scaled to 100% (62.5% / 37.5%).
+
     Args:
         security_result:    Dict from ``api.scanners.web.analyze_web_security``.
         seo_result:         Dict from ``api.seo_checker.run_seo_checks``.
         performance_result: Dict from ``api.performance_checker.run_performance_checks``.
+        include_performance: If False, performance is treated as not run for the composite.
 
     Returns:
         ``{"overall": int, "security": int, "seo": int, "performance": int}``
-        All values are integers in [0, 100].
+        All values are integers in [0, 100]. Performance is 0 when not included.
     """
     security = calculate_security_score(security_result)
     seo = calculate_seo_score(seo_result)
-    performance = calculate_performance_score(performance_result)
-
-    overall = int(
-        round(
-            security * _WEIGHTS["security"]
-            + seo * _WEIGHTS["seo"]
-            + performance * _WEIGHTS["performance"]
-        )
+    performance = (
+        calculate_performance_score(performance_result) if include_performance else 0
     )
+
+    if include_performance:
+        overall = int(
+            round(
+                security * _WEIGHTS["security"]
+                + seo * _WEIGHTS["seo"]
+                + performance * _WEIGHTS["performance"]
+            )
+        )
+    else:
+        # 50% + 30% = 80% of original blend → renormalize to 100%.
+        overall = int(round(security * (0.5 / 0.8) + seo * (0.3 / 0.8)))
 
     return {
         "overall": overall,

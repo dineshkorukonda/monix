@@ -14,7 +14,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { logout as doLogout, getMe, type UserProfile } from "@/lib/api";
+import {
+  ApiError,
+  logout as doLogout,
+  getMe,
+  type UserProfile,
+} from "@/lib/api";
 
 export default function DashboardLayout({
   children,
@@ -26,12 +31,27 @@ export default function DashboardLayout({
     UserProfile,
     "name" | "initials"
   > | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     getMe()
-      .then((data) => setUser({ name: data.name, initials: data.initials }))
-      .catch(() => setUser({ name: "User", initials: "??" }));
-  }, []);
+      .then((data) => {
+        setUser({ name: data.name, initials: data.initials });
+        setAuthChecked(true);
+      })
+      .catch((err) => {
+        if (
+          err instanceof ApiError &&
+          (err.status === 401 || err.status === 403)
+        ) {
+          router.replace("/login");
+          return;
+        }
+
+        setUser({ name: "User", initials: "??" });
+        setAuthChecked(true);
+      });
+  }, [router]);
 
   const handleLogout = async () => {
     try {
@@ -40,6 +60,14 @@ export default function DashboardLayout({
       router.push("/login");
     }
   };
+
+  if (!authChecked) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center text-muted-foreground text-sm">
+        Validating session...
+      </main>
+    );
+  }
 
   return (
     <SidebarProvider defaultOpen={true}>

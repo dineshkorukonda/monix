@@ -1,12 +1,23 @@
 import json
-from django.http import JsonResponse
+import logging
+import os
+
+import requests
+from django.conf import settings
+from django.db.models import Q
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.models import User
 
 from .models import Report, Scan, Target
+from .scan_proxy import resolve_internal_scan_secret
+
+logger = logging.getLogger(__name__)
+
+_INTERNAL_SCAN_SECRET_HEADER = "X-Monix-Internal-Scan-Secret"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -18,9 +29,22 @@ def _ensure_auth(request) -> bool:
     return request.user.is_authenticated
 
 
+def _scans_for_target(target: Target):
+    """Scans linked to this target or orphan rows stored with the same URL."""
+    return Scan.objects.filter(
+        Q(target_id=target.id) | Q(target__isnull=True, url=target.url)
+    ).order_by("-created_at")
+
+
 def _user_initials(user: User) -> str:
     if user.first_name and user.last_name:
         return (user.first_name[0] + user.last_name[0]).upper()
+    if user.first_name:
+        return user.first_name[:2].upper()
+    if user.last_name:
+        return user.last_name[:2].upper()
+    if user.email:
+        return user.email[:2].upper()
     return user.username[:2].upper()
 
 
@@ -68,29 +92,90 @@ def api_login(request):
     """Authenticate and store session login."""
     try:
         data = json.loads(request.body)
-        username = data.get("username")
-        password = data.get("password")
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            login(request, user)
-            return JsonResponse({"username": user.username, "email": user.email})
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body."}, status=400)
+
+    password = data.get("password")
+    # Email-first login; accept legacy "username" key for older clients.
+    email = (data.get("email") or data.get("username") or "").strip()
+    if not email or not password:
+        return JsonResponse({"error": "Email and password are required."}, status=400)
+
+    if "@" in email:
+        account = User.objects.filter(email__iexact=email.lower()).first()
+    else:
+        account = User.objects.filter(username__iexact=email).first()
+
+    if account is None:
         return JsonResponse({"error": "Invalid credentials"}, status=401)
+
+    user = authenticate(request, username=account.username, password=password)
+    if user is not None:
+        login(request, user)
+        return JsonResponse({"email": user.email})
+    return JsonResponse({"error": "Invalid credentials"}, status=401)
+
+
+@csrf_exempt
+@require_POST
+def api_signup(request):
+    """Register a new user and create an authenticated session."""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body."}, status=400)
+
+    try:
+        email = (data.get("email") or "").strip().lower()
+        password = data.get("password") or ""
+        full_name = (data.get("full_name") or "").strip()
+        if not full_name:
+            # Backwards compatibility with split first/last from older clients.
+            fn = (data.get("first_name") or "").strip()
+            ln = (data.get("last_name") or "").strip()
+            full_name = f"{fn} {ln}".strip()
+
+        if not full_name:
+            return JsonResponse({"error": "Full name is required."}, status=400)
+        if not email:
+            return JsonResponse({"error": "Email is required."}, status=400)
+        if not password or len(password) < 8:
+            return JsonResponse({"error": "Password must be at least 8 characters."}, status=400)
+        if User.objects.filter(email__iexact=email).exists():
+            return JsonResponse({"error": "Email is already in use."}, status=400)
+
+        parts = full_name.split()
+        first_name = parts[0] if parts else ""
+        last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+
+        # Django requires a unique username; use normalized email as the stable handle.
+        user = User.objects.create_user(
+            username=email,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        return JsonResponse({"email": user.email}, status=201)
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=400)
+        logger.exception("signup failed")
+        msg = str(e) if settings.DEBUG else "Registration could not be completed."
+        return JsonResponse({"error": msg}, status=400)
 
 
 @require_GET
 def api_me(request):
     """Return the active logged-in user session info."""
     if not _ensure_auth(request):
-        return JsonResponse({"error": "Unauthorized. Please run createsuperuser."}, status=401)
+        return JsonResponse({"error": "Unauthorized"}, status=401)
 
     user = request.user
+    display_name = f"{user.first_name} {user.last_name}".strip() or user.email or user.username
     return JsonResponse(
         {
-            "username": user.username,
-            "name": f"{user.first_name} {user.last_name}".strip() or user.username,
             "email": user.email,
+            "name": display_name,
             "first_name": user.first_name,
             "last_name": user.last_name,
             "initials": _user_initials(user),
@@ -124,7 +209,7 @@ def api_profile(request):
         return JsonResponse(
             {
                 "ok": True,
-                "name": f"{user.first_name} {user.last_name}".strip() or user.username,
+                "name": f"{user.first_name} {user.last_name}".strip() or user.email or user.username,
                 "initials": _user_initials(user),
             }
         )
@@ -177,7 +262,8 @@ def api_targets(request):
         targets = Target.objects.filter(owner=request.user)
         data = []
         for t in targets:
-            latest_scan = t.scans.order_by("-created_at").first()
+            scans_qs = _scans_for_target(t)
+            latest_scan = scans_qs.first()
             data.append(
                 {
                     "id": str(t.id),
@@ -185,7 +271,7 @@ def api_targets(request):
                     "url": t.url,
                     "environment": t.environment,
                     "ip": "Analyzing Target",
-                    "location": t.environment,
+                    "location": "",
                     "activity": (
                         latest_scan.results.get("threat", "Awaiting initial scan telemetry")
                         if latest_scan
@@ -197,7 +283,7 @@ def api_targets(request):
                     ),
                     "score": latest_scan.score if latest_scan else 100,
                     "created_at": t.created_at.isoformat(),
-                    "scan_count": t.scans.count(),
+                    "scan_count": scans_qs.count(),
                 }
             )
         return JsonResponse(data, safe=False)
@@ -210,7 +296,7 @@ def api_targets(request):
                 return JsonResponse({"error": "url is required"}, status=400)
             if not url.startswith(("http://", "https://")):
                 url = "https://" + url
-            environment = data.get("environment", "Production")
+            environment = (data.get("environment") or "").strip()
             target = Target.objects.create(owner=request.user, url=url, environment=environment)
             return JsonResponse(
                 {
@@ -239,7 +325,8 @@ def api_target_detail(request, target_id):
         return JsonResponse({"error": "Target not found."}, status=404)
 
     if request.method == "GET":
-        latest_scan = target.scans.order_by("-created_at").first()
+        scans_qs = _scans_for_target(target)
+        latest_scan = scans_qs.first()
         return JsonResponse(
             {
                 "id": str(target.id),
@@ -252,7 +339,7 @@ def api_target_detail(request, target_id):
                 ),
                 "score": latest_scan.score if latest_scan else 100,
                 "created_at": target.created_at.isoformat(),
-                "scan_count": target.scans.count(),
+                "scan_count": scans_qs.count(),
             }
         )
 
@@ -268,16 +355,86 @@ def api_target_detail(request, target_id):
 # ---------------------------------------------------------------------------
 
 
-@require_GET
-def api_scans(request):
-    """Return all scans belonging to the authenticated user's targets."""
+@csrf_exempt
+@require_POST
+def api_run_scan(request):
+    """
+    Run a full URL analysis via the Flask API on behalf of the logged-in user.
+
+    Validates optional ``target_id`` against the caller's targets, then forwards
+    the request to Flask with an internal secret so scans can be linked safely.
+    """
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
-    target_ids = Target.objects.filter(owner=request.user).values_list("id", flat=True)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body."}, status=400)
+
+    if "url" not in data or not str(data.get("url", "")).strip():
+        return JsonResponse({"error": "Missing 'url' in request body"}, status=400)
+
+    target_id = data.get("target_id")
+    if target_id is not None and str(target_id).strip():
+        tid = str(target_id).strip()
+        if not Target.objects.filter(id=tid, owner=request.user).exists():
+            return JsonResponse({"error": "Target not found."}, status=404)
+
+    secret = resolve_internal_scan_secret(debug=settings.DEBUG)
+    if not secret:
+        logger.error("MONIX_INTERNAL_SCAN_SECRET is not set and DEBUG is off; cannot proxy scans.")
+        return JsonResponse(
+            {
+                "error": (
+                    "Scan service is not configured. Set MONIX_INTERNAL_SCAN_SECRET in the "
+                    "environment for production."
+                ),
+            },
+            status=503,
+        )
+
+    base = (os.environ.get("FLASK_API_URL") or "http://127.0.0.1:3030").rstrip("/")
+    forward_url = f"{base}/api/analyze-url"
+    if request.GET.urlencode():
+        forward_url = f"{forward_url}?{request.GET.urlencode()}"
+
+    try:
+        upstream = requests.post(
+            forward_url,
+            json=data,
+            headers={
+                "Content-Type": "application/json",
+                _INTERNAL_SCAN_SECRET_HEADER: secret,
+            },
+            timeout=125,
+        )
+    except requests.RequestException as exc:
+        logger.warning("Flask scan proxy failed: %s", exc)
+        detail = str(exc) if settings.DEBUG else ""
+        payload = {"error": "Scan service unavailable.", **({"detail": detail} if detail else {})}
+        return JsonResponse(payload, status=502)
+
+    ct = upstream.headers.get("Content-Type") or "application/json"
+    return HttpResponse(upstream.content, status=upstream.status_code, content_type=ct)
+
+
+@require_GET
+def api_scans(request):
+    """Return scans for the user's targets, including orphan rows tied by URL match."""
+    if not _ensure_auth(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    targets = Target.objects.filter(owner=request.user)
+    target_ids = list(targets.values_list("id", flat=True))
+    owned_urls = list(targets.values_list("url", flat=True))
     scans = (
-        Scan.objects.filter(target__id__in=target_ids)
+        Scan.objects.filter(
+            Q(target_id__in=target_ids)
+            | Q(target__isnull=True, url__in=owned_urls)
+        )
         .select_related("target")
+        .distinct()
         .order_by("-created_at")[:100]
     )
 

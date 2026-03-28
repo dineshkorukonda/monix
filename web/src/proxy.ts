@@ -2,21 +2,16 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 export function proxy(request: NextRequest) {
-  // Protective route shell ensuring isolation of user workspaces
   const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
+  const isLoginRoute = request.nextUrl.pathname === "/login";
+  const hasSession = Boolean(request.cookies.get("sessionid")?.value);
 
-  if (isDashboardRoute) {
-    /**
-     * In a production environment with NextAuth or a Django session backend,
-     * this token check ensures that users without a session are immediately
-     * deflected back to the /login page, guaranteeing that tracked projects
-     * cannot cross-pollinate.
-     *
-     * const auth = request.cookies.get('monix_session');
-     * if (!auth) return NextResponse.redirect(new URL('/login', request.url));
-     */
-    // For local UI preview without a live backend connection, we allow pass through
-    // but establish the boundary so that next steps can simply toggle the check.
+  if (isDashboardRoute && !hasSession) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (isLoginRoute && hasSession) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();

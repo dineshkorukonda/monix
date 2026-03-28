@@ -11,6 +11,7 @@ Monix quickstart helper
 
 Usage:
   ./GET_STARTED.sh setup
+  ./GET_STARTED.sh dev
   ./GET_STARTED.sh api
   ./GET_STARTED.sh django
   ./GET_STARTED.sh web
@@ -18,6 +19,7 @@ Usage:
 
 Commands:
   setup   Create the Python venv, install backend deps, copy .env, and install web deps
+  dev     Migrate, then run Flask API and Django together (one terminal)
   api     Run the Flask API from the repo root
   django  Run Django migrations, then start the Django dev server
   web     Run the Next.js frontend dev server
@@ -70,11 +72,31 @@ Setup complete.
 [!] WARNING: The Next.js UI is now natively mapped to your PostgreSQL Django backend.
 For the Dashboard to load and fetch your tracking Targets, Django must be actively running!
 
-Next steps (execute these in three separate terminal tabs):
-  ./GET_STARTED.sh api
-  ./GET_STARTED.sh django
-  ./GET_STARTED.sh web
+Next steps:
+  ./GET_STARTED.sh dev    # Flask + Django in one terminal, then:
+  ./GET_STARTED.sh web    # frontend in another terminal
+
+  Or run api / django / web in separate terminals if you prefer.
 EOF
+}
+
+run_dev() {
+  ensure_venv
+  (
+    cd "$ROOT_DIR/core"
+    python manage.py migrate --noinput
+  )
+  echo "Starting Flask (port ${PORT:-3030}) and Django (port 8000). Press Ctrl+C to stop both."
+  trap 'kill 0' INT TERM
+  (
+    cd "$ROOT_DIR"
+    exec python app.py
+  ) &
+  (
+    cd "$ROOT_DIR/core"
+    exec python manage.py runserver
+  ) &
+  wait
 }
 
 run_api() {
@@ -113,6 +135,9 @@ main() {
       ;;
     api)
       run_api
+      ;;
+    dev)
+      run_dev
       ;;
     django)
       run_django

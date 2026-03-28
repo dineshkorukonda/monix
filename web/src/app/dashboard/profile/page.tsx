@@ -131,7 +131,7 @@ export default function ProfilePage() {
           credentials.
           {profile && (
             <span className="ml-2 text-foreground/60 font-mono text-xs">
-              @{profile.username}
+              {profile.email}
             </span>
           )}
         </p>

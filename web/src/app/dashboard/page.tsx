@@ -3,20 +3,25 @@
 import {
   Activity,
   ArrowRight,
-  BarChart3,
-  ExternalLink,
+  ChevronRight,
   Globe,
-  Plus,
   ShieldAlert,
   ShieldCheck,
-  ShieldX,
-  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ApiError,
   type DashboardData,
   getDashboardData,
   getScans,
@@ -25,327 +30,409 @@ import {
   type Target,
 } from "@/lib/api";
 
-function ScoreBadge({ score }: { score: number }) {
-  if (score >= 80) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-tight">
-        Healthy
-      </span>
-    );
-  }
-  if (score >= 50) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-tight">
-        Warning
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-tight">
-      Critical
-    </span>
-  );
+function scanScoreClass(score: number) {
+  if (score >= 80) return "text-emerald-400";
+  if (score >= 50) return "text-amber-400";
+  return "text-rose-400";
 }
 
 export default function DashboardOverviewPage() {
-  const [projects, setProjects] = useState<Target[]>([]);
-  const [scans, setScans] = useState<ScanSummary[]>([]);
   const [stats, setStats] = useState<DashboardData | null>(null);
+  const [projectCount, setProjectCount] = useState(0);
+  const [avgScore, setAvgScore] = useState(0);
+  const [scanCount, setScanCount] = useState(0);
+  const [recentScans, setRecentScans] = useState<ScanSummary[]>([]);
+  const [projectsPreview, setProjectsPreview] = useState<Target[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadData = async () => {
+    const load = async () => {
+      const logErr = (src: string, err: unknown) => {
+        if (
+          err instanceof ApiError &&
+          (err.status === 401 || err.status === 403)
+        ) {
+          return;
+        }
+        console.error(`Overview load error (${src}):`, err);
+      };
+
       try {
-        const [targetsData, scansData, dashboardData] = await Promise.all([
+        const [dashR, targetsR, scansR] = await Promise.allSettled([
+          getDashboardData(),
           getTargets(),
           getScans(),
-          getDashboardData().catch(() => null),
         ]);
-        setProjects(targetsData);
-        setScans(scansData.slice(0, 5)); // Only show last 5 in the summary table
-        setStats(dashboardData);
-      } catch (err) {
-        console.error("Dashboard load error:", err);
+        if (dashR.status === "fulfilled") setStats(dashR.value);
+        else {
+          logErr("dashboard-api", dashR.reason);
+          setStats(null);
+        }
+        if (targetsR.status === "fulfilled") {
+          const targets = targetsR.value;
+          setProjectCount(targets.length);
+          setProjectsPreview(targets.slice(0, 8));
+          setAvgScore(
+            targets.length > 0
+              ? Math.round(
+                  targets.reduce((acc, p) => acc + (p.score ?? 0), 0) /
+                    targets.length,
+                )
+              : 0,
+          );
+        } else {
+          logErr("targets", targetsR.reason);
+          setProjectCount(0);
+          setAvgScore(0);
+          setProjectsPreview([]);
+        }
+        if (scansR.status === "fulfilled") {
+          const list = scansR.value;
+          setScanCount(list.length);
+          setRecentScans(list.slice(0, 12));
+        } else {
+          logErr("scans", scansR.reason);
+          setScanCount(0);
+          setRecentScans([]);
+        }
+      } catch (e) {
+        logErr("overview", e);
+        setStats(null);
+        setProjectCount(0);
+        setAvgScore(0);
+        setScanCount(0);
+        setRecentScans([]);
+        setProjectsPreview([]);
       } finally {
         setLoading(false);
       }
     };
-    loadData();
+    load();
   }, []);
 
-  const totalTargets = projects.length;
-  const avgScore =
-    projects.length > 0
-      ? Math.round(
-          projects.reduce((acc, p) => acc + (p.score || 0), 0) /
-            projects.length,
-        )
-      : 0;
-  const activeAlerts = stats?.alerts.length || 0;
+  const activeAlerts = stats?.alerts.length ?? 0;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-20">
-      {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-white">
-            Workspace Overview
+            Overview
           </h2>
-          <p className="text-white/50 mt-1">
-            Real-time security telemetry and target monitoring.
+          <p className="text-white/50 mt-1 text-sm max-w-lg">
+            High-level stats for your workspace. Manage URLs and open reports
+            from{" "}
+            <Link
+              href="/dashboard/projects"
+              className="text-white/80 hover:text-white underline underline-offset-2"
+            >
+              Projects
+            </Link>
+            .
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           <Button
             asChild
             variant="outline"
-            className="border-white/10 hover:bg-white/5 h-11 px-6"
+            className="border-white/10 hover:bg-white/5"
           >
-            <Link href="/dashboard/scans">View All Logs</Link>
+            <Link href="/dashboard/projects">Projects</Link>
           </Button>
           <Button
             asChild
-            className="bg-white text-black hover:bg-white/90 font-bold h-11 px-6 gap-2"
+            variant="outline"
+            className="border-white/10 hover:bg-white/5"
           >
-            <Link href="/dashboard/new">
-              <Plus className="h-4 w-4" />
-              Add Target
-            </Link>
+            <Link href="/dashboard/scans">Scan history</Link>
           </Button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card/50 border-white/5 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium text-white/40 uppercase tracking-widest">
-              Monitored Targets
-            </CardTitle>
-            <Globe className="h-4 w-4 text-white/20" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{totalTargets}</div>
-            <p className="text-[10px] text-white/30 mt-1">
-              Across all environments
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50 border-white/5 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium text-white/40 uppercase tracking-widest">
-              Avg Security Score
-            </CardTitle>
-            <ShieldCheck className="h-4 w-4 text-white/20" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{avgScore}</div>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="flex-1 bg-white/5 rounded-full h-1">
-                <div
-                  className="bg-white h-full rounded-full transition-all duration-1000"
-                  style={{ width: `${avgScore}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-white/30">/ 100</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50 border-white/5 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium text-white/40 uppercase tracking-widest">
-              Active Alerts
-            </CardTitle>
-            <ShieldAlert className="h-4 w-4 text-rose-500/50" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">{activeAlerts}</div>
-            <p className="text-[10px] text-rose-500/50 mt-1 font-bold uppercase tracking-tighter">
-              {activeAlerts > 0 ? "Action Required" : "System Secured"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/50 border-white/5 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium text-white/40 uppercase tracking-widest">
-              Network Traffic
-            </CardTitle>
-            <Activity className="h-4 w-4 text-white/20" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white">
-              {stats?.traffic_summary.total_requests || 0}
-            </div>
-            <p className="text-[10px] text-white/30 mt-1">
-              Requests / 10m window
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
-        {/* Main Projects List */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">Active Projects</h3>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {projects.length === 0 && !loading && (
-              <div className="col-span-full border border-dashed border-white/10 rounded-2xl p-12 text-center">
-                <p className="text-white/30 text-sm">
-                  No targets being monitored yet.
-                </p>
-                <Button asChild variant="link" className="text-white mt-2">
-                  <Link href="/dashboard/new">Add your first target</Link>
-                </Button>
-              </div>
-            )}
-            {projects.map((project) => (
-              <Link
-                key={project.id}
-                href={`/dashboard/project/${project.id}?url=${encodeURIComponent(project.url)}`}
-                className="group relative flex flex-col bg-card/40 border border-white/5 hover:border-white/20 transition-all rounded-2xl p-5 overflow-hidden"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center text-white font-bold text-sm border border-white/10 group-hover:bg-white group-hover:text-black transition-colors">
-                    {project.name.charAt(0)}
+      {loading ? (
+        <p className="text-sm text-white/40">Loading…</p>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="bg-card/50 border-white/5 backdrop-blur-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium text-white/40 uppercase tracking-widest">
+                  Projects
+                </CardTitle>
+                <Globe className="h-4 w-4 text-white/20" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-white">
+                  {projectCount}
+                </div>
+                <p className="text-[10px] text-white/30 mt-1">Monitored URLs</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-white/5 backdrop-blur-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium text-white/40 uppercase tracking-widest">
+                  Avg security score
+                </CardTitle>
+                <ShieldCheck className="h-4 w-4 text-white/20" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-white">{avgScore}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 bg-white/5 rounded-full h-1">
+                    <div
+                      className="bg-white h-full rounded-full transition-all"
+                      style={{ width: `${avgScore}%` }}
+                    />
                   </div>
-                  <ScoreBadge score={project.score || 0} />
+                  <span className="text-[10px] text-white/30">/ 100</span>
                 </div>
-                <div>
-                  <h4 className="font-bold text-white group-hover:underline underline-offset-4 decoration-white/30">
-                    {project.name}
-                  </h4>
-                  <p className="text-xs text-white/40 truncate font-mono mt-1">
-                    {project.url}
-                  </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-white/5 backdrop-blur-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium text-white/40 uppercase tracking-widest">
+                  Active alerts
+                </CardTitle>
+                <ShieldAlert className="h-4 w-4 text-rose-500/50" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-white">
+                  {activeAlerts}
                 </div>
-                <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
-                  <span className="text-[10px] text-white/30 uppercase tracking-wider font-bold">
-                    Last scan {project.lastScan}
-                  </span>
-                  <ArrowRight className="h-3 w-3 text-white/20 group-hover:text-white transition-transform group-hover:translate-x-1" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Scans / Logs Sidebar */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">Security Logs</h3>
-            <Link
-              href="/dashboard/scans"
-              className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors"
-            >
-              View All
-            </Link>
-          </div>
-          <div className="bg-card/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
-            {scans.length === 0 && !loading && (
-              <div className="p-8 text-center">
-                <p className="text-white/20 text-xs italic">
-                  No security logs recorded.
+                <p className="text-[10px] text-rose-500/50 mt-1 font-bold uppercase tracking-tighter">
+                  {activeAlerts > 0 ? "Review signals" : "All clear"}
                 </p>
-              </div>
-            )}
-            {scans.map((scan, i) => (
-              <Link
-                key={scan.id}
-                href={`/report/${scan.report_id}`}
-                className={`flex flex-col p-4 hover:bg-white/5 transition-colors ${
-                  i !== scans.length - 1 ? "border-b border-white/5" : ""
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3 mb-1.5">
-                  <span className="text-xs font-bold text-white truncate max-w-[180px]">
-                    {scan.target_name}
-                  </span>
-                  <span
-                    className={`text-[10px] font-black ${
-                      scan.score >= 80
-                        ? "text-emerald-500"
-                        : scan.score >= 50
-                          ? "text-amber-500"
-                          : "text-rose-500"
-                    }`}
-                  >
-                    {scan.score}
-                  </span>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 border-white/5 backdrop-blur-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-medium text-white/40 uppercase tracking-widest">
+                  Network traffic
+                </CardTitle>
+                <Activity className="h-4 w-4 text-white/20" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-white">
+                  {stats?.traffic_summary.total_requests ?? 0}
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-white/30 truncate max-w-[200px] font-mono">
-                    {scan.url.replace(/^https?:\/\//, "")}
-                  </span>
-                  <span className="text-[10px] text-white/20">
-                    {new Date(scan.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-              </Link>
-            ))}
-            <div className="p-4 bg-white/[0.02] border-t border-white/5">
-              <Button
-                asChild
-                variant="ghost"
-                className="w-full text-xs text-white/40 hover:text-white hover:bg-white/5 h-9 font-bold"
-              >
-                <Link href="/dashboard/scans" className="gap-2">
-                  <Activity className="h-3 w-3" />
-                  Full Audit History
-                </Link>
-              </Button>
-            </div>
+                <p className="text-[10px] text-white/30 mt-1">
+                  Requests / 10m window
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* System Health Card */}
-          <Card className="bg-white/[0.02] border-white/5">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="bg-card/40 border-white/10 overflow-hidden">
+              <CardHeader className="pb-2 border-b border-white/5">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm font-semibold text-white">
+                    Recent scans
+                  </CardTitle>
+                  <Link
+                    href="/dashboard/scans"
+                    className="text-xs text-white/45 hover:text-white transition-colors"
+                  >
+                    All scans →
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {recentScans.length === 0 ? (
+                  <p className="px-6 py-6 text-sm text-white/45">
+                    No saved scans yet. Run one from a{" "}
+                    <Link
+                      href="/dashboard/projects"
+                      className="text-white/70 hover:underline"
+                    >
+                      project
+                    </Link>
+                    .
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-white/10 hover:bg-transparent bg-white/[0.02]">
+                        <TableHead className="text-white/45 text-xs w-[140px]">
+                          When
+                        </TableHead>
+                        <TableHead className="text-white/45 text-xs">
+                          Target
+                        </TableHead>
+                        <TableHead className="text-white/45 text-xs text-right w-16">
+                          Score
+                        </TableHead>
+                        <TableHead className="text-white/45 text-xs text-right w-14">
+                          Report
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recentScans.map((scan) => (
+                        <TableRow
+                          key={scan.id}
+                          className="border-white/10 hover:bg-white/[0.03]"
+                        >
+                          <TableCell className="text-white/50 text-[11px] whitespace-nowrap align-top pt-3">
+                            {new Date(scan.created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-xs text-white/75 max-w-[1px]">
+                            <span className="block truncate" title={scan.url}>
+                              {scan.target_name}
+                            </span>
+                            <span
+                              className="block truncate text-[10px] text-white/35 font-mono mt-0.5"
+                              title={scan.url}
+                            >
+                              {scan.url}
+                            </span>
+                          </TableCell>
+                          <TableCell
+                            className={`text-right font-semibold tabular-nums text-sm align-top pt-3 ${scanScoreClass(scan.score)}`}
+                          >
+                            {scan.score}
+                          </TableCell>
+                          <TableCell className="text-right align-top pt-3">
+                            <Link
+                              href={`/dashboard/report/${scan.report_id}`}
+                              className="inline-flex items-center gap-0.5 text-xs text-white/45 hover:text-white"
+                              aria-label="Open report"
+                            >
+                              Open
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/40 border-white/10 overflow-hidden">
+              <CardHeader className="pb-2 border-b border-white/5">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm font-semibold text-white">
+                    Projects
+                  </CardTitle>
+                  <Link
+                    href="/dashboard/projects"
+                    className="text-xs text-white/45 hover:text-white transition-colors"
+                  >
+                    Manage →
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {projectsPreview.length === 0 ? (
+                  <p className="px-6 py-6 text-sm text-white/45">
+                    Add a URL on the Projects page to start monitoring.
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-white/10 hover:bg-transparent bg-white/[0.02]">
+                        <TableHead className="text-white/45 text-xs">
+                          Name
+                        </TableHead>
+                        <TableHead className="text-white/45 text-xs text-right w-16">
+                          Score
+                        </TableHead>
+                        <TableHead className="text-white/45 text-xs text-right w-14">
+                          Open
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {projectsPreview.map((p) => (
+                        <TableRow
+                          key={p.id}
+                          className="border-white/10 hover:bg-white/[0.03]"
+                        >
+                          <TableCell className="text-xs max-w-[1px]">
+                            <span className="block font-medium text-white/90 truncate">
+                              {p.name}
+                            </span>
+                            <span
+                              className="block truncate text-[10px] text-white/35 font-mono mt-0.5"
+                              title={p.url}
+                            >
+                              {p.url}
+                            </span>
+                          </TableCell>
+                          <TableCell
+                            className={`text-right font-semibold tabular-nums text-sm ${scanScoreClass(p.score ?? 0)}`}
+                          >
+                            {p.score ?? "—"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Link
+                              href={`/dashboard/project/${p.id}`}
+                              className="inline-flex text-xs text-white/45 hover:text-white"
+                            >
+                              Workspace
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="bg-card/40 border-white/10">
             <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                <Zap className="h-3 w-3 text-amber-500" />
-                System Health
+              <CardTitle className="text-sm font-semibold text-white">
+                At a glance
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-white/50">CPU Usage</span>
-                  <span className="text-white/80 font-bold">
-                    {stats?.system_stats.cpu_percent || 0}%
-                  </span>
-                </div>
-                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-white h-full transition-all duration-500"
-                    style={{
-                      width: `${stats?.system_stats.cpu_percent || 0}%`,
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-white/50">Memory</span>
-                  <span className="text-white/80 font-bold">
-                    {stats?.system_stats.memory_percent || 0}%
-                  </span>
-                </div>
-                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-white h-full transition-all duration-500"
-                    style={{
-                      width: `${stats?.system_stats.memory_percent || 0}%`,
-                    }}
-                  />
-                </div>
+            <CardContent className="space-y-3 text-sm text-white/60">
+              <p>
+                <span className="text-white font-medium">{scanCount}</span>{" "}
+                saved scan{scanCount !== 1 ? "s" : ""} across your workspace.
+              </p>
+              <p>
+                API engine:{" "}
+                <span className="text-white/80">
+                  {stats ? "connected" : "unavailable"}
+                </span>
+                {stats && (
+                  <>
+                    {" "}
+                    · CPU{" "}
+                    <span className="text-white">
+                      {Math.round(stats.system_stats.cpu_percent ?? 0)}%
+                    </span>
+                    · Memory{" "}
+                    <span className="text-white">
+                      {Math.round(stats.system_stats.memory_percent ?? 0)}%
+                    </span>
+                  </>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Link
+                  href="/dashboard/projects"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-white hover:underline"
+                >
+                  View all projects
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href="/dashboard/scans"
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-white/70 hover:text-white hover:underline"
+                >
+                  Browse scan log
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
