@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BarChart3,
   FolderKanban,
   History,
   LayoutDashboard,
@@ -38,6 +39,12 @@ const workspace = [
     match: "projects" as const,
   },
   {
+    title: "Analytics",
+    url: "/dashboard/analytics",
+    icon: BarChart3,
+    match: "analytics" as const,
+  },
+  {
     title: "Scan history",
     url: "/dashboard/scans",
     icon: History,
@@ -53,11 +60,12 @@ const account = [
 function navActive(
   pathname: string | null,
   url: string,
-  match: "exact" | "projects" | "scans",
+  match: "exact" | "projects" | "analytics" | "scans",
   fromProject: boolean,
 ): boolean {
   if (!pathname) return false;
   if (match === "exact") return pathname === url;
+  if (match === "analytics") return pathname === "/dashboard/analytics";
   if (match === "projects") {
     return (
       pathname === "/dashboard/projects" ||
@@ -106,7 +114,12 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {workspace.map((item) => {
-                const active = navActive(pathname, item.url, item.match, fromProject);
+                const active = navActive(
+                  pathname,
+                  item.url,
+                  item.match,
+                  fromProject,
+                );
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton

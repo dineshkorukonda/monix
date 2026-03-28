@@ -30,9 +30,18 @@ dotenv.load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".en
 
 logger = logging.getLogger(__name__)
 
-_DATABASE_URL: Optional[str] = os.environ.get(
-    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix"
-)
+
+def _normalize_database_url(url: str) -> str:
+    """Map Heroku-style ``postgres://`` to SQLAlchemy's ``postgresql://`` dialect."""
+    if url.startswith("postgresql://"):
+        return url
+    if url.startswith("postgres://"):
+        return "postgresql://" + url[len("postgres://") :]
+    return url
+
+
+_raw_db_url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix")
+_DATABASE_URL: Optional[str] = _normalize_database_url(_raw_db_url) if _raw_db_url else None
 
 # ---------------------------------------------------------------------------
 # Engine & session factory — only created when DATABASE_URL is configured
