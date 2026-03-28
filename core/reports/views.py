@@ -8,10 +8,10 @@ from django.contrib.auth.models import User
 
 from .models import Report, Scan, Target
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _ensure_auth(request) -> bool:
     """Return True if the request is authenticated."""
@@ -27,6 +27,7 @@ def _user_initials(user: User) -> str:
 # ---------------------------------------------------------------------------
 # Report detail (public, shareable)
 # ---------------------------------------------------------------------------
+
 
 @require_GET
 def report_detail(request, report_id):
@@ -60,6 +61,7 @@ def report_detail(request, report_id):
 # Auth
 # ---------------------------------------------------------------------------
 
+
 @csrf_exempt
 @require_POST
 def api_login(request):
@@ -84,14 +86,16 @@ def api_me(request):
         return JsonResponse({"error": "Unauthorized. Please run createsuperuser."}, status=401)
 
     user = request.user
-    return JsonResponse({
-        "username": user.username,
-        "name": f"{user.first_name} {user.last_name}".strip() or user.username,
-        "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "initials": _user_initials(user),
-    })
+    return JsonResponse(
+        {
+            "username": user.username,
+            "name": f"{user.first_name} {user.last_name}".strip() or user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "initials": _user_initials(user),
+        }
+    )
 
 
 @csrf_exempt
@@ -117,11 +121,13 @@ def api_profile(request):
         if "last_name" in data:
             user.last_name = data["last_name"].strip()
         user.save(update_fields=["first_name", "last_name"])
-        return JsonResponse({
-            "ok": True,
-            "name": f"{user.first_name} {user.last_name}".strip() or user.username,
-            "initials": _user_initials(user),
-        })
+        return JsonResponse(
+            {
+                "ok": True,
+                "name": f"{user.first_name} {user.last_name}".strip() or user.username,
+                "initials": _user_initials(user),
+            }
+        )
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
 
@@ -139,7 +145,9 @@ def api_change_password(request):
         new_password = data.get("new_password", "")
 
         if not new_password or len(new_password) < 8:
-            return JsonResponse({"error": "New password must be at least 8 characters."}, status=400)
+            return JsonResponse(
+                {"error": "New password must be at least 8 characters."}, status=400
+            )
 
         user = request.user
         if not user.check_password(old_password):
@@ -158,6 +166,7 @@ def api_change_password(request):
 # Targets
 # ---------------------------------------------------------------------------
 
+
 @csrf_exempt
 def api_targets(request):
     """List or create monitored targets for the authenticated user."""
@@ -169,24 +178,28 @@ def api_targets(request):
         data = []
         for t in targets:
             latest_scan = t.scans.order_by("-created_at").first()
-            data.append({
-                "id": str(t.id),
-                "name": t.url.replace("https://", "").replace("http://", "").split("/")[0],
-                "url": t.url,
-                "environment": t.environment,
-                "ip": "Analyzing Target",
-                "location": t.environment,
-                "activity": (
-                    latest_scan.results.get("threat", "Awaiting initial scan telemetry")
-                    if latest_scan
-                    else "No scans active on this target yet"
-                ),
-                "status": "Healthy" if not latest_scan or latest_scan.score > 80 else "Warning",
-                "lastScan": latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else "Never",
-                "score": latest_scan.score if latest_scan else 100,
-                "created_at": t.created_at.isoformat(),
-                "scan_count": t.scans.count(),
-            })
+            data.append(
+                {
+                    "id": str(t.id),
+                    "name": t.url.replace("https://", "").replace("http://", "").split("/")[0],
+                    "url": t.url,
+                    "environment": t.environment,
+                    "ip": "Analyzing Target",
+                    "location": t.environment,
+                    "activity": (
+                        latest_scan.results.get("threat", "Awaiting initial scan telemetry")
+                        if latest_scan
+                        else "No scans active on this target yet"
+                    ),
+                    "status": "Healthy" if not latest_scan or latest_scan.score > 80 else "Warning",
+                    "lastScan": (
+                        latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else "Never"
+                    ),
+                    "score": latest_scan.score if latest_scan else 100,
+                    "created_at": t.created_at.isoformat(),
+                    "scan_count": t.scans.count(),
+                }
+            )
         return JsonResponse(data, safe=False)
 
     if request.method == "POST":
@@ -199,12 +212,15 @@ def api_targets(request):
                 url = "https://" + url
             environment = data.get("environment", "Production")
             target = Target.objects.create(owner=request.user, url=url, environment=environment)
-            return JsonResponse({
-                "id": str(target.id),
-                "url": target.url,
-                "name": target.url.replace("https://", "").replace("http://", "").split("/")[0],
-                "environment": target.environment,
-            }, status=201)
+            return JsonResponse(
+                {
+                    "id": str(target.id),
+                    "url": target.url,
+                    "name": target.url.replace("https://", "").replace("http://", "").split("/")[0],
+                    "environment": target.environment,
+                },
+                status=201,
+            )
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
 
@@ -224,17 +240,21 @@ def api_target_detail(request, target_id):
 
     if request.method == "GET":
         latest_scan = target.scans.order_by("-created_at").first()
-        return JsonResponse({
-            "id": str(target.id),
-            "name": target.url.replace("https://", "").replace("http://", "").split("/")[0],
-            "url": target.url,
-            "environment": target.environment,
-            "status": "Healthy" if not latest_scan or latest_scan.score > 80 else "Warning",
-            "lastScan": latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else "Never",
-            "score": latest_scan.score if latest_scan else 100,
-            "created_at": target.created_at.isoformat(),
-            "scan_count": target.scans.count(),
-        })
+        return JsonResponse(
+            {
+                "id": str(target.id),
+                "name": target.url.replace("https://", "").replace("http://", "").split("/")[0],
+                "url": target.url,
+                "environment": target.environment,
+                "status": "Healthy" if not latest_scan or latest_scan.score > 80 else "Warning",
+                "lastScan": (
+                    latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else "Never"
+                ),
+                "score": latest_scan.score if latest_scan else 100,
+                "created_at": target.created_at.isoformat(),
+                "scan_count": target.scans.count(),
+            }
+        )
 
     if request.method == "DELETE":
         target.delete()
@@ -247,6 +267,7 @@ def api_target_detail(request, target_id):
 # Scans
 # ---------------------------------------------------------------------------
 
+
 @require_GET
 def api_scans(request):
     """Return all scans belonging to the authenticated user's targets."""
@@ -255,27 +276,31 @@ def api_scans(request):
 
     target_ids = Target.objects.filter(owner=request.user).values_list("id", flat=True)
     scans = (
-        Scan.objects
-        .filter(target__id__in=target_ids)
+        Scan.objects.filter(target__id__in=target_ids)
         .select_related("target")
         .order_by("-created_at")[:100]
     )
 
     data = []
     for s in scans:
-        data.append({
-            "id": str(s.report_id),
-            "report_id": str(s.report_id),
-            "url": s.url,
-            "score": s.score,
-            "created_at": s.created_at.isoformat(),
-            "target_id": str(s.target.id) if s.target else None,
-            "target_name": (
-                s.target.url.replace("https://", "").replace("http://", "").split("/")[0]
-                if s.target else s.url.replace("https://", "").replace("http://", "").split("/")[0]
-            ),
-        })
+        data.append(
+            {
+                "id": str(s.report_id),
+                "report_id": str(s.report_id),
+                "url": s.url,
+                "score": s.score,
+                "created_at": s.created_at.isoformat(),
+                "target_id": str(s.target.id) if s.target else None,
+                "target_name": (
+                    s.target.url.replace("https://", "").replace("http://", "").split("/")[0]
+                    if s.target
+                    else s.url.replace("https://", "").replace("http://", "").split("/")[0]
+                ),
+            }
+        )
     return JsonResponse(data, safe=False)
+
+
 @csrf_exempt
 @require_http_methods(["DELETE"])
 def api_delete_account(request):

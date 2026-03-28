@@ -6,11 +6,11 @@ from typing import Dict, List, Any, Tuple
 class GlobalState:
     """
     Thread-safe global state manager for Monix.
-    
+
     Stores real-time data including network connections, security alerts,
     and traffic analysis results for dashboard display and monitoring.
     """
-    
+
     def __init__(self):
         self.connections: List[Dict] = []
         self.alerts: List[str] = []
@@ -26,14 +26,14 @@ class GlobalState:
     def add_alert(self, alert: str, key: str = None) -> None:
         """
         Add a security alert with rate limiting.
-        
+
         Args:
             alert: Alert message
             key: Optional key for rate limiting duplicate alerts
         """
         now = datetime.now()
         timestamp = now.strftime("%H:%M:%S")
-        
+
         with self.lock:
             if key:
                 last_time = self.last_alert_time.get(key)
@@ -47,7 +47,7 @@ class GlobalState:
     def update_traffic(self, summary: Dict[str, Any]) -> None:
         """
         Update the traffic analysis summary.
-        
+
         Args:
             summary: Traffic analysis results from api.analyzers.traffic
         """

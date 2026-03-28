@@ -16,13 +16,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  getDashboardData, 
-  getTargets, 
+import {
+  type DashboardData,
+  getDashboardData,
   getScans,
-  type Target, 
-  type DashboardData, 
-  type ScanSummary 
+  getTargets,
+  type ScanSummary,
+  type Target,
 } from "@/lib/api";
 
 function ScoreBadge({ score }: { score: number }) {
@@ -59,7 +59,7 @@ export default function DashboardOverviewPage() {
         const [targetsData, scansData, dashboardData] = await Promise.all([
           getTargets(),
           getScans(),
-          getDashboardData().catch(() => null)
+          getDashboardData().catch(() => null),
         ]);
         setProjects(targetsData);
         setScans(scansData.slice(0, 5)); // Only show last 5 in the summary table
@@ -74,9 +74,13 @@ export default function DashboardOverviewPage() {
   }, []);
 
   const totalTargets = projects.length;
-  const avgScore = projects.length > 0 
-    ? Math.round(projects.reduce((acc, p) => acc + (p.score || 0), 0) / projects.length)
-    : 0;
+  const avgScore =
+    projects.length > 0
+      ? Math.round(
+          projects.reduce((acc, p) => acc + (p.score || 0), 0) /
+            projects.length,
+        )
+      : 0;
   const activeAlerts = stats?.alerts.length || 0;
 
   return (
@@ -92,10 +96,17 @@ export default function DashboardOverviewPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button asChild variant="outline" className="border-white/10 hover:bg-white/5 h-11 px-6">
+          <Button
+            asChild
+            variant="outline"
+            className="border-white/10 hover:bg-white/5 h-11 px-6"
+          >
             <Link href="/dashboard/scans">View All Logs</Link>
           </Button>
-          <Button asChild className="bg-white text-black hover:bg-white/90 font-bold h-11 px-6 gap-2">
+          <Button
+            asChild
+            className="bg-white text-black hover:bg-white/90 font-bold h-11 px-6 gap-2"
+          >
             <Link href="/dashboard/new">
               <Plus className="h-4 w-4" />
               Add Target
@@ -115,7 +126,9 @@ export default function DashboardOverviewPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-white">{totalTargets}</div>
-            <p className="text-[10px] text-white/30 mt-1">Across all environments</p>
+            <p className="text-[10px] text-white/30 mt-1">
+              Across all environments
+            </p>
           </CardContent>
         </Card>
         <Card className="bg-card/50 border-white/5 backdrop-blur-sm">
@@ -129,8 +142,8 @@ export default function DashboardOverviewPage() {
             <div className="text-3xl font-bold text-white">{avgScore}</div>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 bg-white/5 rounded-full h-1">
-                <div 
-                  className="bg-white h-full rounded-full transition-all duration-1000" 
+                <div
+                  className="bg-white h-full rounded-full transition-all duration-1000"
                   style={{ width: `${avgScore}%` }}
                 />
               </div>
@@ -163,7 +176,9 @@ export default function DashboardOverviewPage() {
             <div className="text-3xl font-bold text-white">
               {stats?.traffic_summary.total_requests || 0}
             </div>
-            <p className="text-[10px] text-white/30 mt-1">Requests / 10m window</p>
+            <p className="text-[10px] text-white/30 mt-1">
+              Requests / 10m window
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -177,7 +192,9 @@ export default function DashboardOverviewPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             {projects.length === 0 && !loading && (
               <div className="col-span-full border border-dashed border-white/10 rounded-2xl p-12 text-center">
-                <p className="text-white/30 text-sm">No targets being monitored yet.</p>
+                <p className="text-white/30 text-sm">
+                  No targets being monitored yet.
+                </p>
                 <Button asChild variant="link" className="text-white mt-2">
                   <Link href="/dashboard/new">Add your first target</Link>
                 </Button>
@@ -218,14 +235,19 @@ export default function DashboardOverviewPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">Security Logs</h3>
-            <Link href="/dashboard/scans" className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors">
+            <Link
+              href="/dashboard/scans"
+              className="text-[10px] font-bold text-white/40 hover:text-white uppercase tracking-widest transition-colors"
+            >
               View All
             </Link>
           </div>
           <div className="bg-card/40 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
             {scans.length === 0 && !loading && (
               <div className="p-8 text-center">
-                <p className="text-white/20 text-xs italic">No security logs recorded.</p>
+                <p className="text-white/20 text-xs italic">
+                  No security logs recorded.
+                </p>
               </div>
             )}
             {scans.map((scan, i) => (
@@ -240,9 +262,15 @@ export default function DashboardOverviewPage() {
                   <span className="text-xs font-bold text-white truncate max-w-[180px]">
                     {scan.target_name}
                   </span>
-                  <span className={`text-[10px] font-black ${
-                    scan.score >= 80 ? "text-emerald-500" : scan.score >= 50 ? "text-amber-500" : "text-rose-500"
-                  }`}>
+                  <span
+                    className={`text-[10px] font-black ${
+                      scan.score >= 80
+                        ? "text-emerald-500"
+                        : scan.score >= 50
+                          ? "text-amber-500"
+                          : "text-rose-500"
+                    }`}
+                  >
                     {scan.score}
                   </span>
                 </div>
@@ -251,13 +279,20 @@ export default function DashboardOverviewPage() {
                     {scan.url.replace(/^https?:\/\//, "")}
                   </span>
                   <span className="text-[10px] text-white/20">
-                    {new Date(scan.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    {new Date(scan.created_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </span>
                 </div>
               </Link>
             ))}
             <div className="p-4 bg-white/[0.02] border-t border-white/5">
-              <Button asChild variant="ghost" className="w-full text-xs text-white/40 hover:text-white hover:bg-white/5 h-9 font-bold">
+              <Button
+                asChild
+                variant="ghost"
+                className="w-full text-xs text-white/40 hover:text-white hover:bg-white/5 h-9 font-bold"
+              >
                 <Link href="/dashboard/scans" className="gap-2">
                   <Activity className="h-3 w-3" />
                   Full Audit History
@@ -278,24 +313,32 @@ export default function DashboardOverviewPage() {
               <div className="space-y-1.5">
                 <div className="flex justify-between text-[10px]">
                   <span className="text-white/50">CPU Usage</span>
-                  <span className="text-white/80 font-bold">{stats?.system_stats.cpu_percent || 0}%</span>
+                  <span className="text-white/80 font-bold">
+                    {stats?.system_stats.cpu_percent || 0}%
+                  </span>
                 </div>
                 <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-white h-full transition-all duration-500" 
-                    style={{ width: `${stats?.system_stats.cpu_percent || 0}%` }}
+                  <div
+                    className="bg-white h-full transition-all duration-500"
+                    style={{
+                      width: `${stats?.system_stats.cpu_percent || 0}%`,
+                    }}
                   />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between text-[10px]">
                   <span className="text-white/50">Memory</span>
-                  <span className="text-white/80 font-bold">{stats?.system_stats.memory_percent || 0}%</span>
+                  <span className="text-white/80 font-bold">
+                    {stats?.system_stats.memory_percent || 0}%
+                  </span>
                 </div>
                 <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-white h-full transition-all duration-500" 
-                    style={{ width: `${stats?.system_stats.memory_percent || 0}%` }}
+                  <div
+                    className="bg-white h-full transition-all duration-500"
+                    style={{
+                      width: `${stats?.system_stats.memory_percent || 0}%`,
+                    }}
                   />
                 </div>
               </div>

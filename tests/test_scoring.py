@@ -1,7 +1,5 @@
 """Tests for api.scoring module."""
 
-import pytest
-
 from api.scoring import (
     calculate_security_score,
     calculate_seo_score,
@@ -9,10 +7,10 @@ from api.scoring import (
     calculate_overall_score,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _security_result(ssl_valid=True, header_pct=100, security_txt=True):
     """Build a minimal security result dict suitable for calculate_security_score."""
@@ -39,6 +37,7 @@ def _performance_result(mobile=100, desktop=100):
 # ---------------------------------------------------------------------------
 # calculate_security_score
 # ---------------------------------------------------------------------------
+
 
 class TestCalculateSecurityScore:
     def test_all_pass_gives_100(self):
@@ -97,6 +96,7 @@ class TestCalculateSecurityScore:
 # calculate_seo_score
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateSeoScore:
     def test_perfect_seo_score(self):
         assert calculate_seo_score(_seo_result(100)) == 100
@@ -121,6 +121,7 @@ class TestCalculateSeoScore:
 # ---------------------------------------------------------------------------
 # calculate_performance_score
 # ---------------------------------------------------------------------------
+
 
 class TestCalculatePerformanceScore:
     def test_both_strategies_averages_correctly(self):
@@ -169,6 +170,7 @@ class TestCalculatePerformanceScore:
 # ---------------------------------------------------------------------------
 # calculate_overall_score — known-input / expected-output tests
 # ---------------------------------------------------------------------------
+
 
 class TestCalculateOverallScore:
     def test_all_perfect_gives_100(self):

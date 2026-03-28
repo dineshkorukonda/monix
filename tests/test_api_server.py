@@ -2,7 +2,7 @@
 
 import json
 from types import SimpleNamespace
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import pytest
 
 from api.server import app, analyze_url
@@ -11,27 +11,34 @@ from api.server import app, analyze_url
 @pytest.fixture
 def client():
     """Flask test client."""
-    app.config['TESTING'] = True
+    app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
 
 
 class TestHealthEndpoint:
     def test_health_ok(self, client):
-        resp = client.get('/api/health')
+        resp = client.get("/api/health")
         assert resp.status_code == 200
         data = json.loads(resp.data)
-        assert data['status'] == 'ok'
-        assert data['service'] == 'monix-api'
+        assert data["status"] == "ok"
+        assert data["service"] == "monix-api"
 
 
 class TestAnalyzeUrlEndpoint:
-    @patch("api.server.calculate_overall_score", return_value={"overall": 70, "security": 60, "seo": 80, "performance": 75})
+    @patch(
+        "api.server.calculate_overall_score",
+        return_value={"overall": 70, "security": 60, "seo": 80, "performance": 75},
+    )
     @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
     @patch("api.server.run_seo_checks", return_value={"seo_score": 80})
     @patch("api.server.analyze_web_security")
     def test_success(self, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client):
-        mock_analyze.return_value = {"url": "https://example.com", "status": "success", "threat_score": 10}
+        mock_analyze.return_value = {
+            "url": "https://example.com",
+            "status": "success",
+            "threat_score": 10,
+        }
         resp = client.post(
             "/api/analyze-url",
             data=json.dumps({"url": "https://example.com"}),
@@ -62,11 +69,16 @@ class TestAnalyzeUrlEndpoint:
         assert resp.status_code == 500
         assert json.loads(resp.data)["status"] == "error"
 
-    @patch("api.server.calculate_overall_score", return_value={"overall": 50, "security": 50, "seo": 50, "performance": 50})
+    @patch(
+        "api.server.calculate_overall_score",
+        return_value={"overall": 50, "security": 50, "seo": 50, "performance": 50},
+    )
     @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
     @patch("api.server.run_seo_checks", return_value={"seo_score": 50})
     @patch("api.server.analyze_web_security", return_value={"status": "success"})
-    def test_full_query_param_enables_optional_checks(self, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client):
+    def test_full_query_param_enables_optional_checks(
+        self, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
+    ):
         resp = client.post(
             "/api/analyze-url?full=true",
             data=json.dumps({"url": "https://example.com"}),
@@ -79,11 +91,16 @@ class TestAnalyzeUrlEndpoint:
             include_metadata=True,
         )
 
-    @patch("api.server.calculate_overall_score", return_value={"overall": 50, "security": 50, "seo": 50, "performance": 50})
+    @patch(
+        "api.server.calculate_overall_score",
+        return_value={"overall": 50, "security": 50, "seo": 50, "performance": 50},
+    )
     @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
     @patch("api.server.run_seo_checks", return_value={"seo_score": 50})
     @patch("api.server.analyze_web_security", return_value={"status": "success"})
-    def test_request_flags_override_default_scan_options(self, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client):
+    def test_request_flags_override_default_scan_options(
+        self, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
+    ):
         resp = client.post(
             "/api/analyze-url",
             data=json.dumps(
@@ -255,7 +272,9 @@ class TestDashboardEndpoint:
     @patch("api.server.state.snapshot")
     @patch("api.server.get_system_stats")
     @patch("api.server.get_traffic_summary")
-    def test_traffic_error_falls_back_to_defaults(self, mock_traffic, mock_stats, mock_snap, mock_conns, client):
+    def test_traffic_error_falls_back_to_defaults(
+        self, mock_traffic, mock_stats, mock_snap, mock_conns, client
+    ):
         mock_conns.return_value = []
         mock_snap.return_value = ([], [])
         mock_stats.return_value = {"cpu_percent": 5.0}
@@ -268,7 +287,9 @@ class TestDashboardEndpoint:
     @patch("api.server.state.snapshot")
     @patch("api.server.get_system_stats")
     @patch("api.server.get_traffic_summary")
-    def test_suspicious_ips_are_serialized(self, mock_traffic, mock_stats, mock_snap, mock_conns, client):
+    def test_suspicious_ips_are_serialized(
+        self, mock_traffic, mock_stats, mock_snap, mock_conns, client
+    ):
         mock_conns.return_value = []
         mock_snap.return_value = ([], [])
         mock_stats.return_value = {"cpu_percent": 5.0}

@@ -1,5 +1,6 @@
 import psutil
 
+
 def get_process_map():
     process_map = {}
     try:
@@ -8,7 +9,7 @@ def get_process_map():
                 try:
                     p = psutil.Process(c.pid)
                     pname = p.name()
-                    
+
                     if pname.lower() in ["node", "python", "python3", "php", "ruby"]:
                         try:
                             cmdline = p.cmdline()
@@ -20,7 +21,7 @@ def get_process_map():
                                         break
                         except (psutil.AccessDenied, psutil.NoSuchProcess):
                             pass
-                    
+
                     process_map[(c.laddr.ip, c.laddr.port)] = (c.pid, pname)
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue

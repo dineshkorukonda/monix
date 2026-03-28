@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { deleteAccount } from "@/lib/api";
@@ -108,7 +108,9 @@ export default function SettingsPage() {
                     This cannot be undone.
                   </strong>
                 </p>
-                {error && <p className="text-xs text-destructive mt-2">{error}</p>}
+                {error && (
+                  <p className="text-xs text-destructive mt-2">{error}</p>
+                )}
               </div>
               <Button
                 variant="destructive"
@@ -125,4 +127,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

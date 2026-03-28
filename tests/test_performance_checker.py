@@ -1,6 +1,5 @@
 """Tests for api.performance_checker module."""
 
-import pytest
 from unittest.mock import patch, MagicMock
 
 from api.performance_checker import (
@@ -65,9 +64,7 @@ class TestFetchPagespeed:
         import requests as _requests
 
         error_body = MagicMock()
-        error_body.json.return_value = {
-            "error": {"code": 400, "message": "Bad request"}
-        }
+        error_body.json.return_value = {"error": {"code": 400, "message": "Bad request"}}
         http_err = _requests.HTTPError(response=error_body)
         mock_resp = MagicMock()
         mock_resp.raise_for_status.side_effect = http_err

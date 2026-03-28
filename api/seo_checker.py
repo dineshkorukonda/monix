@@ -22,6 +22,7 @@ from typing import Dict, List, Tuple
 
 try:
     from bs4 import BeautifulSoup
+
     BS4_AVAILABLE = True
 except ImportError:
     BS4_AVAILABLE = False
@@ -175,7 +176,9 @@ def check_og_tags(soup: "BeautifulSoup") -> Dict:
     if not missing:
         return {
             "status": "pass",
-            "detail": "All essential Open Graph tags (og:title, og:description, og:image) are present.",
+            "detail": (
+                "All essential Open Graph tags (og:title, og:description, og:image) " "are present."
+            ),
         }
     if len(missing) < len(required_og):
         return {
@@ -184,7 +187,9 @@ def check_og_tags(soup: "BeautifulSoup") -> Dict:
         }
     return {
         "status": "fail",
-        "detail": "All essential Open Graph tags (og:title, og:description, og:image) are missing.",
+        "detail": (
+            "All essential Open Graph tags (og:title, og:description, og:image) " "are missing."
+        ),
     }
 
 

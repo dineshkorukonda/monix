@@ -13,9 +13,14 @@ from utils.processes import get_process_map
 
 __all__ = [
     # Network
-    'TCP_STATES', 'hex_ip', 'hex_port',
+    "TCP_STATES",
+    "hex_ip",
+    "hex_port",
     # Geo
-    'geo_lookup', 'reverse_dns', 'get_my_location', 'get_ip_info',
+    "geo_lookup",
+    "reverse_dns",
+    "get_my_location",
+    "get_ip_info",
     # Processes
-    'get_process_map'
+    "get_process_map",
 ]
