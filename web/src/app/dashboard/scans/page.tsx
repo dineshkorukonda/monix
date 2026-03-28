@@ -2,8 +2,8 @@
 
 import {
   Activity,
+  ChevronRight,
   Clock,
-  ExternalLink,
   ShieldAlert,
   ShieldCheck,
   ShieldX,
@@ -90,7 +90,7 @@ export default function ScansPage() {
             Add a target and run your first scan to see results here.
           </p>
           <Link
-            href="/dashboard/new"
+            href="/dashboard/projects#add-project"
             className="inline-flex items-center gap-2 mt-5 text-sm font-semibold text-foreground bg-foreground/10 hover:bg-foreground/15 border border-border px-4 py-2 rounded-lg transition-colors"
           >
             <Target className="h-4 w-4" /> Add Target
@@ -141,11 +141,11 @@ export default function ScansPage() {
 
               {/* Report link */}
               <Link
-                href={`/report/${scan.report_id}`}
+                href={`/dashboard/report/${scan.report_id}`}
                 className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
                 View
+                <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           ))}

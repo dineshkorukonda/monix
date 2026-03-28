@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -145,13 +146,23 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
-export default function UrlAnalyzer() {
+type UrlAnalyzerProps = {
+  variant?: "full" | "compact";
+  /** Called after a successful scan so the parent can refetch lists. */
+  onScanComplete?: () => void;
+};
+
+export default function UrlAnalyzer({
+  variant = "full",
+  onScanComplete,
+}: UrlAnalyzerProps) {
   const searchParams = useSearchParams();
   const params = useParams();
   const targetId = params?.id as string | undefined;
   const [url, setUrl] = useState("");
-  const [includePortScan, setIncludePortScan] = useState(true);
-  const [includeMetadata, setIncludeMetadata] = useState(true);
+  const [includePortScan, setIncludePortScan] = useState(false);
+  const [includeMetadata, setIncludeMetadata] = useState(false);
+  const [includePerformance, setIncludePerformance] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -244,11 +255,14 @@ export default function UrlAnalyzer() {
       const analysis = await analyzeUrl(url, {
         includePortScan,
         includeMetadata,
+        includePerformance,
         targetId,
       });
       setResult(analysis);
       if (analysis.status === "error") {
         setError(analysis.error || "Analysis failed. Please try again.");
+      } else {
+        onScanComplete?.();
       }
       setProgress(100);
     } catch (err) {
@@ -277,6 +291,91 @@ export default function UrlAnalyzer() {
     result?.security_headers_analysis?.headers || {},
   );
   const presentHeaders = headerEntries.filter(([, d]) => d.present).length;
+
+  if (variant === "compact") {
+    const overall = result?.scores?.overall ?? result?.threat_score;
+    return (
+      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 space-y-3">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !loading) handleAnalyze();
+            }}
+            placeholder="URL or domain"
+            className="flex-1 bg-black/40 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/25"
+          />
+          <Button
+            type="button"
+            onClick={handleAnalyze}
+            disabled={loading}
+            size="sm"
+            className="shrink-0 bg-white text-black hover:bg-white/90 font-semibold"
+          >
+            {loading ? "…" : "Run"}
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/45">
+          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includePortScan}
+              onChange={(e) => setIncludePortScan(e.target.checked)}
+              className="accent-white"
+            />
+            Port scan
+          </label>
+          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeMetadata}
+              onChange={(e) => setIncludeMetadata(e.target.checked)}
+              className="accent-white"
+            />
+            Page metadata
+          </label>
+          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includePerformance}
+              onChange={(e) => setIncludePerformance(e.target.checked)}
+              className="accent-white"
+            />
+            Lighthouse
+          </label>
+        </div>
+        {loading && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px] text-white/35">
+              <span>Scanning</span>
+              <span>{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-0.5" />
+          </div>
+        )}
+        {error && <p className="text-xs text-rose-400/90">{error}</p>}
+        {result?.status === "success" && !error && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/70">
+            {result.report_id && (
+              <Link
+                href={`/dashboard/report/${result.report_id}`}
+                className="text-white font-medium underline underline-offset-2 hover:text-white/90"
+              >
+                Open report
+              </Link>
+            )}
+            {overall != null && (
+              <span className="tabular-nums">
+                Score <span className="text-white">{overall}</span>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -324,7 +423,7 @@ export default function UrlAnalyzer() {
             ))}
           </div>
 
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -342,6 +441,15 @@ export default function UrlAnalyzer() {
                 className="accent-white"
               />
               <span className="text-sm text-white/50">Page metadata</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includePerformance}
+                onChange={(e) => setIncludePerformance(e.target.checked)}
+                className="accent-white"
+              />
+              <span className="text-sm text-white/50">Lighthouse (slower)</span>
             </label>
           </div>
 

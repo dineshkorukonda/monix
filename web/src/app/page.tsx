@@ -1,6 +1,16 @@
 "use client";
 
 import { motion, type Variants } from "framer-motion";
+import {
+  ArrowRight,
+  BookOpen,
+  Gauge,
+  Globe2,
+  LayoutDashboard,
+  Search,
+  Shield,
+  Workflow,
+} from "lucide-react";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
@@ -10,214 +20,453 @@ const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.15 },
+    transition: { staggerChildren: 0.1 },
   },
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 28 },
   show: {
     opacity: 1,
     y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 24 },
+    transition: { type: "spring", stiffness: 280, damping: 30 },
   },
 };
 
-const features = [
-  ["SSL/TLS Analysis", "Certificate chain validation"],
-  ["DNS Intelligence", "A, AAAA, MX, NS, TXT lookups"],
-  ["Security Headers", "HSTS, CSP, X-Frame scoring"],
-  ["Port Survey", "Common service exposure checks"],
-  ["Tech Detection", "Server, CMS, Framework hints"],
-  ["Geo Intel", "IP provider location mapping"],
-];
+const pillars = [
+  {
+    icon: Shield,
+    title: "Security",
+    description:
+      "TLS chain validation, security headers, DNS and host intelligence, exposure checks, and technology fingerprinting with clear scoring.",
+    bullets: [
+      "Certificates and modern TLS posture",
+      "HSTS, CSP, framing, and cookie flags",
+      "Ports, redirects, and geo / IP context",
+    ],
+  },
+  {
+    icon: Search,
+    title: "SEO",
+    description:
+      "On-page signals that affect discoverability: metadata, structured hints, crawl rules, and content structure checks.",
+    bullets: [
+      "Title, description, Open Graph",
+      "robots.txt, sitemap, canonical",
+      "H1 and heading hygiene",
+    ],
+  },
+  {
+    icon: Gauge,
+    title: "Performance",
+    description:
+      "When configured, PageSpeed Insights brings Core Web Vitals, lab data, and accessibility / best-practice signals into the same report.",
+    bullets: [
+      "Core Web Vitals and performance score",
+      "Accessibility and best-practices",
+      "Actionable metrics next to your URL analysis",
+    ],
+  },
+] as const;
 
 const workflow = [
-  [
-    "01",
-    "Submit Target",
-    "Enter any public domain or URL. Monix normalizes the input and prepares a server-side scan.",
-  ],
-  [
-    "02",
-    "Parallel Analysis",
-    "The API runs TLS, DNS, header, cookie, redirect, geo, and optional port tasks concurrently.",
-  ],
-  [
-    "03",
-    "Review Output",
-    "The UI returns score, findings, remediation, map context, and raw detail in a single workspace.",
-  ],
-];
+  {
+    step: "01",
+    title: "Sign in",
+    body: "Access the workspace with your account—run analyses, attach results to projects, and keep a history of what you have checked.",
+  },
+  {
+    step: "02",
+    title: "Score by category",
+    body: "Security, SEO, and performance each feed category scores and an overall score so you can compare and track over time.",
+  },
+  {
+    step: "03",
+    title: "Reports that stay",
+    body: "Persisted, shareable reports plus dashboard views for targets, scans, and trends—everything in one place after you sign in.",
+  },
+] as const;
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black font-sans">
       <Navigation />
 
-      <main className="relative flex flex-col items-center pt-40 px-6">
-        {/* Strictly Centered Hero Section */}
-        <motion.section
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="w-full max-w-4xl text-center z-10"
-        >
-          <motion.div variants={itemVariants}>
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white mb-6">
-              Autonomous Web Defense.
-            </h1>
-            <p className="text-lg md:text-xl text-white/50 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Comprehensive web security analysis platform for public targets.
-              Real-time URL scanning, routing inspection, and threat scoring in
-              one workspace.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                href="/web"
-                className="w-full sm:w-auto px-8 py-3.5 bg-white text-black font-semibold rounded-lg hover:bg-neutral-200 transition-colors"
+      <main className="relative">
+        {/* Hero — split layout, grid texture, abstract score motif */}
+        <section className="relative min-h-[88vh] overflow-hidden px-6 pt-28 pb-16 md:pt-36">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[64px_64px] mask-[linear-gradient(180deg,black,transparent_85%)]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-32 right-[-20%] h-[520px] w-[520px] rounded-[40%] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.09),transparent_65%)] blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute bottom-0 left-[-10%] h-[380px] w-[380px] bg-[radial-gradient(circle_at_center,rgba(120,120,255,0.06),transparent_70%)] blur-3xl"
+          />
+
+          <div className="relative z-10 mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_minmax(260px,340px)] lg:items-center lg:gap-16">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+            >
+              <motion.p
+                variants={itemVariants}
+                className="font-mono text-[11px] uppercase tracking-[0.35em] text-white/40"
               >
-                Analyze URL Now
-              </Link>
-              <Link
-                href="/docs"
-                className="w-full sm:w-auto px-8 py-3.5 bg-transparent border border-white/20 text-white font-semibold rounded-lg hover:bg-white/5 transition-colors"
+                Monix · analysis workspace
+              </motion.p>
+              <motion.h1
+                variants={itemVariants}
+                className="mt-6 text-[2.35rem] font-bold leading-[1.05] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-[3.5rem]"
               >
-                View Documentation
-              </Link>
-            </div>
-          </motion.div>
-        </motion.section>
-
-        {/* MapCN World Map with Live Stats Overlay */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.5 }}
-          className="w-full max-w-6xl mt-24 mb-32 border border-white/10 rounded-3xl overflow-hidden relative"
-          style={{ height: "640px" }}
-        >
-          {/* Map fills full container */}
-          <WorldMap />
-
-          {/* Overlay: top stats bar */}
-          <div className="absolute top-0 left-0 right-0 px-6 py-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-              <span className="text-sm font-semibold text-white">
-                Live Global Threat Map
-              </span>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p className="text-xs text-white/40">Scans / hr</p>
-                <p className="text-base font-bold text-white">1,482</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-white/40">Active targets</p>
-                <p className="text-base font-bold text-white">347</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xs text-white/40">Threats flagged</p>
-                <p className="text-base font-bold text-white">61</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Overlay: bottom location tags */}
-          <div className="absolute bottom-0 left-0 right-0 px-6 py-4 flex items-end justify-between bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
-            <div className="flex gap-3 flex-wrap">
-              {[
-                "Singapore · APAC",
-                "Frankfurt · EU",
-                "Virginia · US",
-                "Tokyo · JP",
-                "London · UK",
-              ].map((loc) => (
-                <span
-                  key={loc}
-                  className="text-xs font-medium text-white/50 bg-white/5 border border-white/10 px-3 py-1 rounded-full"
-                >
-                  {loc}
-                </span>
-              ))}
-            </div>
-            <span className="text-xs text-white/30">MapLibre · Carto Dark</span>
-          </div>
-        </motion.div>
-
-        {/* Features Sub-section */}
-        <section className="w-full max-w-6xl mx-auto border-t border-white/10 pt-24 pb-32">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.7 }}
-            className="mb-16 text-center"
-          >
-            <h2 className="text-3xl font-bold tracking-tight text-white">
-              Analysis Capabilities
-            </h2>
-          </motion.div>
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {features.map(([title, detail], i) => (
+                One URL.
+                <br />
+                <span className="text-white/75">Three lenses.</span>
+                <br />
+                Zero guesswork.
+              </motion.h1>
+              <motion.p
+                variants={itemVariants}
+                className="mt-8 max-w-xl text-base leading-relaxed text-white/50 md:text-lg"
+              >
+                Category scores for security, SEO, and performance—plus
+                shareable reports and a dashboard for projects and scan history.
+                Sign in to run analyses and keep everything organized.
+              </motion.p>
               <motion.div
-                key={title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1, duration: 0.5 }}
-                className="p-8 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors group"
+                variants={itemVariants}
+                className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center"
               >
-                <p className="text-lg font-semibold text-white">{title}</p>
-                <p className="mt-2 text-sm text-white/50 leading-relaxed group-hover:text-white/70 transition-colors">
-                  {detail}
-                </p>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center justify-center gap-2 border border-white bg-white px-8 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-neutral-200"
+                >
+                  Sign in to Monix
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/docs"
+                  className="inline-flex items-center justify-center px-6 py-3.5 text-sm font-medium text-white/60 underline decoration-white/25 decoration-1 underline-offset-4 transition-colors hover:text-white hover:decoration-white/50"
+                >
+                  Read documentation
+                </Link>
               </motion.div>
+            </motion.div>
+
+            {/* Abstract “scores” panel — not a pill, sharp geometry */}
+            <motion.div
+              initial={{ opacity: 0, x: 32 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{
+                delay: 0.35,
+                duration: 0.65,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              className="relative border border-white/15 bg-linear-to-br from-white/[0.06] to-transparent p-6 md:p-8"
+            >
+              <div className="absolute top-0 left-0 h-8 w-8 border-t-2 border-l-2 border-white/30" />
+              <div className="absolute right-0 bottom-0 h-8 w-8 border-r-2 border-b-2 border-white/30" />
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/35">
+                Report snapshot
+              </p>
+              <div className="mt-8 space-y-6">
+                {[
+                  { label: "Security", width: "82%" },
+                  { label: "SEO", width: "68%" },
+                  { label: "Performance", width: "74%" },
+                ].map((row) => (
+                  <div key={row.label}>
+                    <div className="flex justify-between text-xs font-medium text-white/50">
+                      <span>{row.label}</span>
+                      <span className="font-mono text-white/35">—</span>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full bg-white/10">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: row.width }}
+                        transition={{
+                          delay: 0.6,
+                          duration: 1,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                        className="h-full bg-white/70"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-10 border-t border-white/10 pt-6 text-xs leading-relaxed text-white/35">
+                Illustrative bars—your real scores appear after you run an
+                analysis in the app.
+              </p>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Facts — vertical rules, no chips */}
+        <section className="border-y border-white/10 bg-zinc-950/40 px-6 py-16 md:py-20">
+          <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-3 md:gap-0">
+            {[
+              {
+                kicker: "Scoring",
+                line: "Category weights roll up into one overall score you can track.",
+              },
+              {
+                kicker: "Reports",
+                line: "Persisted output you can reopen and share when you need it.",
+              },
+              {
+                kicker: "Workspace",
+                line: "Projects, targets, and scan history after you authenticate.",
+              },
+            ].map((block, i) => (
+              <div
+                key={block.kicker}
+                className={`md:border-white/15 md:px-10 ${i > 0 ? "border-t border-white/10 pt-10 md:border-t-0 md:border-l md:pt-0" : ""}`}
+              >
+                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">
+                  {block.kicker}
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-white/60 md:text-[15px]">
+                  {block.line}
+                </p>
+              </div>
             ))}
           </div>
         </section>
 
-        {/* Workflow Section */}
-        <section className="w-full max-w-6xl mx-auto border-t border-white/10 pt-24 pb-32">
+        {/* Three pillars */}
+        <section id="pillars" className="mx-auto max-w-6xl px-6 py-24 md:py-32">
           <motion.div
-            initial={{ opacity: 0, y: 50 }}
+            initial={{ opacity: 0, y: 28 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.7 }}
-            className="mb-16 text-center"
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.5 }}
+            className="mb-16 md:mb-24"
           >
-            <h2 className="text-3xl font-bold tracking-tight text-white mb-2">
-              How It Works
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/35">
+              Coverage
+            </p>
+            <h2 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-white md:text-4xl">
+              What we evaluate
             </h2>
-            <p className="text-white/50 max-w-xl mx-auto">
-              A straightforward process from URL input to deep dive analysis.
+            <p className="mt-4 max-w-2xl text-base text-white/50 md:text-lg">
+              Three lenses on the same URL—Flask for scanning and scoring,
+              Django for reports, Next.js for the experience.
             </p>
           </motion.div>
-          <div className="grid gap-8 md:grid-cols-3 relative">
-            <div className="hidden md:block absolute top-8 left-0 w-full h-[1px] bg-white/10 pointer-events-none" />
-
-            {workflow.map(([step, title, body], i) => (
-              <motion.div
-                key={step}
+          <div className="grid gap-px bg-white/10 md:grid-cols-3">
+            {pillars.map((pillar, i) => (
+              <motion.article
+                key={pillar.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.2, duration: 0.5 }}
-                className="relative bg-black rounded-2xl p-8 border border-white/10 hover:border-white/30 transition-colors group"
+                transition={{ delay: i * 0.06, duration: 0.45 }}
+                className="bg-black p-8 md:p-10"
               >
-                <div className="absolute top-0 right-6 -translate-y-1/2 bg-black px-2 text-2xl font-bold text-white/20 group-hover:text-white/80 transition-colors">
-                  {step}
-                </div>
-                <h3 className="mt-4 text-lg font-semibold text-white">
-                  {title}
+                <pillar.icon
+                  className="h-7 w-7 text-white/90"
+                  strokeWidth={1.25}
+                />
+                <h3 className="mt-8 text-xl font-semibold text-white">
+                  {pillar.title}
                 </h3>
-                <p className="mt-3 text-sm leading-relaxed text-white/50">
-                  {body}
+                <p className="mt-4 text-sm leading-relaxed text-white/45">
+                  {pillar.description}
                 </p>
-              </motion.div>
+                <ul className="mt-8 space-y-3 border-t border-white/10 pt-8 text-sm text-white/40">
+                  {pillar.bullets.map((line) => (
+                    <li key={line} className="flex gap-3">
+                      <span className="font-mono text-white/25">—</span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </motion.article>
             ))}
           </div>
+        </section>
+
+        {/* Map */}
+        <section className="border-t border-white/10 px-6 py-16 md:py-24">
+          <div className="mx-auto max-w-6xl">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-12 md:flex md:items-end md:justify-between md:gap-12"
+            >
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/35">
+                  Infrastructure
+                </p>
+                <h2 className="mt-4 text-2xl font-bold text-white md:text-3xl">
+                  Geo and hosting context
+                </h2>
+              </div>
+              <p className="mt-6 max-w-md text-sm leading-relaxed text-white/45 md:mt-0 md:text-right">
+                Reports show where resolved infrastructure sits alongside DNS,
+                TLS, and headers. The map is illustrative—not a live threat
+                feed.
+              </p>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.55 }}
+              className="relative overflow-hidden border border-white/10"
+              style={{ height: "min(480px, 65vh)" }}
+            >
+              <WorldMap />
+              <div className="pointer-events-none absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/90 to-transparent px-6 py-4">
+                <p className="text-center font-mono text-[10px] text-white/30">
+                  MapLibre · Carto Dark
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Workflow — vertical step line */}
+        <section className="border-t border-white/10 bg-zinc-950/30 px-6 py-24 md:py-32">
+          <div className="mx-auto max-w-6xl">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-16 md:mb-20"
+            >
+              <div className="flex items-center gap-3 text-white/35">
+                <Workflow className="h-5 w-5" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.3em]">
+                  Flow
+                </span>
+              </div>
+              <h2 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
+                How it works
+              </h2>
+            </motion.div>
+            <div className="relative">
+              <div className="absolute top-0 bottom-0 left-[15px] w-px bg-white/15 md:left-[19px]" />
+              <div className="space-y-12 md:space-y-16">
+                {workflow.map((w, i) => (
+                  <motion.div
+                    key={w.step}
+                    initial={{ opacity: 0, x: -12 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.08, duration: 0.45 }}
+                    className="relative flex gap-8 pl-10 md:gap-12 md:pl-14"
+                  >
+                    <span className="absolute top-0 left-0 flex h-8 w-8 items-center justify-center border border-white/20 bg-black font-mono text-xs text-white/50 md:h-10 md:w-10">
+                      {w.step}
+                    </span>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white md:text-xl">
+                        {w.title}
+                      </h3>
+                      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/45">
+                        {w.body}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Workspace + docs */}
+        <section className="mx-auto max-w-6xl px-6 py-24 md:py-32">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mb-14"
+          >
+            <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+              Get into the workspace
+            </h2>
+            <p className="mt-4 max-w-xl text-white/50">
+              Sign in to run analyses and manage projects. Documentation covers
+              setup and architecture if you are integrating or self-hosting.
+            </p>
+          </motion.div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Link
+              href="/login"
+              className="group border border-white/15 bg-linear-to-br from-white/[0.05] to-transparent p-10 transition-colors hover:border-white/30"
+            >
+              <LayoutDashboard
+                className="h-8 w-8 text-white/80"
+                strokeWidth={1.25}
+              />
+              <h3 className="mt-8 text-xl font-semibold text-white">
+                Sign in to the app
+              </h3>
+              <p className="mt-4 text-sm leading-relaxed text-white/45">
+                Dashboard, projects, targets, and scan history—everything gated
+                behind authentication the way you run Monix today.
+              </p>
+              <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white">
+                Continue to login
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </span>
+            </Link>
+            <Link
+              href="/docs"
+              className="group border border-white/15 bg-black p-10 transition-colors hover:border-white/30 hover:bg-white/[0.02]"
+            >
+              <BookOpen className="h-8 w-8 text-white/80" strokeWidth={1.25} />
+              <h3 className="mt-8 text-xl font-semibold text-white">
+                Documentation
+              </h3>
+              <p className="mt-4 text-sm leading-relaxed text-white/45">
+                Flask API, Django reports, Next.js frontend, environment
+                variables, and local development—spelled out in one place.
+              </p>
+              <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white/80 group-hover:text-white">
+                Open docs
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </span>
+            </Link>
+          </div>
+        </section>
+
+        {/* Closing CTA */}
+        <section className="border-t border-white/10 px-6 pb-28 pt-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mx-auto max-w-3xl border border-white/15 bg-zinc-950/50 px-8 py-16 text-center md:px-12"
+          >
+            <Globe2
+              className="mx-auto h-10 w-10 text-white/30"
+              strokeWidth={1}
+            />
+            <h2 className="mt-8 text-2xl font-bold text-white md:text-3xl">
+              Ready when you are
+            </h2>
+            <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/45">
+              Sign in to start analyzing URLs and keeping reports under your
+              account.
+            </p>
+            <Link
+              href="/login"
+              className="mt-10 inline-flex items-center justify-center gap-2 border border-white bg-white px-10 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-neutral-200"
+            >
+              Sign in
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </motion.div>
         </section>
       </main>
       <Footer />

@@ -15,9 +15,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env_path = BASE_DIR.parent / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
 
-print(f"--- DEBUG: Loading env from: {env_path} ---")
-print(f"--- DEBUG: DATABASE_URL is: {os.environ.get('DATABASE_URL')} ---")
-
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "django-insecure-#xu!9!outt7%1wp3(6*qje+l-7h!&e84=nzys=xu+vyfnj=xjg",
@@ -132,3 +129,9 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Session cookies for the Next.js dashboard (cross-origin to :8000 with credentials).
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG

@@ -18,14 +18,14 @@ class Target(models.Model):
     id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="targets")
     url = models.URLField(max_length=2048, help_text="The core production URL being monitored.")
-    environment = models.CharField(max_length=64, blank=True, default="Production")
+    environment = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"{self.url} (Owner: {self.owner.username})"
+        return f"{self.url} (Owner: {self.owner.email or self.owner.username})"
 
 
 class Scan(models.Model):
@@ -44,7 +44,7 @@ class Scan(models.Model):
     url = models.URLField(max_length=2048, help_text="The URL that was scanned.")
     score = models.IntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(100)],
-        help_text="Threat score from 0 (safe) to 100 (critical).",
+        help_text="Composite posture score 0–100 from the scan engine (higher is better).",
     )
     results = models.JSONField(help_text="Full scan result payload returned by the Flask engine.")
     created_at = models.DateTimeField(auto_now_add=True)

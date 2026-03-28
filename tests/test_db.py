@@ -127,7 +127,7 @@ class TestAnalyzeUrlEndpointPersistence:
         assert resp.status_code == 200
         data = json.loads(resp.data)
         assert data["report_id"] == fake_report_id
-        assert data["report_url"] == f"/report/{fake_report_id}"
+        assert data["report_url"] == f"/dashboard/report/{fake_report_id}"
 
     def test_report_id_absent_when_save_scan_returns_none(self):
         """report_id is NOT added to the response when save_scan returns None."""

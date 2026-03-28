@@ -20,6 +20,8 @@ Each strategy result contains:
 """
 
 import os
+from concurrent.futures import ThreadPoolExecutor
+
 import requests
 from typing import Dict, Optional
 
@@ -44,7 +46,7 @@ def _fetch_pagespeed(url: str, strategy: str, api_key: Optional[str] = None) -> 
         params["key"] = api_key
 
     try:
-        response = requests.get(PAGESPEED_API_URL, params=params, timeout=30)
+        response = requests.get(PAGESPEED_API_URL, params=params, timeout=22)
         response.raise_for_status()
         return response.json()
     except requests.HTTPError as exc:
@@ -140,11 +142,11 @@ def run_performance_checks(url: str) -> Dict:
     api_key: Optional[str] = os.environ.get("PAGESPEED_API_KEY")
 
     results: Dict = {}
-    for strategy in ("mobile", "desktop"):
+
+    def _one_strategy(strategy: str) -> tuple[str, Dict]:
         raw = _fetch_pagespeed(url, strategy, api_key)
         if "error" in raw:
-            # Network / HTTP error — surface the message, keep all scores null
-            results[strategy] = {
+            return strategy, {
                 "performance_score": None,
                 "accessibility_score": None,
                 "best_practices_score": None,
@@ -153,7 +155,12 @@ def run_performance_checks(url: str) -> Dict:
                 "cls": None,
                 "error": raw["error"],
             }
-        else:
-            results[strategy] = _extract_scores(raw)
+        return strategy, _extract_scores(raw)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(_one_strategy, s) for s in ("mobile", "desktop")]
+        for fut in futures:
+            strategy, payload = fut.result()
+            results[strategy] = payload
 
     return results

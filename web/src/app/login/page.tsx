@@ -7,20 +7,53 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ApiError, login, signup } from "@/lib/api";
 
 type AuthMode = "login" | "signup" | "reset";
 
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("login");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === "reset") {
       alert("Password reset link sent to your email.");
       setMode("login");
-    } else {
+      return;
+    }
+
+    setError("");
+    setIsSubmitting(true);
+    try {
+      if (mode === "signup") {
+        await signup({
+          full_name: fullName.trim(),
+          email: email.trim(),
+          password,
+        });
+      } else {
+        await login(email.trim(), password);
+      }
+
       router.push("/dashboard");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (mode === "login" && err.status === 401) {
+          setError("Invalid email or password.");
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Unable to continue right now. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -65,7 +98,7 @@ export default function LoginPage() {
             </h1>
             <p className="text-sm text-muted-foreground">
               {mode === "login" &&
-                "Enter your credentials to access your workspaces."}
+                "Enter your email and password to access your workspaces."}
               {mode === "signup" &&
                 "Enter your details to register your new monix profile."}
               {mode === "reset" &&
@@ -93,21 +126,42 @@ export default function LoginPage() {
                       placeholder="John Doe"
                       required
                       className="bg-input/30 border-border h-11"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
                     />
                   </div>
                 )}
 
-                {/* Email is globally ubiquitous */}
-                <div className="space-y-2.5">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="name@example.com"
-                    required
-                    className="bg-input/30 border-border h-11"
-                  />
-                </div>
+                {mode === "signup" && (
+                  <div className="space-y-2.5">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="name@example.com"
+                      required
+                      className="bg-input/30 border-border h-11"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {mode === "login" && (
+                  <div className="space-y-2.5">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="name@example.com"
+                      required
+                      className="bg-input/30 border-border h-11"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                )}
 
                 {/* Password removed for Reset Mode */}
                 {mode !== "reset" && (
@@ -129,17 +183,28 @@ export default function LoginPage() {
                       type="password"
                       required
                       className="bg-input/30 border-border h-11"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
                   </div>
                 )}
               </div>
 
+              {error && (
+                <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2">
+                  {error}
+                </p>
+              )}
+
               <Button
                 type="submit"
+                disabled={isSubmitting}
                 className="w-full font-semibold transition-all h-11 text-[15px] shadow-sm active:scale-[0.98]"
               >
-                {mode === "login" && "Sign In"}
-                {mode === "signup" && "Create Account"}
+                {mode === "login" &&
+                  (isSubmitting ? "Signing In..." : "Sign In")}
+                {mode === "signup" &&
+                  (isSubmitting ? "Creating Account..." : "Create Account")}
                 {mode === "reset" && "Send Reset Link"}
               </Button>
 

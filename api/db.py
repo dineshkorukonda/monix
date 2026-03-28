@@ -12,6 +12,7 @@ degrades gracefully: ``save_scan`` becomes a no-op and callers are not
 interrupted.
 """
 
+import logging
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -26,6 +27,8 @@ from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 # Load .env from repo root so DATABASE_URL is available when running Flask
 # directly (e.g. ``python app.py``).
 dotenv.load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+
+logger = logging.getLogger(__name__)
 
 _DATABASE_URL: Optional[str] = os.environ.get(
     "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix"
@@ -128,8 +131,7 @@ def save_scan(
         when the database is not configured or the write fails.
     """
     if _SessionLocal is None:
-        # DATABASE_URL not configured — skip persistence silently.
-        print("--- DEBUG: save_scan failed - _SessionLocal is None")
+        logger.debug("save_scan skipped: database session not configured")
         return None
 
     # Handle empty string target_id from frontend
@@ -138,7 +140,7 @@ def save_scan(
         try:
             t_id = uuid.UUID(target_id.strip())
         except (ValueError, TypeError):
-            print(f"--- DEBUG: save_scan - Invalid target_id: {target_id}")
+            logger.warning("save_scan: invalid target_id %r", target_id)
 
     report_id = uuid.uuid4()
     now = datetime.now(timezone.utc)
@@ -164,11 +166,8 @@ def save_scan(
             )
             session.add(report)
             session.commit()
-            print(f"--- DEBUG: save_scan success - report_id: {report_id}")
+            logger.info("save_scan persisted report_id=%s", report_id)
             return str(report_id)
     except Exception as e:  # pragma: no cover — DB errors must not break the scan API
-        print(f"--- DEBUG: save_scan exception: {str(e)}")
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("save_scan failed: %s", e)
         return None
