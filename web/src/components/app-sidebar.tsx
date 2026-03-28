@@ -8,7 +8,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Sidebar,
   SidebarContent,
@@ -54,19 +54,21 @@ function navActive(
   pathname: string | null,
   url: string,
   match: "exact" | "projects" | "scans",
+  fromProject: boolean,
 ): boolean {
   if (!pathname) return false;
   if (match === "exact") return pathname === url;
   if (match === "projects") {
     return (
       pathname === "/dashboard/projects" ||
-      pathname.startsWith("/dashboard/project/")
+      pathname.startsWith("/dashboard/project/") ||
+      (pathname.startsWith("/dashboard/report/") && fromProject)
     );
   }
   if (match === "scans") {
     return (
       pathname === "/dashboard/scans" ||
-      pathname.startsWith("/dashboard/report/")
+      (pathname.startsWith("/dashboard/report/") && !fromProject)
     );
   }
   return false;
@@ -74,6 +76,8 @@ function navActive(
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const fromProject = searchParams.get("from") === "project";
 
   return (
     <Sidebar
@@ -102,7 +106,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {workspace.map((item) => {
-                const active = navActive(pathname, item.url, item.match);
+                const active = navActive(pathname, item.url, item.match, fromProject);
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton

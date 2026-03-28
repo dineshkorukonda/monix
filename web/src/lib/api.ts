@@ -547,6 +547,28 @@ export async function deleteTarget(id: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete target");
 }
 
+export interface ScanLocation {
+  url: string;
+  lat: number;
+  lng: number;
+  city: string;
+  country: string;
+  org: string;
+  score: number;
+}
+
+/** Fetch unique server coordinates for all scans belonging to the current user. */
+export async function getScanLocations(): Promise<ScanLocation[]> {
+  const res = await fetch(`${DJANGO_BASE}/api/scans/locations/`, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(err.error || "Failed to fetch scan locations", res.status);
+  }
+  return res.json();
+}
+
 /** Fetch all scans belonging to the current user's targets. */
 export async function getScans(): Promise<ScanSummary[]> {
   const res = await fetch(`${DJANGO_BASE}/api/scans/`, {

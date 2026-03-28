@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "axes",
+    "social_django",
     "reports",
 ]
 
@@ -64,8 +65,23 @@ CSRF_TRUSTED_ORIGINS = [
 
 AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesStandaloneBackend",
+    "social_core.backends.google.GoogleOAuth2",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+# Google OAuth2 — obtain credentials at console.cloud.google.com
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get("GOOGLE_CLIENT_ID", "")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ["email", "profile"]
+# After Google login, redirect back to the Next.js dashboard
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = "http://localhost:3000/dashboard"
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = "http://localhost:3000/dashboard"
+SOCIAL_AUTH_LOGIN_ERROR_URL = "http://localhost:3000/login?error=google"
+# Store the access token in the session for possible API use
+SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_EXTRA_ARGUMENTS = {"access_type": "online"}
+# Dev: OAuth redirect URLs use http, not https
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
+SOCIAL_AUTH_GOOGLE_OAUTH2_EXTRA_DATA = ["first_name", "last_name", "picture"]
 
 AXES_FAILURE_LIMIT = int(os.environ.get("AXES_FAILURE_LIMIT", 5))
 AXES_COOLOFF_TIME = int(os.environ.get("AXES_COOLOFF_TIME", 1))

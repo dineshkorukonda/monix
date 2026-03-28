@@ -15,7 +15,9 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getScans, type ScanSummary } from "@/lib/api";
 
-function ScoreBadge({ score }: { score: number }) {
+function ScoreBadge({ score }: { score: number | null | undefined }) {
+  if (score == null)
+    return <span className="text-xs text-white/30 font-mono">—</span>;
   if (score >= 80) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">

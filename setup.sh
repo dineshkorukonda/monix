@@ -10,20 +10,24 @@ usage() {
 Monix quickstart helper
 
 Usage:
-  ./GET_STARTED.sh setup
-  ./GET_STARTED.sh dev
-  ./GET_STARTED.sh api
-  ./GET_STARTED.sh django
-  ./GET_STARTED.sh web
-  ./GET_STARTED.sh test
+  ./setup.sh setup
+  ./setup.sh dev
+  ./setup.sh api
+  ./setup.sh django
+  ./setup.sh web
+  ./setup.sh test
+  ./setup.sh reset
+  ./setup.sh reset-hard
 
 Commands:
-  setup   Create the Python venv, install backend deps, copy .env, and install web deps
-  dev     Migrate, then run Flask API and Django together (one terminal)
-  api     Run the Flask API from the repo root
-  django  Run Django migrations, then start the Django dev server
-  web     Run the Next.js frontend dev server
-  test    Run the backend test suite from the repo root
+  setup       Create the Python venv, install backend deps, copy .env, and install web deps
+  dev         Migrate, then run Flask API and Django together (one terminal)
+  api         Run the Flask API from the repo root
+  django      Run Django migrations, then start the Django dev server
+  web         Run the Next.js frontend dev server
+  test        Run the backend test suite from the repo root
+  reset       Delete all users, targets, scans and reports (keeps schema/migrations)
+  reset-hard  Drop all tables then re-run migrations (full wipe + fresh schema)
 EOF
 }
 
@@ -50,8 +54,8 @@ setup() {
 
   ensure_venv
 
-  pip install -r "$ROOT_DIR/requirements.txt"
-  pip install -e "$ROOT_DIR[dev]"
+  "$VENV_DIR/bin/python" -m pip install -r "$ROOT_DIR/requirements.txt"
+  "$VENV_DIR/bin/python" -m pip install -e "$ROOT_DIR[dev]" 2>/dev/null || true
 
   if [[ ! -f "$ROOT_DIR/.env" ]]; then
     cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
@@ -126,6 +130,22 @@ run_tests() {
   ./.venv/bin/pytest
 }
 
+run_reset() {
+  ensure_venv
+  python "$ROOT_DIR/reset_db.py"
+}
+
+run_reset_hard() {
+  ensure_venv
+  python "$ROOT_DIR/reset_db.py" --hard
+  echo "Re-running migrations..."
+  (
+    cd "$ROOT_DIR/core"
+    python manage.py migrate --noinput
+  )
+  echo "Done. Start the app with: ./setup.sh dev"
+}
+
 main() {
   local command="${1:-}"
 
@@ -147,6 +167,12 @@ main() {
       ;;
     test)
       run_tests
+      ;;
+    reset)
+      run_reset
+      ;;
+    reset-hard)
+      run_reset_hard
       ;;
     -h|--help|"")
       usage
