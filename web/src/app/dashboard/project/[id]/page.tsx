@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { GscProjectWorkspaceSection } from "@/components/gsc-metrics";
 import UrlAnalyzer from "@/components/UrlAnalyzer";
 import { Button } from "@/components/ui/button";
 import {
@@ -149,7 +150,9 @@ function WorkspaceInner() {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id, reloadWorkspace]);
 
   const latestScan = targetScans[0] ?? null;
@@ -180,6 +183,10 @@ function WorkspaceInner() {
           />
         )}
       </section>
+
+      {!loading && target ? (
+        <GscProjectWorkspaceSection target={target} />
+      ) : null}
 
       {/* Latest scan card */}
       {!loading && (
@@ -213,7 +220,9 @@ function WorkspaceInner() {
                   asChild
                   className="bg-white text-black hover:bg-white/90 font-bold gap-2 shrink-0"
                 >
-                  <Link href={`/dashboard/report/${latestScan.report_id}?from=project&project=${id}`}>
+                  <Link
+                    href={`/dashboard/report/${latestScan.report_id}?from=project&project=${id}`}
+                  >
                     <FileText className="h-4 w-4" />
                     Full report
                   </Link>
@@ -225,10 +234,18 @@ function WorkspaceInner() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-white/10 hover:bg-transparent bg-white/[0.02]">
-                        <TableHead className="text-white/45 text-xs">When</TableHead>
-                        <TableHead className="text-white/45 text-xs">URL</TableHead>
-                        <TableHead className="text-white/45 text-xs text-right w-20">Score</TableHead>
-                        <TableHead className="text-white/45 text-xs text-right w-24">Report</TableHead>
+                        <TableHead className="text-white/45 text-xs">
+                          When
+                        </TableHead>
+                        <TableHead className="text-white/45 text-xs">
+                          URL
+                        </TableHead>
+                        <TableHead className="text-white/45 text-xs text-right w-20">
+                          Score
+                        </TableHead>
+                        <TableHead className="text-white/45 text-xs text-right w-24">
+                          Report
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

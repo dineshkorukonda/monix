@@ -465,6 +465,29 @@ export function getApiUrl(): string {
 // Django typed helpers — use relative paths so Next.js rewrites route to :8000
 // ---------------------------------------------------------------------------
 
+/** Cached Google Search Console metrics for a target (from Django). */
+export interface GscAnalyticsSummary {
+  clicks: number | null;
+  impressions: number | null;
+  ctr: number | null;
+  position: number | null;
+}
+
+export interface GscTopQueryRow {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface GscAnalyticsPayload {
+  summary: GscAnalyticsSummary;
+  top_queries: GscTopQueryRow[];
+  start_date: string;
+  end_date: string;
+}
+
 export interface Target {
   id: string;
   name: string;
@@ -478,6 +501,10 @@ export interface Target {
   score?: number;
   created_at?: string;
   scan_count?: number;
+  gsc_property_url?: string | null;
+  gsc_analytics?: GscAnalyticsPayload | null;
+  gsc_synced_at?: string | null;
+  gsc_sync_error?: string | null;
 }
 
 export interface UserProfile {
@@ -500,6 +527,63 @@ export interface ScanSummary {
   created_at: string;
   target_id: string | null;
   target_name: string;
+}
+
+/** Fetch whether the user has connected Google Search Console (server-side tokens). */
+export async function getGscStatus(): Promise<{ connected: boolean }> {
+  const res = await fetch(`${DJANGO_BASE}/api/gsc/status/`, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(
+      err.error || "Failed to load Search Console status",
+      res.status,
+    );
+  }
+  return res.json();
+}
+
+/**
+ * Start OAuth: returns Google authorization URL. Browser should navigate there
+ * (same tab) so the session cookie is sent back on callback.
+ */
+export async function getGscConnectAuthorizationUrl(): Promise<{
+  authorization_url: string;
+}> {
+  const res = await fetch(`${DJANGO_BASE}/api/gsc/connect/`, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(
+      err.error || "Could not start Google Search Console connection",
+      res.status,
+    );
+  }
+  return res.json();
+}
+
+/** Refresh Search Console metrics for all of the user's projects (server-side). */
+export async function syncGscTargets(): Promise<{
+  ok: boolean;
+  targets: number;
+  errors: number;
+}> {
+  const res = await fetch(`${DJANGO_BASE}/api/gsc/sync-targets/`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(
+      err.error || "Could not sync Search Console data for projects",
+      res.status,
+    );
+  }
+  return res.json();
 }
 
 /** Fetch all targets for the current user. */
@@ -564,7 +648,10 @@ export async function getScanLocations(): Promise<ScanLocation[]> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new ApiError(err.error || "Failed to fetch scan locations", res.status);
+    throw new ApiError(
+      err.error || "Failed to fetch scan locations",
+      res.status,
+    );
   }
   return res.json();
 }
