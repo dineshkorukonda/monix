@@ -55,6 +55,20 @@ class _Base(DeclarativeBase):
     pass
 
 
+class TargetRecord(_Base):
+    """
+    Stub that mirrors the ``reports_target`` table created by Django migrations.
+
+    Flask never writes to this table — it exists solely so SQLAlchemy can
+    resolve the ForeignKey on ``reports_scan.target_id`` without raising
+    ``NoReferencedTableError`` at flush time.
+    """
+
+    __tablename__ = "reports_target"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+
 class ScanRecord(_Base):
     """
     Mirrors the ``reports_scan`` table created by Django migrations.

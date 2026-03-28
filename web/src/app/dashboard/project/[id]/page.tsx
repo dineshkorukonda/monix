@@ -213,7 +213,7 @@ function WorkspaceInner() {
                   asChild
                   className="bg-white text-black hover:bg-white/90 font-bold gap-2 shrink-0"
                 >
-                  <Link href={`/dashboard/report/${latestScan.report_id}`}>
+                  <Link href={`/dashboard/report/${latestScan.report_id}?from=project&project=${id}`}>
                     <FileText className="h-4 w-4" />
                     Full report
                   </Link>
@@ -250,7 +250,7 @@ function WorkspaceInner() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Link
-                              href={`/dashboard/report/${scan.report_id}`}
+                              href={`/dashboard/report/${scan.report_id}?from=project&project=${id}`}
                               className="inline-flex items-center gap-0.5 text-xs text-white/45 hover:text-white"
                             >
                               View

@@ -458,6 +458,49 @@ def api_scans(request):
     return JsonResponse(data, safe=False)
 
 
+@require_GET
+def api_scan_locations(request):
+    """Return server location coordinates for all scans belonging to this user."""
+    if not _ensure_auth(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    targets = Target.objects.filter(owner=request.user)
+    target_ids = list(targets.values_list("id", flat=True))
+    owned_urls = list(targets.values_list("url", flat=True))
+    scans = (
+        Scan.objects.filter(
+            Q(target_id__in=target_ids)
+            | Q(target__isnull=True, url__in=owned_urls)
+        )
+        .distinct()
+        .order_by("-created_at")[:200]
+    )
+
+    data = []
+    seen = set()
+    for s in scans:
+        loc = (s.results or {}).get("server_location") or {}
+        coords = loc.get("coordinates") or {}
+        lat = coords.get("latitude")
+        lng = coords.get("longitude")
+        if lat is None or lng is None:
+            continue
+        key = (round(lat, 2), round(lng, 2))
+        if key in seen:
+            continue
+        seen.add(key)
+        data.append({
+            "url": s.url,
+            "lat": lat,
+            "lng": lng,
+            "city": loc.get("city") or "",
+            "country": loc.get("country") or "",
+            "org": loc.get("org") or "",
+            "score": s.score,
+        })
+    return JsonResponse(data, safe=False)
+
+
 @csrf_exempt
 @require_http_methods(["DELETE"])
 def api_delete_account(request):

@@ -14,19 +14,11 @@ export default function Footer() {
             rel="noopener noreferrer"
             className="text-white hover:text-white/70 transition-colors font-medium"
           >
-            @dinexh
+            Dinesh Korukonda
           </Link>
         </div>
 
         <div className="flex items-center gap-6 text-sm">
-          <Link
-            href="https://dineshkorukonda.in/blogs/monix"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white/40 hover:text-white transition-colors"
-          >
-            Blog
-          </Link>
           <Link
             href="https://github.com/dineshkorukonda"
             target="_blank"

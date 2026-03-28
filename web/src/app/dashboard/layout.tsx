@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   DropdownMenu,
@@ -71,7 +71,9 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <AppSidebar />
+      <Suspense fallback={null}>
+        <AppSidebar />
+      </Suspense>
       <main className="flex flex-1 flex-col min-h-screen bg-background text-foreground overflow-hidden font-sans">
         <header className="flex h-[60px] shrink-0 items-center justify-between border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 px-4">
           <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors" />
