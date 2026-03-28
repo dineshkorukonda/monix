@@ -54,7 +54,9 @@ def _internal_scan_secret_ok() -> bool:
     return request.headers.get(_INTERNAL_SCAN_SECRET_HEADER, "") == expected
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for Next.js frontend
+# Enable CORS for Next.js frontend
+frontend_url = os.environ.get("FRONTEND_URL", "*")
+CORS(app, origins=[frontend_url] if frontend_url != "*" else "*")
 
 # Start background monitoring when API server starts
 # This ensures state is continuously updated

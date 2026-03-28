@@ -22,6 +22,9 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
+# Frontend origin (no trailing slash). Used for CORS and OAuth redirects.
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000").strip().rstrip("/")
+
 ALLOWED_HOSTS = (
     os.environ.get("ALLOWED_HOSTS", "").split(",") if os.environ.get("ALLOWED_HOSTS") else []
 )
@@ -58,14 +61,16 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# Allow Next.js dev server to make cross-origin requests to Django.
+# Allow Next.js server to make cross-origin requests to Django.
 # CORS_ALLOW_CREDENTIALS lets the browser send session cookies.
 CORS_ALLOWED_ORIGINS = [
+    FRONTEND_URL,
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
+    FRONTEND_URL,
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
@@ -87,11 +92,11 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_PATH = (
 # Google Search Console OAuth callback redirect (browser returns here after consent).
 GSC_OAUTH_SUCCESS_URL = os.environ.get(
     "GSC_OAUTH_SUCCESS_URL",
-    "http://localhost:3000/dashboard/projects?gsc=connected",
+    f"{FRONTEND_URL}/dashboard/projects?gsc=connected",
 )
 GSC_OAUTH_ERROR_URL = os.environ.get(
     "GSC_OAUTH_ERROR_URL",
-    "http://localhost:3000/dashboard/projects?gsc=error",
+    f"{FRONTEND_URL}/dashboard/projects?gsc=error",
 )
 
 # Google OAuth2 — obtain credentials at console.cloud.google.com
@@ -99,16 +104,16 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get("GOOGLE_CLIENT_ID", "")
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ["email", "profile"]
 # After Google login, redirect back to the Next.js dashboard
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = "http://localhost:3000/dashboard"
-SOCIAL_AUTH_NEW_USER_REDIRECT_URL = "http://localhost:3000/dashboard"
-SOCIAL_AUTH_LOGIN_ERROR_URL = "http://localhost:3000/login?error=google"
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = f"{FRONTEND_URL}/dashboard"
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = f"{FRONTEND_URL}/dashboard"
+SOCIAL_AUTH_LOGIN_ERROR_URL = f"{FRONTEND_URL}/login?error=google"
 # Google OAuth: show account picker so users can switch Google accounts on a shared device.
 SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_EXTRA_ARGUMENTS = {
     "access_type": "online",
     "prompt": "select_account",
 }
-# Dev: OAuth redirect URLs use http, not https
-SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
+# Dev: OAuth redirect URLs use http, not https unless in production.
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = os.environ.get("SOCIAL_AUTH_REDIRECT_IS_HTTPS", "False") == "True"
 SOCIAL_AUTH_GOOGLE_OAUTH2_EXTRA_DATA = ["first_name", "last_name", "picture"]
 
 AXES_FAILURE_LIMIT = int(os.environ.get("AXES_FAILURE_LIMIT", 5))
