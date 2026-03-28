@@ -1,18 +1,23 @@
 import json
 import logging
 import os
+import secrets
+import urllib.parse
+from datetime import datetime
 
 import requests
 from django.conf import settings
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
+from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.models import User
 
-from .models import Report, Scan, Target
+from . import gsc_client, gsc_tokens
+from .models import Report, Scan, Target, UserSearchConsoleCredentials
 from .scan_proxy import resolve_internal_scan_secret
 
 logger = logging.getLogger(__name__)
@@ -284,6 +289,12 @@ def api_targets(request):
                     "score": latest_scan.score if latest_scan else 100,
                     "created_at": t.created_at.isoformat(),
                     "scan_count": scans_qs.count(),
+                    "gsc_property_url": t.gsc_property_url or None,
+                    "gsc_analytics": t.gsc_analytics,
+                    "gsc_synced_at": (
+                        t.gsc_synced_at.isoformat() if t.gsc_synced_at else None
+                    ),
+                    "gsc_sync_error": t.gsc_sync_error or None,
                 }
             )
         return JsonResponse(data, safe=False)
@@ -298,12 +309,23 @@ def api_targets(request):
                 url = "https://" + url
             environment = (data.get("environment") or "").strip()
             target = Target.objects.create(owner=request.user, url=url, environment=environment)
+            try:
+                gsc_tokens.sync_target_search_console(target)
+            except Exception as exc:
+                logger.warning("GSC sync after target create failed: %s", exc)
+            target.refresh_from_db()
             return JsonResponse(
                 {
                     "id": str(target.id),
                     "url": target.url,
                     "name": target.url.replace("https://", "").replace("http://", "").split("/")[0],
                     "environment": target.environment,
+                    "gsc_property_url": target.gsc_property_url or None,
+                    "gsc_analytics": target.gsc_analytics,
+                    "gsc_synced_at": (
+                        target.gsc_synced_at.isoformat() if target.gsc_synced_at else None
+                    ),
+                    "gsc_sync_error": target.gsc_sync_error or None,
                 },
                 status=201,
             )
@@ -340,6 +362,12 @@ def api_target_detail(request, target_id):
                 "score": latest_scan.score if latest_scan else 100,
                 "created_at": target.created_at.isoformat(),
                 "scan_count": scans_qs.count(),
+                "gsc_property_url": target.gsc_property_url or None,
+                "gsc_analytics": target.gsc_analytics,
+                "gsc_synced_at": (
+                    target.gsc_synced_at.isoformat() if target.gsc_synced_at else None
+                ),
+                "gsc_sync_error": target.gsc_sync_error or None,
             }
         )
 
@@ -499,6 +527,215 @@ def api_scan_locations(request):
             "score": s.score,
         })
     return JsonResponse(data, safe=False)
+
+
+# ---------------------------------------------------------------------------
+# Google Search Console
+# ---------------------------------------------------------------------------
+
+
+@require_GET
+def api_gsc_connect(request):
+    """Start OAuth: return JSON with Google authorization URL (session stores ``state``)."""
+    if not _ensure_auth(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    state = secrets.token_urlsafe(32)
+    request.session["gsc_oauth_state"] = state
+    request.session.modified = True
+    try:
+        authorization_url = gsc_client.build_authorization_url(state)
+    except RuntimeError as exc:
+        return JsonResponse({"error": str(exc)}, status=503)
+    return JsonResponse({"authorization_url": authorization_url})
+
+
+@require_GET
+def api_gsc_callback(request):
+    """OAuth redirect handler: exchange code, store tokens, redirect to the frontend."""
+    err = request.GET.get("error")
+    err_base = settings.GSC_OAUTH_ERROR_URL
+    if err:
+        return redirect(f"{err_base}&reason={urllib.parse.quote(err)}")
+    code = request.GET.get("code")
+    state = request.GET.get("state")
+    if (
+        not code
+        or not state
+        or state != request.session.get("gsc_oauth_state")
+    ):
+        return redirect(f"{err_base}&reason=invalid_callback")
+    if not _ensure_auth(request):
+        return redirect(f"{err_base}&reason=session")
+
+    try:
+        bundle = gsc_client.exchange_code_for_tokens(code)
+        gsc_tokens.save_tokens_from_oauth(
+            request.user,
+            access_token=bundle.access_token,
+            refresh_token=bundle.refresh_token,
+            expires_in=bundle.expires_in,
+        )
+    except ValueError as exc:
+        logger.warning("GSC OAuth token save failed: %s", exc)
+        return redirect(f"{err_base}&reason=no_refresh_token")
+    except Exception:
+        logger.exception("GSC OAuth callback failed")
+        return redirect(f"{err_base}&reason=token_exchange")
+
+    request.session.pop("gsc_oauth_state", None)
+    return redirect(settings.GSC_OAUTH_SUCCESS_URL)
+
+
+@require_GET
+def api_auth_google_callback_compat(request):
+    """
+    Support legacy Authorized redirect URI ``/api/auth/google/callback/``.
+
+    Search Console OAuth often used this path via ``GOOGLE_REDIRECT_URI``; the scope
+    includes ``webmasters``. Sign-in with Google uses the same host without that scope
+    and is delegated to python-social-auth's ``complete`` view.
+    """
+    scope = (request.GET.get("scope") or "").lower()
+    if "webmasters" in scope:
+        return api_gsc_callback(request)
+
+    from social_django.views import complete as social_complete_view
+
+    return social_complete_view(request, backend="google-oauth2")
+
+
+@require_GET
+def api_auth_google_begin_redirect(request):
+    """Redirect old ``/api/auth/google/`` start URL to the standard social-auth path."""
+    return redirect("/api/auth/login/google-oauth2/")
+
+
+@require_GET
+def api_gsc_status(request):
+    """Whether the user has connected Search Console (refresh token on file)."""
+    if not _ensure_auth(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    connected = gsc_tokens.get_credentials_row(request.user) is not None
+    return JsonResponse({"connected": connected})
+
+
+@require_GET
+def api_gsc_sites(request):
+    """List Search Console properties (``/webmasters/v3/sites``)."""
+    if not _ensure_auth(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    token = gsc_tokens.get_valid_access_token(request.user)
+    if not token:
+        return JsonResponse(
+            {"error": "Google Search Console is not connected."},
+            status=400,
+        )
+    try:
+        sites = gsc_client.list_sites(token)
+    except Exception as exc:
+        logger.warning("api_gsc_sites failed: %s", exc)
+        return JsonResponse({"error": "Failed to list Search Console sites."}, status=502)
+    return JsonResponse({"sites": sites})
+
+
+@csrf_exempt
+@require_POST
+def api_gsc_analytics(request):
+    """
+    POST JSON: ``site_url`` (required), optional ``start_date``, ``end_date`` (ISO ``YYYY-MM-DD``).
+
+    Returns Search Analytics totals and top queries for the property.
+    """
+    if not _ensure_auth(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON body."}, status=400)
+
+    site_url = (data.get("site_url") or "").strip()
+    if not site_url:
+        return JsonResponse({"error": "site_url is required."}, status=400)
+
+    token = gsc_tokens.get_valid_access_token(request.user)
+    if not token:
+        return JsonResponse(
+            {"error": "Google Search Console is not connected."},
+            status=400,
+        )
+
+    start = None
+    end = None
+    if data.get("start_date"):
+        try:
+            start = datetime.fromisoformat(str(data["start_date"])).date()
+        except ValueError:
+            return JsonResponse({"error": "Invalid start_date."}, status=400)
+    if data.get("end_date"):
+        try:
+            end = datetime.fromisoformat(str(data["end_date"])).date()
+        except ValueError:
+            return JsonResponse({"error": "Invalid end_date."}, status=400)
+
+    try:
+        sites = gsc_client.list_sites(token)
+        allowed = {s.get("siteUrl", "") for s in sites}
+        if site_url not in allowed:
+            return JsonResponse(
+                {"error": "site_url is not in your verified Search Console properties."},
+                status=403,
+            )
+        payload = gsc_client.fetch_gsc_bundle_for_site(
+            site_url, token, start=start, end=end
+        )
+    except Exception as exc:
+        logger.warning("api_gsc_analytics failed: %s", exc)
+        return JsonResponse({"error": "Failed to fetch Search Analytics."}, status=502)
+    return JsonResponse(payload)
+
+
+@csrf_exempt
+@require_POST
+def api_gsc_disconnect(request):
+    """Remove stored Search Console tokens for the current user."""
+    if not _ensure_auth(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    UserSearchConsoleCredentials.objects.filter(user=request.user).delete()
+    return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_POST
+def api_gsc_sync_targets(request):
+    """
+    Re-run Search Console property matching and analytics fetch for every target.
+
+    Use after connecting GSC or when projects were added before tokens existed.
+    """
+    if not _ensure_auth(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+    if not gsc_tokens.get_credentials_row(request.user):
+        return JsonResponse(
+            {"error": "Google Search Console is not connected."},
+            status=400,
+        )
+    targets = list(
+        Target.objects.filter(owner=request.user).order_by("-created_at"),
+    )
+    errors = 0
+    for target in targets:
+        try:
+            gsc_tokens.sync_target_search_console(target)
+        except Exception as exc:
+            errors += 1
+            logger.warning("api_gsc_sync_targets failed for %s: %s", target.id, exc)
+    return JsonResponse(
+        {
+            "ok": True,
+            "targets": len(targets),
+            "errors": errors,
+        }
+    )
 
 
 @csrf_exempt
