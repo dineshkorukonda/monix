@@ -26,6 +26,13 @@ ALLOWED_HOSTS = (
     os.environ.get("ALLOWED_HOSTS", "").split(",") if os.environ.get("ALLOWED_HOSTS") else []
 )
 
+# Public origin of this Django app (no trailing slash). Used for Google OAuth
+# redirect_uri so it matches Google Cloud Console exactly (avoids localhost vs
+# 127.0.0.1 mismatches). In DEBUG, defaults to http://localhost:8000 when unset.
+DJANGO_PUBLIC_BASE_URL = os.environ.get("DJANGO_PUBLIC_BASE_URL", "").strip().rstrip("/")
+if not DJANGO_PUBLIC_BASE_URL and DEBUG:
+    DJANGO_PUBLIC_BASE_URL = "http://localhost:8000"
+
 INSTALLED_APPS = [
     "corsheaders",
     "django.contrib.admin",
@@ -69,6 +76,24 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
+# Stable OAuth redirect URIs (see config.social_strategy.MonixDjangoStrategy).
+SOCIAL_AUTH_STRATEGY = "config.social_strategy.MonixDjangoStrategy"
+# Sign-in redirect path sent to Google (must match Console + api_auth_google_callback_compat).
+_SOCIAL_LOGIN_REDIRECT = os.environ.get("GOOGLE_LOGIN_REDIRECT_PATH", "").strip()
+SOCIAL_AUTH_GOOGLE_OAUTH2_REDIRECT_PATH = (
+    _SOCIAL_LOGIN_REDIRECT or "/api/auth/google/callback/"
+)
+
+# Google Search Console OAuth callback redirect (browser returns here after consent).
+GSC_OAUTH_SUCCESS_URL = os.environ.get(
+    "GSC_OAUTH_SUCCESS_URL",
+    "http://localhost:3000/dashboard/projects?gsc=connected",
+)
+GSC_OAUTH_ERROR_URL = os.environ.get(
+    "GSC_OAUTH_ERROR_URL",
+    "http://localhost:3000/dashboard/projects?gsc=error",
+)
+
 # Google OAuth2 — obtain credentials at console.cloud.google.com
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get("GOOGLE_CLIENT_ID", "")
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
@@ -77,8 +102,11 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ["email", "profile"]
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = "http://localhost:3000/dashboard"
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = "http://localhost:3000/dashboard"
 SOCIAL_AUTH_LOGIN_ERROR_URL = "http://localhost:3000/login?error=google"
-# Store the access token in the session for possible API use
-SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_EXTRA_ARGUMENTS = {"access_type": "online"}
+# Google OAuth: show account picker so users can switch Google accounts on a shared device.
+SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_EXTRA_ARGUMENTS = {
+    "access_type": "online",
+    "prompt": "select_account",
+}
 # Dev: OAuth redirect URLs use http, not https
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = False
 SOCIAL_AUTH_GOOGLE_OAUTH2_EXTRA_DATA = ["first_name", "last_name", "picture"]

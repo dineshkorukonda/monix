@@ -1,6 +1,5 @@
 "use client";
 
-import type React from "react";
 import {
   Clock,
   ExternalLink,
@@ -10,24 +9,27 @@ import {
   Search,
   Shield,
   Trash2,
+  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import { GscProjectCardSnippet } from "@/components/gsc-metrics";
 import { Button } from "@/components/ui/button";
 import {
   ApiError,
   createTarget,
   deleteTarget,
+  getGscConnectAuthorizationUrl,
+  getGscStatus,
   getTargets,
   type Target,
 } from "@/lib/api";
 
 function ScoreBadge({ score }: { score: number | null | undefined }) {
   if (score == null)
-    return (
-      <span className="text-xs text-white/30 font-mono">—</span>
-    );
+    return <span className="text-xs text-white/30 font-mono">—</span>;
   const cls =
     score >= 80
       ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
@@ -52,6 +54,9 @@ export default function ProjectsPage() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [gscConnected, setGscConnected] = useState<boolean | null>(null);
+  const [gscConnecting, setGscConnecting] = useState(false);
+  const [gscBanner, setGscBanner] = useState("");
 
   const reload = useCallback(async () => {
     const t = await getTargets();
@@ -74,6 +79,51 @@ export default function ProjectsPage() {
     };
     run();
   }, [reload]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("gsc") === "connected") {
+      setGscBanner(
+        "Google Search Console connected. New projects will sync search metrics when the domain matches a verified property.",
+      );
+      window.history.replaceState({}, "", "/dashboard/projects");
+    } else if (p.get("gsc") === "error") {
+      const reason = p.get("reason") || "unknown";
+      setGscBanner(
+        `Search Console connection did not complete (${reason}). Try again or check Google Cloud OAuth settings.`,
+      );
+      window.history.replaceState({}, "", "/dashboard/projects");
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadGsc = async () => {
+      try {
+        const s = await getGscStatus();
+        setGscConnected(s.connected);
+      } catch {
+        setGscConnected(null);
+      }
+    };
+    loadGsc();
+  }, []);
+
+  const handleConnectGsc = async () => {
+    setGscConnecting(true);
+    try {
+      const { authorization_url } = await getGscConnectAuthorizationUrl();
+      window.location.href = authorization_url;
+    } catch (e) {
+      console.error("GSC connect failed:", e);
+      setGscBanner(
+        e instanceof ApiError
+          ? e.message
+          : "Could not start Google Search Console. Is the Django backend running?",
+      );
+      setGscConnecting(false);
+    }
+  };
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
@@ -158,6 +208,48 @@ export default function ProjectsPage() {
             )}
           </Button>
         </form>
+
+        <div className="mt-8 pt-8 border-t border-white/10 max-w-2xl mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left">
+            <div className="flex gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">
+                  Google Search Console
+                </p>
+                <p className="text-xs text-white/45 mt-0.5 leading-relaxed">
+                  Connect once to pull clicks, impressions, CTR, and queries for
+                  project domains that match your verified properties.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={gscConnecting || gscConnected === true}
+              onClick={handleConnectGsc}
+              className="border-white/15 hover:bg-white/5 text-white shrink-0 rounded-xl"
+            >
+              {gscConnecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Redirecting…
+                </>
+              ) : gscConnected ? (
+                "Connected"
+              ) : (
+                "Connect Google Search Console"
+              )}
+            </Button>
+          </div>
+          {gscBanner && (
+            <p className="text-xs text-white/55 mt-4 text-center">
+              {gscBanner}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Projects list */}
@@ -209,6 +301,7 @@ export default function ProjectsPage() {
               >
                 {/* Delete button */}
                 <button
+                  type="button"
                   onClick={() => handleDelete(p.id, p.name)}
                   disabled={deletingId === p.id}
                   className="absolute top-3 right-3 h-6 w-6 rounded-md flex items-center justify-center text-white/20 hover:text-rose-400 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-40"
@@ -233,9 +326,13 @@ export default function ProjectsPage() {
                   <ScoreBadge score={p.score} />
                 </div>
 
+                <GscProjectCardSnippet target={p} />
+
                 <div className="flex items-center gap-1.5 text-[11px] text-white/30">
                   <Clock className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{p.lastScan ?? "No scans yet"}</span>
+                  <span className="truncate">
+                    {p.lastScan ?? "No scans yet"}
+                  </span>
                 </div>
 
                 <div className="flex gap-2 mt-auto pt-1">

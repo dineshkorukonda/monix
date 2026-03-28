@@ -1,8 +1,7 @@
 """URL configuration for the Monix Django project."""
 
 from django.contrib import admin
-from django.urls import path
-from social_django.views import auth as social_auth, complete as social_complete
+from django.urls import include, path
 
 from reports import views as report_views
 
@@ -16,9 +15,22 @@ urlpatterns = [
     path("api/auth/profile/", report_views.api_profile, name="api_profile"),
     path("api/auth/password/", report_views.api_change_password, name="api_change_password"),
     path("api/auth/account/", report_views.api_delete_account, name="api_delete_account"),
-    # Google OAuth2 — initiate at /api/auth/google/, callback at /api/auth/google/callback/
-    path("api/auth/google/", social_auth, {"backend": "google-oauth2"}, name="google_auth_begin"),
-    path("api/auth/google/callback/", social_complete, {"backend": "google-oauth2"}, name="google_auth_callback"),
+    # Legacy paths (must be before social_django include). GSC OAuth may still use
+    # /api/auth/google/callback/ as GOOGLE_REDIRECT_URI in .env / Google Cloud.
+    path(
+        "api/auth/google/callback/",
+        report_views.api_auth_google_callback_compat,
+        name="api_auth_google_callback_compat",
+    ),
+    path(
+        "api/auth/google/",
+        report_views.api_auth_google_begin_redirect,
+        name="google_auth_begin_legacy",
+    ),
+    # Google OAuth2 (python-social-auth): namespace "social" for @psa. Start:
+    # GET /api/auth/login/google-oauth2/ — redirect_uri is /api/auth/google/callback/
+    # (see MonixDjangoStrategy + api_auth_google_callback_compat).
+    path("api/auth/", include("social_django.urls")),
     # Targets
     path("api/targets/", report_views.api_targets, name="api_targets"),
     path("api/targets/<uuid:target_id>/", report_views.api_target_detail, name="api_target_detail"),
@@ -28,4 +40,16 @@ urlpatterns = [
     path("api/scans/locations/", report_views.api_scan_locations, name="api_scan_locations"),
     # Reports (public/shareable)
     path("api/reports/<uuid:report_id>/", report_views.report_detail, name="report_detail"),
+    # Google Search Console (OAuth + API; tokens stored server-side)
+    path("api/gsc/connect/", report_views.api_gsc_connect, name="api_gsc_connect"),
+    path("api/gsc/callback/", report_views.api_gsc_callback, name="api_gsc_callback"),
+    path("api/gsc/status/", report_views.api_gsc_status, name="api_gsc_status"),
+    path("api/gsc/sites/", report_views.api_gsc_sites, name="api_gsc_sites"),
+    path("api/gsc/analytics/", report_views.api_gsc_analytics, name="api_gsc_analytics"),
+    path("api/gsc/disconnect/", report_views.api_gsc_disconnect, name="api_gsc_disconnect"),
+    path(
+        "api/gsc/sync-targets/",
+        report_views.api_gsc_sync_targets,
+        name="api_gsc_sync_targets",
+    ),
 ]

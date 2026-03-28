@@ -12,6 +12,24 @@ from unittest.mock import MagicMock, patch
 from api.server import app
 
 
+class TestNormalizeDatabaseUrl:
+    """Heroku-style ``postgres://`` URLs must map to SQLAlchemy's ``postgresql`` dialect."""
+
+    def test_postgres_scheme_becomes_postgresql(self):
+        from api.db import _normalize_database_url
+
+        assert (
+            _normalize_database_url("postgres://user:pass@host:5432/dbname")
+            == "postgresql://user:pass@host:5432/dbname"
+        )
+
+    def test_postgresql_scheme_unchanged(self):
+        from api.db import _normalize_database_url
+
+        url = "postgresql://postgres:postgres@localhost:5432/monix"
+        assert _normalize_database_url(url) == url
+
+
 class TestSaveScanNoDatabaseUrl:
     """save_scan should be a silent no-op when DATABASE_URL is absent."""
 

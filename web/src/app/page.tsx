@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Search,
   Shield,
+  TrendingUp,
   Workflow,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,11 +50,12 @@ const pillars = [
     icon: Search,
     title: "SEO",
     description:
-      "On-page signals that affect discoverability: metadata, structured hints, crawl rules, and content structure checks.",
+      "On-page signals that affect discoverability: metadata, structured hints, crawl rules, and content structure checks. Optionally connect Google Search Console to layer real search performance on top.",
     bullets: [
       "Title, description, Open Graph",
       "robots.txt, sitemap, canonical",
       "H1 and heading hygiene",
+      "Optional: GSC clicks, impressions, queries (verified properties)",
     ],
   },
   {
@@ -84,6 +86,11 @@ const workflow = [
     step: "03",
     title: "Reports that stay",
     body: "Persisted, shareable reports plus dashboard views for targets, scans, and trends—everything in one place after you sign in.",
+  },
+  {
+    step: "04",
+    title: "Search Console (optional)",
+    body: "Connect Google Search Console once from Projects. Monix matches verified properties to your targets, syncs search analytics, and surfaces clicks, impressions, and top queries on Overview and Analytics.",
   },
 ] as const;
 
@@ -135,8 +142,9 @@ export default function Home() {
                 className="mt-8 max-w-xl text-base leading-relaxed text-white/50 md:text-lg"
               >
                 Category scores for security, SEO, and performance—plus
-                shareable reports and a dashboard for projects and scan history.
-                Sign in to run analyses and keep everything organized.
+                shareable reports, projects, and optional Google Search Console
+                metrics when you connect an account. Sign in to run analyses and
+                keep everything organized.
               </motion.p>
               <motion.div
                 variants={itemVariants}
@@ -210,7 +218,7 @@ export default function Home() {
 
         {/* Facts — vertical rules, no chips */}
         <section className="border-y border-white/10 bg-zinc-950/40 px-6 py-16 md:py-20">
-          <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-3 md:gap-0">
+          <div className="mx-auto grid max-w-6xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 kicker: "Scoring",
@@ -224,10 +232,14 @@ export default function Home() {
                 kicker: "Workspace",
                 line: "Projects, targets, and scan history after you authenticate.",
               },
-            ].map((block, i) => (
+              {
+                kicker: "Search",
+                line: "Optional Search Console: verified properties map to targets for clicks, impressions, and queries in the dashboard.",
+              },
+            ].map((block) => (
               <div
                 key={block.kicker}
-                className={`md:border-white/15 md:px-10 ${i > 0 ? "border-t border-white/10 pt-10 md:border-t-0 md:border-l md:pt-0" : ""}`}
+                className="border border-white/10 bg-black/30 px-6 py-8"
               >
                 <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">
                   {block.kicker}
@@ -290,6 +302,54 @@ export default function Home() {
                 </ul>
               </motion.article>
             ))}
+          </div>
+        </section>
+
+        {/* Google Search Console */}
+        <section className="border-t border-white/10 px-6 py-16 md:py-24">
+          <div className="mx-auto max-w-6xl">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="border border-white/10 bg-linear-to-br from-emerald-500/[0.06] to-transparent p-8 md:p-10"
+            >
+              <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between md:gap-12">
+                <div className="max-w-xl">
+                  <div className="flex items-center gap-3 text-emerald-400/90">
+                    <TrendingUp className="h-6 w-6" strokeWidth={1.25} />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
+                      Google Search Console
+                    </span>
+                  </div>
+                  <h2 className="mt-4 text-2xl font-bold text-white md:text-3xl">
+                    Real search performance next to your scans
+                  </h2>
+                  <p className="mt-4 text-sm leading-relaxed text-white/50 md:text-base">
+                    Connect Search Console from Projects. Monix stores OAuth
+                    tokens server-side, matches each target URL to a verified
+                    property, and syncs summary metrics plus top queries.
+                    Overview and Analytics show clicks, impressions, CTR, and
+                    average position when data is available—without replacing
+                    on-page SEO checks from the scan.
+                  </p>
+                </div>
+                <div className="shrink-0 md:max-w-xs md:text-right">
+                  <p className="text-xs leading-relaxed text-white/40">
+                    Requires Google Cloud OAuth credentials and a redirect URI
+                    that hits the Django callback. Details are in the
+                    documentation.
+                  </p>
+                  <Link
+                    href="/docs#google-search-console"
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-white/80 underline decoration-white/25 underline-offset-4 transition-colors hover:text-white hover:decoration-white/50"
+                  >
+                    Read the GSC setup guide
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </section>
 
@@ -396,7 +456,8 @@ export default function Home() {
             </h2>
             <p className="mt-4 max-w-xl text-white/50">
               Sign in to run analyses and manage projects. Documentation covers
-              setup and architecture if you are integrating or self-hosting.
+              architecture, Google Search Console OAuth, environment variables,
+              and local development if you are integrating or self-hosting.
             </p>
           </motion.div>
           <div className="grid gap-6 md:grid-cols-2">
@@ -429,8 +490,9 @@ export default function Home() {
                 Documentation
               </h3>
               <p className="mt-4 text-sm leading-relaxed text-white/45">
-                Flask API, Django reports, Next.js frontend, environment
-                variables, and local development—spelled out in one place.
+                Flask API, Django reports, Next.js frontend, Search Console
+                integration, environment variables, and local
+                development—spelled out in one place.
               </p>
               <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white/80 group-hover:text-white">
                 Open docs

@@ -1,9 +1,14 @@
 "use client";
 
-import { MapMarker, MarkerContent, MarkerPopup, Map as GLMap } from "@/components/ui/map";
-import { getScanLocations, type ScanLocation } from "@/lib/api";
-import { useEffect, useState } from "react";
 import { Globe, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Map as GLMap,
+  MapMarker,
+  MarkerContent,
+  MarkerPopup,
+} from "@/components/ui/map";
+import { getScanLocations, type ScanLocation } from "@/lib/api";
 
 function scoreDot(score: number) {
   if (score >= 80) return "#34d399";
@@ -46,16 +51,29 @@ export default function ScansWorldMap() {
       center={[10, 20]}
       minZoom={1}
       maxZoom={12}
+      dragPan={false}
+      dragRotate={false}
+      scrollZoom={false}
+      doubleClickZoom={false}
+      boxZoom={false}
+      keyboard={false}
+      touchZoomRotate={false}
+      touchPitch={false}
       styles={{
         dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-        light: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+        light:
+          "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       }}
     >
       {locations.map((loc) => {
         const color = scoreDot(loc.score);
         const domain = loc.url.replace(/^https?:\/\//, "").split("/")[0];
         return (
-          <MapMarker key={`${loc.lat}-${loc.lng}-${loc.url}`} longitude={loc.lng} latitude={loc.lat}>
+          <MapMarker
+            key={`${loc.lat}-${loc.lng}-${loc.url}`}
+            longitude={loc.lng}
+            latitude={loc.lat}
+          >
             <MarkerContent>
               <div className="relative flex items-center justify-center cursor-pointer group">
                 <span
@@ -76,9 +94,16 @@ export default function ScansWorldMap() {
                     {[loc.city, loc.country].filter(Boolean).join(", ")}
                   </p>
                 )}
-                {loc.org && <p className="text-[11px] text-muted-foreground/70">{loc.org}</p>}
+                {loc.org && (
+                  <p className="text-[11px] text-muted-foreground/70">
+                    {loc.org}
+                  </p>
+                )}
                 <div className="flex items-center gap-1.5 pt-0.5">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
                   <span className="text-[11px] font-semibold" style={{ color }}>
                     Score {loc.score}
                   </span>

@@ -12,6 +12,21 @@ from django.contrib.auth.models import User
 from django.db import models
 
 
+class UserSearchConsoleCredentials(models.Model):
+    """Stored OAuth tokens for Google Search Console (refresh token encrypted at rest)."""
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, primary_key=True, related_name="search_console_credentials"
+    )
+    refresh_token_encrypted = models.TextField()
+    access_token = models.TextField(blank=True, default="")
+    access_token_expires_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "User Search Console credentials"
+
+
 class Target(models.Model):
     """A Monitored Target belonging to a User."""
 
@@ -20,6 +35,11 @@ class Target(models.Model):
     url = models.URLField(max_length=2048, help_text="The core production URL being monitored.")
     environment = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
+    # Google Search Console: matched property URL and cached analytics (JSON), if available.
+    gsc_property_url = models.CharField(max_length=2048, blank=True, default="")
+    gsc_analytics = models.JSONField(null=True, blank=True)
+    gsc_synced_at = models.DateTimeField(null=True, blank=True)
+    gsc_sync_error = models.CharField(max_length=512, blank=True, default="")
 
     class Meta:
         ordering = ["-created_at"]
