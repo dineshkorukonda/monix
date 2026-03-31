@@ -52,4 +52,7 @@ urlpatterns = [
         report_views.api_gsc_sync_targets,
         name="api_gsc_sync_targets",
     ),
+    # Catch-all: proxy any remaining /api/* requests to the Flask service so
+    # both apps can share a single Render service with one public URL.
+    path("api/<path:path>", report_views.flask_proxy, name="flask_proxy"),
 ]
