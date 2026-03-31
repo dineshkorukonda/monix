@@ -750,3 +750,62 @@ def api_delete_account(request):
     user.delete()
     logout(request)
     return JsonResponse({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Flask proxy — forwards unhandled /api/* requests to the Flask service so
+# both applications can share a single public URL on one Render service.
+# ---------------------------------------------------------------------------
+
+_FLASK_PROXY_TIMEOUT = 120  # seconds
+_HOP_BY_HOP = frozenset(
+    [
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
+    ]
+)
+
+
+@csrf_exempt
+def flask_proxy(request, path: str):
+    """Reverse-proxy any unmatched /api/<path> request to the Flask service."""
+    flask_base = (os.environ.get("FLASK_API_URL") or "http://127.0.0.1:3030").rstrip("/")
+    url = f"{flask_base}/api/{path}"
+
+    # Strip hop-by-hop headers; pass through the rest.
+    forward_headers = {
+        k: v
+        for k, v in request.headers.items()
+        if k.lower() not in _HOP_BY_HOP and k.lower() != "host"
+    }
+
+    try:
+        upstream = requests.request(
+            method=request.method,
+            url=url,
+            headers=forward_headers,
+            data=request.body,
+            params=request.GET.urlencode(),
+            timeout=_FLASK_PROXY_TIMEOUT,
+            allow_redirects=False,
+        )
+    except requests.RequestException as exc:
+        logger.error("Flask proxy error for %s: %s", url, exc)
+        return JsonResponse({"error": "Flask service unavailable"}, status=502)
+
+    response = HttpResponse(
+        upstream.content,
+        status=upstream.status_code,
+        content_type=upstream.headers.get("Content-Type", "application/json"),
+    )
+    # Forward response headers, excluding hop-by-hop headers.
+    for header, value in upstream.headers.items():
+        if header.lower() not in _HOP_BY_HOP and header.lower() != "content-encoding":
+            response[header] = value
+    return response
