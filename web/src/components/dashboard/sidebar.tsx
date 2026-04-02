@@ -35,7 +35,7 @@ const PRIMARY_NAV: NavItem[] = [
   },
   {
     label: "Sites",
-    href: "/dashboard/projects",
+    href: "/dashboard/sites",
     icon: Globe,
     matchMode: "prefix",
   },

@@ -1,5 +1,8 @@
 """
 Security checker module for deep inspection.
+
+This module is retained for compatibility and test coverage. The primary
+runtime web scan flow goes through ``scan_engine.scanners.web``.
 """
 
 

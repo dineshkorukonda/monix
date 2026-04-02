@@ -244,8 +244,8 @@ function ClicksByProjectChart({ rows }: { rows: { name: string; clicks: number }
             cursor={{ fill: "var(--muted)", opacity: 0.3 }}
           />
           <Bar dataKey="clicks" radius={[0, 4, 4, 0]} name="Clicks">
-            {data.map((d) => (
-              <Cell key={`${d.name}-${d.clicks}`} fill={c.emerald} />
+            {data.map((d, idx) => (
+              <Cell key={`${d.name}-${idx}`} fill={c.emerald} />
             ))}
           </Bar>
         </BarChart>
@@ -348,8 +348,8 @@ function CtrByProjectChart({ data }: { data: { name: string; ctr: number }[] }) 
             cursor={{ fill: "var(--muted)", opacity: 0.3 }}
           />
           <Bar dataKey="ctr" radius={[0, 4, 4, 0]} name="CTR">
-            {data.map((d) => (
-              <Cell key={d.name} fill={c.indigo} />
+            {data.map((d, idx) => (
+              <Cell key={`${d.name}-${idx}`} fill={c.indigo} />
             ))}
           </Bar>
         </BarChart>
@@ -476,7 +476,9 @@ export default function AnalyticsPage() {
   }, []);
 
   useEffect(() => {
-    void load(true);
+    // Initial render should stay read-only and fast.
+    // We only sync on explicit "Refresh data".
+    void load(false);
   }, [load]);
 
   const handleRefresh = () => {
@@ -493,7 +495,7 @@ export default function AnalyticsPage() {
             Search analytics
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Google Search Console metrics for your Monix projects.
+            Google Search Console metrics for your Monix sites.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
@@ -516,7 +518,7 @@ export default function AnalyticsPage() {
             )}
           </Button>
           <Button asChild variant="secondary">
-            <Link href="/dashboard/projects">Projects & GSC setup</Link>
+            <Link href="/dashboard/sites">Sites & GSC setup</Link>
           </Button>
         </div>
       </div>
@@ -543,7 +545,7 @@ export default function AnalyticsPage() {
               </p>
             </div>
             <Button asChild className="shrink-0 bg-foreground text-background hover:bg-foreground/90 border-0">
-              <Link href="/dashboard/projects">Go to Projects</Link>
+              <Link href="/dashboard/sites">Go to Sites</Link>
             </Button>
           </div>
           {targets.length > 0 && !loading && (
@@ -744,8 +746,8 @@ export default function AnalyticsPage() {
                 {targets.length === 0 ? (
                   <TableRow className="border-border">
                     <TableCell colSpan={8} className="text-center text-muted-foreground py-10 text-sm">
-                      No projects yet.{" "}
-                      <Link href="/dashboard/projects" className="underline underline-offset-2 hover:text-foreground">
+                      No sites yet.{" "}
+                      <Link href="/dashboard/sites" className="underline underline-offset-2 hover:text-foreground">
                         Add a URL
                       </Link>
                     </TableCell>

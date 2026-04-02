@@ -44,6 +44,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [nameStatus, setNameStatus] = useState<Status>(null);
   const [isSavingName, setIsSavingName] = useState(false);
 
@@ -58,6 +59,7 @@ export default function ProfilePage() {
         setProfile(data);
         setFirstName(data.first_name);
         setLastName(data.last_name);
+        setAvatarUrl(data.avatar_url ?? "");
       })
       .catch(() => {
         setNameStatus({
@@ -75,7 +77,13 @@ export default function ProfilePage() {
       const result = await updateProfile({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
+        avatar_url: avatarUrl.trim(),
       });
+      setProfile((prev) =>
+        prev
+          ? { ...prev, name: result.name, initials: result.initials, avatar_url: result.avatar_url ?? null }
+          : prev,
+      );
       setNameStatus({
         type: "success",
         message: `Saved! Display name is now "${result.name}".`,
@@ -181,6 +189,37 @@ export default function ProfilePage() {
                     className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all"
                   />
                 </div>
+              </div>
+              <div className="grid gap-2 md:max-w-md">
+                <label
+                  htmlFor="avatar-url"
+                  className="text-xs font-medium text-muted-foreground mb-1.5 block"
+                >
+                  Profile Image URL
+                </label>
+                <input
+                  id="avatar-url"
+                  type="url"
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all"
+                />
+                <p className="text-xs text-muted-foreground">
+                  If your Google image is missing, paste an image URL here.
+                </p>
+                {avatarUrl.trim() ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl.trim()}
+                    alt="Profile preview"
+                    className="h-12 w-12 rounded-full object-cover border border-border"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                ) : null}
               </div>
               <StatusAlert status={nameStatus} />
               <div>

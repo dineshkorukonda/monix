@@ -219,7 +219,7 @@ export function GscProjectWorkspaceSection({ target }: { target: Target }) {
           </p>
         </div>
         <Link
-          href="/dashboard/projects"
+          href="/dashboard/sites"
           className="text-xs text-white/35 hover:text-white/70 transition-colors shrink-0"
         >
           Manage connection
