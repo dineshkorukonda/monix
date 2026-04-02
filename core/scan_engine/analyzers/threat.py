@@ -1,3 +1,9 @@
+"""
+Legacy threat analyzer retained for compatibility and test coverage.
+
+Primary runtime alerting currently happens in ``scan_engine.monitoring.engine``.
+"""
+
 from collections import defaultdict, Counter
 
 

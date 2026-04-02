@@ -3,7 +3,7 @@
 import { AlertTriangle, Filter, Info, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { SectionHeader } from "@/components/dashboard/section-header";
-import { getTargets, type Target } from "@/lib/api";
+import { getReport, getScans, getTargets, type ScanReport, type Target } from "@/lib/api";
 
 type Severity = "critical" | "warning" | "info";
 
@@ -18,39 +18,6 @@ interface Issue {
   date: string;
 }
 
-const mockIssues: Issue[] = [
-  {
-    id: "mock-1",
-    severity: "critical",
-    title: "Missing Content Security Policy (CSP)",
-    site: "api.example.com",
-    page: "(Global)",
-    recommendation: "Implement a strict CSP header to prevent XSS attacks.",
-    category: "Security",
-    date: new Date().toISOString(),
-  },
-  {
-    id: "mock-2",
-    severity: "warning",
-    title: "Obsolete TLS Version Supported",
-    site: "legacy.example.com",
-    page: "(Global)",
-    recommendation: "Disable TLS 1.0 and 1.1. Enforce TLS 1.2 or higher.",
-    category: "Configuration",
-    date: new Date().toISOString(),
-  },
-  {
-    id: "mock-3",
-    severity: "info",
-    title: "No Security.txt Found",
-    site: "example.com",
-    page: "/.well-known/security.txt",
-    recommendation: "Add a security.txt file to help researchers report vulnerabilities.",
-    category: "Compliance",
-    date: new Date().toISOString(),
-  },
-];
-
 function severityTone(sev: Severity) {
   if (sev === "critical") return "bg-rose-500/10 text-rose-500 border-rose-500/20";
   if (sev === "warning") return "bg-amber-500/10 text-amber-500 border-amber-500/20";
@@ -58,44 +25,76 @@ function severityTone(sev: Severity) {
 }
 
 export default function IssuesPage() {
-  const [projects, setProjects] = useState<Target[]>([]);
+  const [sites, setSites] = useState<Target[]>([]);
+  const [reports, setReports] = useState<ScanReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   useEffect(() => {
-    getTargets()
-      .then(setProjects)
-      .catch((e) => console.error(e))
-      .finally(() => setLoading(false));
+    (async () => {
+      try {
+        const [targetRows, scans] = await Promise.all([getTargets(), getScans()]);
+        setSites(targetRows);
+        const reportRows = await Promise.all(
+          scans.slice(0, 40).map((scan) => getReport(scan.report_id).catch(() => null)),
+        );
+        setReports(reportRows.filter((r): r is ScanReport => r !== null));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const issues = useMemo(() => {
-    const list: Issue[] = [...mockIssues];
-    for (const p of projects) {
-      if (p.score == null) continue;
-      if (p.score < 50) {
+    const list: Issue[] = [];
+    const hostToSite = new Map(
+      sites.map((s) => [s.url.replace(/^https?:\/\//, "").split("/")[0], s]),
+    );
+
+    for (const report of reports) {
+      const host = report.url.replace(/^https?:\/\//, "").split("/")[0];
+      const site = hostToSite.get(host);
+      const findings = report.results.findings ?? [];
+
+      for (const finding of findings) {
+        const severity: Severity =
+          finding.severity === "high"
+            ? "critical"
+            : finding.severity === "medium"
+              ? "warning"
+              : "info";
+
         list.push({
-          id: `crit-${p.id}`,
-          severity: "critical",
-          title: `Critical Health Score (${p.score}/100)`,
-          site: p.name,
-          page: p.url,
-          recommendation: "Review the full scan report and mitigate high-risk findings immediately.",
-          category: "General",
-          date: p.lastScan || new Date().toISOString(),
+          id: `${report.report_id}-${finding.title}`,
+          severity,
+          title: finding.title,
+          site: site?.name ?? host,
+          page: report.url,
+          recommendation:
+            report.results.recommendations?.[0] ??
+            "Review the scan report and address this finding.",
+          category: "Scan finding",
+          date: report.created_at,
         });
-      } else if (p.score < 80) {
+      }
+
+      // Backfill with score-based issues only when no findings were produced.
+      const overall = report.results.scores?.overall ?? report.score;
+      if (findings.length === 0 && overall < 80) {
         list.push({
-          id: `warn-${p.id}`,
-          severity: "warning",
-          title: `Suboptimal Health Score (${p.score}/100)`,
-          site: p.name,
-          page: p.url,
-          recommendation: "Address missing security headers and warnings to improve score.",
-          category: "General",
-          date: p.lastScan || new Date().toISOString(),
+          id: `${report.report_id}-score`,
+          severity: overall < 50 ? "critical" : "warning",
+          title: `Low overall health score (${overall}/100)`,
+          site: site?.name ?? host,
+          page: report.url,
+          recommendation:
+            "Open the report details and address SSL, headers, DNS, and open-port issues.",
+          category: "Score",
+          date: report.created_at,
         });
       }
     }
@@ -103,7 +102,7 @@ export default function IssuesPage() {
       const w = { critical: 3, warning: 2, info: 1 };
       return w[b.severity] - w[a.severity];
     });
-  }, [projects]);
+  }, [sites, reports]);
 
   const filtered = issues.filter((i) => {
     if (severityFilter !== "all" && i.severity !== severityFilter) return false;
