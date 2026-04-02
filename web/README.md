@@ -60,3 +60,7 @@ Google talks to **Supabase first**, not directly to your Next.js app. The `redir
 ### Password reset
 
 “Forgot password?” sends a Supabase recovery email. The link must open your app at `/auth/reset-password` (add that URL under Redirect URLs as above).
+
+## Testing and CI
+
+There is no Jest/Vitest suite in this package today; quality gates are **Biome** (`bun run lint`) and **production build** (`bun run build`). The monorepo CI job runs `bun install` and `next build` under `web/`. Backend pytest lives at repo root in `tests/`; see the root [README](../README.md#testing) and [tests/README.md](../tests/README.md).
