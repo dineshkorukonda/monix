@@ -5,6 +5,17 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$ROOT_DIR/.venv"
 
+load_env() {
+  # Load backend env vars from repo-root .env for local dev.
+  # This is intentionally simple: KEY=VALUE lines only.
+  if [[ -f "$ROOT_DIR/.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$ROOT_DIR/.env"
+    set +a
+  fi
+}
+
 usage() {
   cat <<'EOF'
 Monix quickstart helper
@@ -12,7 +23,6 @@ Monix quickstart helper
 Usage:
   ./setup.sh setup
   ./setup.sh dev
-  ./setup.sh api
   ./setup.sh django
   ./setup.sh web
   ./setup.sh test
@@ -21,12 +31,11 @@ Usage:
 
 Commands:
   setup       Create the Python venv, install backend deps, copy .env, and install web deps
-  dev         Migrate, then run Flask API and Django together (one terminal)
-  api         Run the Flask API from the repo root
+  dev         Migrate, then run the Django dev server (API + admin)
   django      Run Django migrations, then start the Django dev server
   web         Run the Next.js frontend dev server
   test        Run the backend test suite from the repo root
-  reset       Delete all users, targets, scans and reports (keeps schema/migrations)
+  reset       Delete all users, targets, scans (keeps schema/migrations)
   reset-hard  Drop all tables then re-run migrations (full wipe + fresh schema)
 EOF
 }
@@ -73,45 +82,28 @@ setup() {
 
 Setup complete.
 
-[!] WARNING: The Next.js UI is now natively mapped to your PostgreSQL Django backend.
-For the Dashboard to load and fetch your tracking Targets, Django must be actively running!
-
 Next steps:
-  ./GET_STARTED.sh dev    # Flask + Django in one terminal, then:
-  ./GET_STARTED.sh web    # frontend in another terminal
+  ./setup.sh django    # backend (port 8000 by default)
+  ./setup.sh web       # frontend in another terminal
 
-  Or run api / django / web in separate terminals if you prefer.
+Set NEXT_PUBLIC_DJANGO_URL in web/.env.local if the API is not on localhost:8000.
 EOF
 }
 
 run_dev() {
   ensure_venv
-  (
-    cd "$ROOT_DIR/core"
-    python manage.py migrate --noinput
-  )
-  echo "Starting Flask (port ${PORT:-3030}) and Django (port 8000). Press Ctrl+C to stop both."
-  trap 'kill 0' INT TERM
-  (
-    cd "$ROOT_DIR"
-    exec python app.py
-  ) &
-  (
-    cd "$ROOT_DIR/core"
-    exec python manage.py runserver
-  ) &
-  wait
-}
-
-run_api() {
-  ensure_venv
-  cd "$ROOT_DIR"
-  python app.py
+  run_django
 }
 
 run_django() {
   ensure_venv
+  load_env
   cd "$ROOT_DIR/core"
+  if [[ -z "${DATABASE_URL:-}" ]]; then
+    echo "ERROR: DATABASE_URL is required (PostgreSQL)." >&2
+    echo "Set it in .env (for Supabase: use your project's Postgres connection string)." >&2
+    exit 1
+  fi
   python manage.py migrate
   echo "Ensuring Monix backend admin account is uniquely initialized for frontend React context..."
   echo "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.create_superuser('admin', 'admin@monix.com', 'admin') if not User.objects.exists() else None" | python manage.py shell
@@ -153,13 +145,11 @@ main() {
     setup)
       setup
       ;;
+    dev|django)
+      run_django
+      ;;
     api)
-      run_api
-      ;;
-    dev)
-      run_dev
-      ;;
-    django)
+      echo "The Flask API has been merged into Django. Use: ./setup.sh django" >&2
       run_django
       ;;
     web)

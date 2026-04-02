@@ -1,6 +1,6 @@
-"""Tests for api.scanners.security."""
+"""Tests for scan_engine.scanners.security."""
 
-from api.scanners.security import (
+from scan_engine.scanners.security import (
     check_dangerous_ports,
     check_listening_count,
     check_outbound_suspicious,

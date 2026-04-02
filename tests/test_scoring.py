@@ -1,6 +1,6 @@
 """Tests for api.scoring module."""
 
-from api.scoring import (
+from scan_engine.scoring import (
     calculate_security_score,
     calculate_seo_score,
     calculate_performance_score,

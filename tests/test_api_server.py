@@ -1,41 +1,43 @@
-"""Tests for API server endpoints."""
+"""Tests for Django engine API views (formerly Flask ``api.server``)."""
 
 import json
-import os
 import uuid
 from types import SimpleNamespace
 from unittest.mock import patch
-import pytest
 
-from api.server import app, analyze_url
+import pytest
+from django.test import Client
 
 
 @pytest.fixture
 def client():
-    """Flask test client."""
-    app.config["TESTING"] = True
-    with app.test_client() as client:
-        yield client
+    return Client()
 
 
+@pytest.mark.django_db
 class TestHealthEndpoint:
     def test_health_ok(self, client):
         resp = client.get("/api/health")
         assert resp.status_code == 200
-        data = json.loads(resp.data)
+        data = json.loads(resp.content)
         assert data["status"] == "ok"
         assert data["service"] == "monix-api"
 
 
+@pytest.mark.django_db
 class TestAnalyzeUrlEndpoint:
     @patch(
-        "api.server.calculate_overall_score",
+        "reports.scan_service.calculate_overall_score",
         return_value={"overall": 70, "security": 60, "seo": 80, "performance": 75},
     )
-    @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
-    @patch("api.server.run_seo_checks", return_value={"seo_score": 80})
-    @patch("api.server.analyze_web_security")
-    def test_success(self, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client):
+    @patch(
+        "reports.scan_service.run_performance_checks",
+        return_value={"mobile": {}, "desktop": {}},
+    )
+    @patch("reports.scan_service.run_seo_checks", return_value={"seo_score": 80})
+    @patch("reports.scan_service.analyze_web_security")
+    @patch("reports.persistence.save_scan_result", return_value=None)
+    def test_success(self, _save, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client):
         mock_analyze.return_value = {
             "url": "https://example.com",
             "status": "success",
@@ -47,7 +49,7 @@ class TestAnalyzeUrlEndpoint:
             content_type="application/json",
         )
         assert resp.status_code == 200
-        data = json.loads(resp.data)
+        data = json.loads(resp.content)
         assert data["status"] == "success"
         assert data["scores"]["overall"] == 70
 
@@ -58,28 +60,31 @@ class TestAnalyzeUrlEndpoint:
             content_type="application/json",
         )
         assert resp.status_code == 400
-        assert "url" in json.loads(resp.data)["error"].lower()
+        assert "url" in json.loads(resp.content)["error"].lower()
 
-    @patch("api.server.analyze_web_security")
-    def test_exception_returns_500(self, mock_analyze, client):
-        mock_analyze.side_effect = Exception("boom")
+    @patch("reports.scan_service.analyze_web_security", side_effect=Exception("boom"))
+    def test_exception_returns_500(self, _mock_analyze, client):
         resp = client.post(
             "/api/analyze-url",
             data=json.dumps({"url": "https://example.com"}),
             content_type="application/json",
         )
         assert resp.status_code == 500
-        assert json.loads(resp.data)["status"] == "error"
+        assert json.loads(resp.content)["status"] == "error"
 
     @patch(
-        "api.server.calculate_overall_score",
+        "reports.scan_service.calculate_overall_score",
         return_value={"overall": 50, "security": 50, "seo": 50, "performance": 50},
     )
-    @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
-    @patch("api.server.run_seo_checks", return_value={"seo_score": 50})
-    @patch("api.server.analyze_web_security", return_value={"status": "success"})
+    @patch(
+        "reports.scan_service.run_performance_checks",
+        return_value={"mobile": {}, "desktop": {}},
+    )
+    @patch("reports.scan_service.run_seo_checks", return_value={"seo_score": 50})
+    @patch("reports.scan_service.analyze_web_security", return_value={"status": "success"})
+    @patch("reports.persistence.save_scan_result", return_value=None)
     def test_full_query_param_enables_optional_checks(
-        self, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
+        self, _save, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
     ):
         resp = client.post(
             "/api/analyze-url?full=true",
@@ -94,14 +99,18 @@ class TestAnalyzeUrlEndpoint:
         )
 
     @patch(
-        "api.server.calculate_overall_score",
+        "reports.scan_service.calculate_overall_score",
         return_value={"overall": 50, "security": 50, "seo": 50, "performance": 50},
     )
-    @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
-    @patch("api.server.run_seo_checks", return_value={"seo_score": 50})
-    @patch("api.server.analyze_web_security", return_value={"status": "success"})
+    @patch(
+        "reports.scan_service.run_performance_checks",
+        return_value={"mobile": {}, "desktop": {}},
+    )
+    @patch("reports.scan_service.run_seo_checks", return_value={"seo_score": 50})
+    @patch("reports.scan_service.analyze_web_security", return_value={"status": "success"})
+    @patch("reports.persistence.save_scan_result", return_value=None)
     def test_request_flags_override_default_scan_options(
-        self, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
+        self, _save, mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
     ):
         resp = client.post(
             "/api/analyze-url",
@@ -122,57 +131,38 @@ class TestAnalyzeUrlEndpoint:
         )
 
     @patch(
-        "api.server.calculate_overall_score",
+        "reports.scan_service.calculate_overall_score",
         return_value={"overall": 70, "security": 60, "seo": 80, "performance": 75},
     )
-    @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
-    @patch("api.server.run_seo_checks", return_value={"seo_score": 80})
-    @patch("api.server.analyze_web_security", return_value={"status": "success"})
-    @patch("api.server.save_scan", return_value=str(uuid.uuid4()))
-    def test_target_id_stripped_without_internal_secret(
-        self, mock_save, _mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
-    ):
-        """Untrusted clients cannot link scans to a target_id."""
+    @patch(
+        "reports.scan_service.run_performance_checks",
+        return_value={"mobile": {}, "desktop": {}},
+    )
+    @patch("reports.scan_service.run_seo_checks", return_value={"seo_score": 80})
+    @patch("reports.scan_service.analyze_web_security", return_value={"status": "success"})
+    @patch("reports.persistence.save_scan_result")
+    def test_public_endpoint_strips_target_id(self, mock_save, _a, _s, _p, _c, client):
+        """Anonymous / sessionless analyze-url cannot attach scans to a target."""
+        mock_save.return_value = str(uuid.uuid4())
         fake_tid = str(uuid.uuid4())
-        with patch.dict(os.environ, {"MONIX_INTERNAL_SCAN_SECRET": "server-secret"}):
-            resp = client.post(
-                "/api/analyze-url",
-                data=json.dumps({"url": "https://example.com", "target_id": fake_tid}),
-                content_type="application/json",
-            )
+        resp = client.post(
+            "/api/analyze-url",
+            data=json.dumps({"url": "https://example.com", "target_id": fake_tid}),
+            content_type="application/json",
+        )
         assert resp.status_code == 200
         mock_save.assert_called_once()
         assert mock_save.call_args.kwargs.get("target_id") is None
 
-    @patch(
-        "api.server.calculate_overall_score",
-        return_value={"overall": 70, "security": 60, "seo": 80, "performance": 75},
-    )
-    @patch("api.server.run_performance_checks", return_value={"mobile": {}, "desktop": {}})
-    @patch("api.server.run_seo_checks", return_value={"seo_score": 80})
-    @patch("api.server.analyze_web_security", return_value={"status": "success"})
-    @patch("api.server.save_scan", return_value=str(uuid.uuid4()))
-    def test_target_id_honored_with_internal_secret_header(
-        self, mock_save, _mock_analyze, _mock_seo, _mock_perf, _mock_scores, client
-    ):
-        fake_tid = str(uuid.uuid4())
-        with patch.dict(os.environ, {"MONIX_INTERNAL_SCAN_SECRET": "server-secret"}):
-            resp = client.post(
-                "/api/analyze-url",
-                data=json.dumps({"url": "https://example.com", "target_id": fake_tid}),
-                content_type="application/json",
-                headers={"X-Monix-Internal-Scan-Secret": "server-secret"},
-            )
-        assert resp.status_code == 200
-        mock_save.assert_called_once()
-        assert mock_save.call_args.kwargs.get("target_id") == fake_tid
 
-
+@pytest.mark.django_db
 class TestAnalyzeUrlHelper:
-    @patch("api.server.requests.get")
-    @patch("api.server.get_ip_info")
-    @patch("api.server.socket.gethostbyname", return_value="1.2.3.4")
+    @patch("reports.scan_service.requests.get")
+    @patch("reports.scan_service.get_ip_info")
+    @patch("reports.scan_service.socket.gethostbyname", return_value="1.2.3.4")
     def test_collects_host_and_coordinate_data(self, _mock_dns, mock_ip_info, mock_requests_get):
+        from reports.scan_service import analyze_url
+
         mock_ip_info.return_value = {"geo": "Test Geo", "hostname": "host.example"}
         mock_requests_get.return_value.json.return_value = {"loc": "12.3,45.6"}
 
@@ -186,8 +176,10 @@ class TestAnalyzeUrlHelper:
         assert result["threat_score"] >= 25
         assert result["suspicious"] is True
 
-    @patch("api.server.socket.gethostbyname", side_effect=OSError("dns failed"))
+    @patch("reports.scan_service.socket.gethostbyname", side_effect=OSError("dns failed"))
     def test_dns_failure_keeps_analysis_running(self, _mock_dns):
+        from reports.scan_service import analyze_url
+
         result = analyze_url("https://example.com/index.html")
 
         assert result["status"] == "success"
@@ -196,8 +188,9 @@ class TestAnalyzeUrlHelper:
         assert result["domain"] == "example.com"
 
 
+@pytest.mark.django_db
 class TestAnalyzeIpEndpoint:
-    @patch("api.server.get_ip_info")
+    @patch("reports.scan_service.get_ip_info")
     def test_success(self, mock_info, client):
         mock_info.return_value = {"geo": "US", "hostname": "dns.google"}
         resp = client.post(
@@ -206,100 +199,108 @@ class TestAnalyzeIpEndpoint:
             content_type="application/json",
         )
         assert resp.status_code == 200
-        data = json.loads(resp.data)
+        data = json.loads(resp.content)
         assert data["status"] == "success"
         assert data["ip"] == "8.8.8.8"
 
     def test_missing_ip_returns_400(self, client):
-        resp = client.post("/api/analyze-ip", data=json.dumps({}), content_type="application/json")
+        resp = client.post(
+            "/api/analyze-ip", data=json.dumps({}), content_type="application/json"
+        )
         assert resp.status_code == 400
-        assert "ip" in json.loads(resp.data)["error"].lower()
+        assert "ip" in json.loads(resp.content)["error"].lower()
 
 
+@pytest.mark.django_db
 class TestThreatInfoEndpoint:
     def test_returns_lists(self, client):
         resp = client.get("/api/threat-info")
         assert resp.status_code == 200
-        data = json.loads(resp.data)
+        data = json.loads(resp.content)
         assert isinstance(data["high_risk_endpoints"], list)
         assert isinstance(data["malicious_bot_signatures"], list)
 
 
+@pytest.mark.django_db
 class TestConnectionsEndpoint:
-    @patch("api.server.collect_connections")
+    @patch("reports.engine_views.collect_connections")
     def test_success(self, mock_collect, client):
         mock_collect.return_value = [{"local_ip": "127.0.0.1", "state": "ESTABLISHED"}]
         resp = client.get("/api/connections")
         assert resp.status_code == 200
-        data = json.loads(resp.data)
+        data = json.loads(resp.content)
         assert data["status"] == "success"
         assert data["count"] == 1
 
-    @patch("api.server.collect_connections", side_effect=RuntimeError("collector down"))
+    @patch("reports.engine_views.collect_connections", side_effect=RuntimeError("collector down"))
     def test_error_returns_500(self, _mock_collect, client):
         resp = client.get("/api/connections")
         assert resp.status_code == 500
-        assert json.loads(resp.data)["status"] == "error"
+        assert json.loads(resp.content)["status"] == "error"
 
 
+@pytest.mark.django_db
 class TestAlertsEndpoint:
-    @patch("api.server.state.snapshot")
+    @patch("reports.engine_views.state.snapshot")
     def test_success(self, mock_snap, client):
         mock_snap.return_value = ([], [{"type": "SYN_FLOOD"}])
         resp = client.get("/api/alerts")
         assert resp.status_code == 200
-        assert json.loads(resp.data)["count"] == 1
+        assert json.loads(resp.content)["count"] == 1
 
-    @patch("api.server.state.snapshot", side_effect=RuntimeError("snapshot failed"))
+    @patch("reports.engine_views.state.snapshot", side_effect=RuntimeError("snapshot failed"))
     def test_error_returns_500(self, _mock_snap, client):
         resp = client.get("/api/alerts")
         assert resp.status_code == 500
-        assert json.loads(resp.data)["status"] == "error"
+        assert json.loads(resp.content)["status"] == "error"
 
 
+@pytest.mark.django_db
 class TestSystemStatsEndpoint:
-    @patch("api.server.get_system_stats")
+    @patch("reports.engine_views.get_system_stats")
     def test_success(self, mock_stats, client):
         mock_stats.return_value = {"cpu_percent": 10.0, "memory_percent": 20.0}
         resp = client.get("/api/system-stats")
         assert resp.status_code == 200
-        data = json.loads(resp.data)
+        data = json.loads(resp.content)
         assert data["status"] == "success"
         assert data["cpu_percent"] == 10.0
 
-    @patch("api.server.get_system_stats", side_effect=RuntimeError("stats failed"))
+    @patch("reports.engine_views.get_system_stats", side_effect=RuntimeError("stats failed"))
     def test_error_returns_500(self, _mock_stats, client):
         resp = client.get("/api/system-stats")
         assert resp.status_code == 500
-        assert json.loads(resp.data)["status"] == "error"
+        assert json.loads(resp.content)["status"] == "error"
 
 
+@pytest.mark.django_db
 class TestProcessesEndpoint:
-    @patch("api.server.get_top_processes")
+    @patch("reports.engine_views.get_top_processes")
     def test_success_uses_limit_query_param(self, mock_processes, client):
         mock_processes.return_value = [{"pid": 1, "cpu_percent": 90.0}]
 
         resp = client.get("/api/processes?limit=5")
 
         assert resp.status_code == 200
-        data = json.loads(resp.data)
+        data = json.loads(resp.content)
         assert data["status"] == "success"
         assert data["count"] == 1
         mock_processes.assert_called_once_with(limit=5)
 
-    @patch("api.server.get_top_processes", side_effect=RuntimeError("processes failed"))
+    @patch("reports.engine_views.get_top_processes", side_effect=RuntimeError("processes failed"))
     def test_error_returns_500(self, _mock_processes, client):
         resp = client.get("/api/processes")
         assert resp.status_code == 500
-        assert json.loads(resp.data)["status"] == "error"
+        assert json.loads(resp.content)["status"] == "error"
 
 
+@pytest.mark.django_db
 class TestDashboardEndpoint:
-    @patch("api.server.collect_connections")
-    @patch("api.server.state.snapshot")
-    @patch("api.server.get_system_stats")
-    @patch("api.server.get_traffic_summary")
-    def test_success(self, mock_traffic, mock_stats, mock_snap, mock_conns, client):
+    @patch("reports.scan_service.get_traffic_summary")
+    @patch("reports.engine_views.get_system_stats")
+    @patch("reports.engine_views.state.snapshot")
+    @patch("reports.engine_views.collect_connections")
+    def test_success(self, mock_conns, mock_snap, mock_stats, mock_traffic, client):
         mock_conns.return_value = []
         mock_snap.return_value = ([], [])
         mock_stats.return_value = {"cpu_percent": 5.0}
@@ -312,16 +313,16 @@ class TestDashboardEndpoint:
         }
         resp = client.get("/api/dashboard")
         assert resp.status_code == 200
-        data = json.loads(resp.data)
+        data = json.loads(resp.content)
         assert data["status"] == "success"
         assert "traffic_summary" in data
 
-    @patch("api.server.collect_connections")
-    @patch("api.server.state.snapshot")
-    @patch("api.server.get_system_stats")
-    @patch("api.server.get_traffic_summary")
+    @patch("reports.scan_service.get_traffic_summary")
+    @patch("reports.engine_views.get_system_stats")
+    @patch("reports.engine_views.state.snapshot")
+    @patch("reports.engine_views.collect_connections")
     def test_traffic_error_falls_back_to_defaults(
-        self, mock_traffic, mock_stats, mock_snap, mock_conns, client
+        self, mock_conns, mock_snap, mock_stats, mock_traffic, client
     ):
         mock_conns.return_value = []
         mock_snap.return_value = ([], [])
@@ -329,14 +330,14 @@ class TestDashboardEndpoint:
         mock_traffic.side_effect = Exception("log unavailable")
         resp = client.get("/api/dashboard")
         assert resp.status_code == 200
-        assert json.loads(resp.data)["traffic_summary"]["total_requests"] == 0
+        assert json.loads(resp.content)["traffic_summary"]["total_requests"] == 0
 
-    @patch("api.server.collect_connections")
-    @patch("api.server.state.snapshot")
-    @patch("api.server.get_system_stats")
-    @patch("api.server.get_traffic_summary")
+    @patch("reports.scan_service.get_traffic_summary")
+    @patch("reports.engine_views.get_system_stats")
+    @patch("reports.engine_views.state.snapshot")
+    @patch("reports.engine_views.collect_connections")
     def test_suspicious_ips_are_serialized(
-        self, mock_traffic, mock_stats, mock_snap, mock_conns, client
+        self, mock_conns, mock_snap, mock_stats, mock_traffic, client
     ):
         mock_conns.return_value = []
         mock_snap.return_value = ([], [])
@@ -352,13 +353,13 @@ class TestDashboardEndpoint:
         resp = client.get("/api/dashboard")
 
         assert resp.status_code == 200
-        payload = json.loads(resp.data)
+        payload = json.loads(resp.content)
         assert payload["traffic_summary"]["suspicious_ips"] == [
             {"ip": "1.1.1.1", "threat_score": 88, "total_hits": 4}
         ]
 
-    @patch("api.server.collect_connections", side_effect=RuntimeError("connections failed"))
+    @patch("reports.engine_views.collect_connections", side_effect=RuntimeError("connections failed"))
     def test_top_level_error_returns_500(self, _mock_conns, client):
         resp = client.get("/api/dashboard")
         assert resp.status_code == 500
-        assert json.loads(resp.data)["status"] == "error"
+        assert json.loads(resp.content)["status"] == "error"

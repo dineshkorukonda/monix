@@ -1,8 +1,8 @@
-"""Tests for api.performance_checker module."""
+"""Tests for scan_engine.performance_checker module."""
 
 from unittest.mock import patch, MagicMock
 
-from api.performance_checker import (
+from scan_engine.performance_checker import (
     _fetch_pagespeed,
     _extract_scores,
     run_performance_checks,
@@ -32,7 +32,7 @@ _LIGHTHOUSE_RESPONSE = {
 # _fetch_pagespeed
 # ---------------------------------------------------------------------------
 class TestFetchPagespeed:
-    @patch("api.performance_checker.requests.get")
+    @patch("scan_engine.performance_checker.requests.get")
     def test_successful_fetch_returns_json(self, mock_get):
         mock_resp = MagicMock()
         mock_resp.json.return_value = _LIGHTHOUSE_RESPONSE
@@ -47,7 +47,7 @@ class TestFetchPagespeed:
         assert call_kwargs[1]["params"]["key"] == "key123"
         assert result == _LIGHTHOUSE_RESPONSE
 
-    @patch("api.performance_checker.requests.get")
+    @patch("scan_engine.performance_checker.requests.get")
     def test_no_api_key_omitted_from_params(self, mock_get):
         mock_resp = MagicMock()
         mock_resp.json.return_value = _LIGHTHOUSE_RESPONSE
@@ -59,7 +59,7 @@ class TestFetchPagespeed:
         params = mock_get.call_args[1]["params"]
         assert "key" not in params
 
-    @patch("api.performance_checker.requests.get")
+    @patch("scan_engine.performance_checker.requests.get")
     def test_http_error_returns_error_dict(self, mock_get):
         import requests as _requests
 
@@ -75,7 +75,7 @@ class TestFetchPagespeed:
         assert "error" in result
         assert "Bad request" in result["error"]
 
-    @patch("api.performance_checker.requests.get")
+    @patch("scan_engine.performance_checker.requests.get")
     def test_connection_error_returns_error_dict(self, mock_get):
         import requests as _requests
 
@@ -151,7 +151,7 @@ class TestExtractScores:
 # run_performance_checks
 # ---------------------------------------------------------------------------
 class TestRunPerformanceChecks:
-    @patch("api.performance_checker._fetch_pagespeed")
+    @patch("scan_engine.performance_checker._fetch_pagespeed")
     def test_returns_mobile_and_desktop_keys(self, mock_fetch):
         mock_fetch.return_value = _LIGHTHOUSE_RESPONSE
 
@@ -161,7 +161,7 @@ class TestRunPerformanceChecks:
         assert "desktop" in result
         assert mock_fetch.call_count == 2
 
-    @patch("api.performance_checker._fetch_pagespeed")
+    @patch("scan_engine.performance_checker._fetch_pagespeed")
     def test_successful_scores_populated(self, mock_fetch):
         mock_fetch.return_value = _LIGHTHOUSE_RESPONSE
 
@@ -176,7 +176,7 @@ class TestRunPerformanceChecks:
             assert result[strategy]["cls"] == "0.05"
             assert result[strategy]["error"] is None
 
-    @patch("api.performance_checker._fetch_pagespeed")
+    @patch("scan_engine.performance_checker._fetch_pagespeed")
     def test_api_error_returns_null_scores_without_raising(self, mock_fetch):
         mock_fetch.return_value = {"error": "Service unavailable"}
 
@@ -191,8 +191,8 @@ class TestRunPerformanceChecks:
             assert result[strategy]["cls"] is None
             assert result[strategy]["error"] == "Service unavailable"
 
-    @patch("api.performance_checker.os.environ.get", return_value="my-api-key")
-    @patch("api.performance_checker._fetch_pagespeed")
+    @patch("scan_engine.performance_checker.os.environ.get", return_value="my-api-key")
+    @patch("scan_engine.performance_checker._fetch_pagespeed")
     def test_api_key_passed_from_environment(self, mock_fetch, mock_env):
         mock_fetch.return_value = _LIGHTHOUSE_RESPONSE
 
@@ -201,8 +201,8 @@ class TestRunPerformanceChecks:
         for call in mock_fetch.call_args_list:
             assert call[0][2] == "my-api-key"
 
-    @patch("api.performance_checker.os.environ.get", return_value=None)
-    @patch("api.performance_checker._fetch_pagespeed")
+    @patch("scan_engine.performance_checker.os.environ.get", return_value=None)
+    @patch("scan_engine.performance_checker._fetch_pagespeed")
     def test_no_api_key_passes_none(self, mock_fetch, mock_env):
         mock_fetch.return_value = _LIGHTHOUSE_RESPONSE
 
@@ -211,7 +211,7 @@ class TestRunPerformanceChecks:
         for call in mock_fetch.call_args_list:
             assert call[0][2] is None
 
-    @patch("api.performance_checker._fetch_pagespeed")
+    @patch("scan_engine.performance_checker._fetch_pagespeed")
     def test_strategies_called_are_mobile_and_desktop(self, mock_fetch):
         mock_fetch.return_value = _LIGHTHOUSE_RESPONSE
 

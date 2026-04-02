@@ -1,9 +1,9 @@
-"""Tests for api.scanners.web module."""
+"""Tests for scan_engine.scanners.web module."""
 
 import socket
 from unittest.mock import patch, MagicMock
 
-from api.scanners.web import (
+from scan_engine.scanners.web import (
     check_ssl_certificate,
     check_dns_records,
     check_http_headers,
@@ -21,7 +21,7 @@ class TestCheckSSLCertificate:
         assert result["valid"] is False
         assert result["error"] == "URL must use HTTPS"
 
-    @patch("api.scanners.web.socket.create_connection")
+    @patch("scan_engine.scanners.web.socket.create_connection")
     def test_dns_failure(self, mock_conn):
         mock_conn.side_effect = socket.gaierror()
         result = check_ssl_certificate("https://invalid-domain-xyz.com")
@@ -31,13 +31,13 @@ class TestCheckSSLCertificate:
 
 class TestCheckDNSRecords:
     def test_no_dnspython_returns_error(self):
-        with patch("api.scanners.web.DNS_AVAILABLE", False):
+        with patch("scan_engine.scanners.web.DNS_AVAILABLE", False):
             result = check_dns_records("example.com")
         assert "dnspython" in result["error"]
 
 
 class TestCheckHTTPHeaders:
-    @patch("api.scanners.web.requests.get")
+    @patch("scan_engine.scanners.web.requests.get")
     def test_security_headers_extracted(self, mock_get):
         mock_get.return_value = MagicMock(
             headers={
@@ -48,7 +48,7 @@ class TestCheckHTTPHeaders:
         result = check_http_headers("https://example.com")
         assert result["security_headers"]["strict-transport-security"] == "max-age=31536000"
 
-    @patch("api.scanners.web.requests.get")
+    @patch("scan_engine.scanners.web.requests.get")
     def test_missing_headers_are_none(self, mock_get):
         mock_get.return_value = MagicMock(headers={"server": "nginx"})
         result = check_http_headers("https://example.com")
@@ -56,7 +56,7 @@ class TestCheckHTTPHeaders:
 
 
 class TestCheckSecurityTxt:
-    @patch("api.scanners.web.requests.get")
+    @patch("scan_engine.scanners.web.requests.get")
     def test_present(self, mock_get):
         mock_get.return_value = MagicMock(status_code=200, text="Contact: sec@example.com")
         result = check_security_txt("https://example.com")
@@ -79,7 +79,7 @@ class TestAnalyzeSecurityHeaders:
 
 
 class TestScanPorts:
-    @patch("api.scanners.web._check_single_port")
+    @patch("scan_engine.scanners.web._check_single_port")
     def test_open_and_closed_classified(self, mock_check):
         def side(host, port, timeout=0.3):
             return (port, "open") if port in [80, 443] else (port, "closed")
@@ -91,14 +91,14 @@ class TestScanPorts:
 
 
 class TestDetectTechnologies:
-    @patch("api.scanners.web.requests.get")
+    @patch("scan_engine.scanners.web.requests.get")
     def test_nginx_detected(self, mock_get):
         mock_get.return_value = MagicMock(headers={"server": "nginx/1.18.0"}, text="<html></html>")
         assert detect_technologies("https://example.com")["server"] == "Nginx"
 
 
 class TestCheckRedirects:
-    @patch("api.scanners.web.requests.get")
+    @patch("scan_engine.scanners.web.requests.get")
     def test_redirect_chain_captured(self, mock_get):
         r1 = MagicMock(status_code=301, url="http://example.com")
         r2 = MagicMock(status_code=302, url="http://www.example.com")
