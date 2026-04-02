@@ -129,10 +129,27 @@ function WorkspaceInner() {
         getScans(),
       ]);
       setTarget(targetData);
-      const matched = scansData.filter(s => s.target_id === id || s.url.includes(targetData.url.replace(/^https?:\/\//, '').split('/')[0]));
+      const host = targetData.url.replace(/^https?:\/\//, "").split("/")[0];
+      const matched = scansData.filter(
+        (s) =>
+          s.target_id === id ||
+          s.url.replace(/^https?:\/\//, "").split("/")[0] === host,
+      );
       setTargetScans(matched);
-      if (matched.length > 0) {
-        getReport(matched[0].report_id).then(setLatestReport).catch(() => {});
+
+      const reportId =
+        targetData.latest_report_id ||
+        (matched.length > 0 ? matched[0].report_id : null);
+      if (reportId) {
+        try {
+          const report = await getReport(reportId);
+          setLatestReport(report);
+        } catch (e) {
+          console.error("Latest scan report:", e);
+          setLatestReport(null);
+        }
+      } else {
+        setLatestReport(null);
       }
     } catch (err) {
       console.error(err);
@@ -269,9 +286,27 @@ function WorkspaceInner() {
         <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground px-1">Infrastructure</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <InfrastructureCard title="Provider" value={results?.server_location?.org || "—"} icon={Server} />
-          <InfrastructureCard title="CDN / Proxy" value={results?.technologies?.cdn || "None detected"} icon={Cloud} />
+          <InfrastructureCard
+            title="CDN / Proxy"
+            value={
+              results
+                ? results.technologies?.cdn || "None detected"
+                : "—"
+            }
+            icon={Cloud}
+          />
           <InfrastructureCard title="Server" value={results?.technologies?.server || "—"} icon={Cpu} />
-          <InfrastructureCard title="TLS Edition" value={results?.ssl_certificate?.valid ? "Valid" : "Invalid"} icon={ShieldCheck} />
+          <InfrastructureCard
+            title="TLS Edition"
+            value={
+              results?.ssl_certificate == null
+                ? "—"
+                : results.ssl_certificate.valid
+                  ? "Valid"
+                  : "Invalid"
+            }
+            icon={ShieldCheck}
+          />
           <InfrastructureCard title="Region" value={results?.server_location?.country || "—"} icon={Globe} />
         </div>
       </section>

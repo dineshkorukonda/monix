@@ -2,18 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 export function proxy(request: NextRequest) {
-  const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard");
-  const isLoginRoute = request.nextUrl.pathname === "/login";
-  const hasSession = Boolean(request.cookies.get("sessionid")?.value);
-
-  if (isDashboardRoute && !hasSession) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  if (isLoginRoute && hasSession) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
+  // Supabase Auth is client-managed (local storage / PKCE). Middleware cannot
+  // reliably read auth state, so do not redirect here.
   return NextResponse.next();
 }
 

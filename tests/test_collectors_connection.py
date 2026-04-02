@@ -1,20 +1,20 @@
-"""Tests for api.collectors.connection."""
+"""Tests for scan_engine.collectors.connection."""
 
 from types import SimpleNamespace
 from unittest.mock import mock_open, patch
 
-from api.collectors.connection import collect_connections
+from scan_engine.collectors.connection import collect_connections
 
 
 class TestCollectConnectionsProcfs:
-    @patch("api.collectors.connection.reverse_dns", return_value="example.com")
-    @patch("api.collectors.connection.geo_lookup", return_value="US")
+    @patch("scan_engine.collectors.connection.reverse_dns", return_value="example.com")
+    @patch("scan_engine.collectors.connection.geo_lookup", return_value="US")
     @patch(
-        "api.collectors.connection.get_process_map",
+        "scan_engine.collectors.connection.get_process_map",
         return_value={("127.0.0.1", 53): (123, "dnsmasq")},
     )
-    @patch("api.collectors.connection.hex_port")
-    @patch("api.collectors.connection.hex_ip")
+    @patch("scan_engine.collectors.connection.hex_port")
+    @patch("scan_engine.collectors.connection.hex_ip")
     def test_reads_procfs_connections(
         self,
         mock_hex_ip,
@@ -28,7 +28,7 @@ class TestCollectConnectionsProcfs:
         mock_hex_port.side_effect = [53, 443]
 
         with patch(
-            "api.collectors.connection.os.path.exists",
+            "scan_engine.collectors.connection.os.path.exists",
             side_effect=lambda path: path == "/proc/net/tcp",
         ):
             with patch("builtins.open", mock_open(read_data=f"header\n{line}")):
@@ -45,9 +45,9 @@ class TestCollectConnectionsProcfs:
         mock_geo.assert_called_once_with("8.8.8.8")
         mock_dns.assert_called_once_with("8.8.8.8")
 
-    @patch("api.collectors.connection.get_process_map", return_value={})
-    @patch("api.collectors.connection.hex_port", side_effect=[80, 0])
-    @patch("api.collectors.connection.hex_ip", side_effect=["127.0.0.1", "0.0.0.0"])
+    @patch("scan_engine.collectors.connection.get_process_map", return_value={})
+    @patch("scan_engine.collectors.connection.hex_port", side_effect=[80, 0])
+    @patch("scan_engine.collectors.connection.hex_ip", side_effect=["127.0.0.1", "0.0.0.0"])
     def test_skips_geo_lookup_for_local_or_unspecified_ips(
         self,
         _mock_hex_ip,
@@ -57,12 +57,12 @@ class TestCollectConnectionsProcfs:
         line = "0: 0100007F:0050 00000000:0000 01 00000000:00000000 00:00000000 00000000 0 0 0 0 0 0 0 0\n"
 
         with patch(
-            "api.collectors.connection.os.path.exists",
+            "scan_engine.collectors.connection.os.path.exists",
             side_effect=lambda path: path == "/proc/net/tcp",
         ):
             with patch("builtins.open", mock_open(read_data=f"header\n{line}")):
-                with patch("api.collectors.connection.geo_lookup") as mock_geo:
-                    with patch("api.collectors.connection.reverse_dns") as mock_dns:
+                with patch("scan_engine.collectors.connection.geo_lookup") as mock_geo:
+                    with patch("scan_engine.collectors.connection.reverse_dns") as mock_dns:
                         connections = collect_connections()
 
         assert connections[0]["geo"] == ""
@@ -70,10 +70,10 @@ class TestCollectConnectionsProcfs:
         mock_geo.assert_not_called()
         mock_dns.assert_not_called()
 
-    @patch("api.collectors.connection.get_process_map", return_value={})
+    @patch("scan_engine.collectors.connection.get_process_map", return_value={})
     def test_procfs_read_errors_are_ignored(self, _mock_process_map):
         with patch(
-            "api.collectors.connection.os.path.exists",
+            "scan_engine.collectors.connection.os.path.exists",
             side_effect=lambda path: path == "/proc/net/tcp",
         ):
             with patch("builtins.open", side_effect=OSError("boom")):
@@ -81,10 +81,10 @@ class TestCollectConnectionsProcfs:
 
 
 class TestCollectConnectionsPsutilFallback:
-    @patch("api.collectors.connection.reverse_dns", return_value="dns.google")
-    @patch("api.collectors.connection.geo_lookup", return_value="US")
-    @patch("api.collectors.connection.psutil.Process")
-    @patch("api.collectors.connection.psutil.net_connections")
+    @patch("scan_engine.collectors.connection.reverse_dns", return_value="dns.google")
+    @patch("scan_engine.collectors.connection.geo_lookup", return_value="US")
+    @patch("scan_engine.collectors.connection.psutil.Process")
+    @patch("scan_engine.collectors.connection.psutil.net_connections")
     def test_falls_back_to_psutil_when_procfs_missing(
         self,
         mock_net_connections,
@@ -102,7 +102,7 @@ class TestCollectConnectionsPsutilFallback:
             )
         ]
 
-        with patch("api.collectors.connection.os.path.exists", return_value=False):
+        with patch("scan_engine.collectors.connection.os.path.exists", return_value=False):
             connections = collect_connections()
 
         assert len(connections) == 1
@@ -112,8 +112,8 @@ class TestCollectConnectionsPsutilFallback:
         mock_geo.assert_called_once_with("8.8.8.8")
         mock_dns.assert_called_once_with("8.8.8.8")
 
-    @patch("api.collectors.connection.psutil.Process")
-    @patch("api.collectors.connection.psutil.net_connections")
+    @patch("scan_engine.collectors.connection.psutil.Process")
+    @patch("scan_engine.collectors.connection.psutil.net_connections")
     def test_psutil_process_lookup_failure_is_non_fatal(self, mock_net_connections, mock_process):
         mock_process.side_effect = Exception("no process")
         mock_net_connections.return_value = [
@@ -125,12 +125,12 @@ class TestCollectConnectionsPsutilFallback:
             )
         ]
 
-        with patch("api.collectors.connection.os.path.exists", return_value=False):
+        with patch("scan_engine.collectors.connection.os.path.exists", return_value=False):
             connections = collect_connections()
 
         assert connections[0]["pname"] == ""
 
-    @patch("api.collectors.connection.psutil.net_connections", side_effect=RuntimeError("fail"))
+    @patch("scan_engine.collectors.connection.psutil.net_connections", side_effect=RuntimeError("fail"))
     def test_psutil_failure_returns_empty_list(self, _mock_connections):
-        with patch("api.collectors.connection.os.path.exists", return_value=False):
+        with patch("scan_engine.collectors.connection.os.path.exists", return_value=False):
             assert collect_connections() == []

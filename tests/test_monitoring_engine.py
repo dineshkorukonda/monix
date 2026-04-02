@@ -1,8 +1,8 @@
-"""Tests for api.monitoring.engine."""
+"""Tests for scan_engine.monitoring.engine."""
 
 from unittest.mock import patch
 
-from api.monitoring import engine
+from scan_engine.monitoring import engine
 
 
 def _conn(remote_ip="8.8.8.8", local_port=80, state="ESTABLISHED"):
@@ -10,8 +10,8 @@ def _conn(remote_ip="8.8.8.8", local_port=80, state="ESTABLISHED"):
 
 
 class TestDetectAttacks:
-    @patch("api.monitoring.engine.state.add_alert")
-    @patch("api.monitoring.engine.time.time", return_value=100.0)
+    @patch("scan_engine.monitoring.engine.state.add_alert")
+    @patch("scan_engine.monitoring.engine.time.time", return_value=100.0)
     def test_detects_syn_flood_high_conn_and_port_scan(self, _mock_time, mock_add_alert):
         engine.port_activity.clear()
         conns = []
@@ -31,8 +31,8 @@ class TestDetectAttacks:
         assert any("HIGH_CONN from 8.8.8.8" in message for message in messages)
         assert any("PORT_SCAN from 7.7.7.7" in message for message in messages)
 
-    @patch("api.monitoring.engine.state.add_alert")
-    @patch("api.monitoring.engine.time.time", return_value=100.0)
+    @patch("scan_engine.monitoring.engine.state.add_alert")
+    @patch("scan_engine.monitoring.engine.time.time", return_value=100.0)
     def test_ignores_local_ips_for_port_scan_tracking(self, _mock_time, mock_add_alert):
         engine.port_activity.clear()
 
@@ -44,7 +44,7 @@ class TestDetectAttacks:
 
 
 class TestStartMonitor:
-    @patch("api.monitoring.engine.Thread")
+    @patch("scan_engine.monitoring.engine.Thread")
     def test_start_monitor_starts_daemon_thread(self, mock_thread):
         engine.start_monitor()
 

@@ -30,17 +30,17 @@ requires-python = ">=3.8"
 dependencies = [
     "psutil>=5.9.0",
     "requests>=2.28.0",
-    "flask>=3.0.0",
-    "flask-cors>=4.0.0",
     "dnspython>=2.4.0",
     "beautifulsoup4>=4.12.0",
     "django>=4.2",
     "django-axes>=8.3.1",
+    "django-cors-headers>=4.0.0",
     "python-dotenv>=1.0.0",
-    "sqlalchemy>=2.0.0",
     "psycopg2-binary>=2.9.0",
     "gunicorn",
     "cryptography>=42.0.0",
+    "social-auth-app-django>=4.0.0",
+    "PyJWT>=2.10.0",
 ]
 
 [project.optional-dependencies]
@@ -52,9 +52,6 @@ dev = [
     "flake8>=6.0.0",
 ]
 
-[project.scripts]
-monix-api = "app:main"
-
 [project.urls]
 Homepage = "https://github.com/dinexh/monix"
 Documentation = "https://github.com/dinexh/monix#readme"
@@ -62,7 +59,8 @@ Repository = "https://github.com/dinexh/monix"
 Issues = "https://github.com/dinexh/monix/issues"
 
 [tool.setuptools.packages.find]
-include = ["api*", "utils*"]
+where = ["core"]
+include = ["scan_engine*", "reports*"]
 
 [tool.black]
 line-length = 100
@@ -73,4 +71,4 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 DJANGO_SETTINGS_MODULE = "config.settings"
 pythonpath = ["core"]
-addopts = "--cov=api --cov=core/reports --cov-report=term-missing"
+addopts = "--cov=scan_engine --cov=reports --cov-report=term-missing"

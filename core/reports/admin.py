@@ -6,7 +6,7 @@ from django.contrib import admin
 from django.utils import timezone
 from django.utils.translation import ngettext
 
-from .models import Report, Scan
+from .models import Scan, Target
 
 
 class ScoreRangeFilter(admin.SimpleListFilter):
@@ -56,41 +56,35 @@ def delete_old_scans(modeladmin, request, queryset):
 delete_old_scans.short_description = "Delete scans older than 30 days"
 
 
-@admin.register(Scan)
-class ScanAdmin(admin.ModelAdmin):
-    list_display = ("url", "score", "created_at", "report_id")
-    list_filter = (ScoreRangeFilter, "created_at")
-    search_fields = ("url", "report_id")
-    readonly_fields = ("report_id", "created_at")
-    ordering = ("-created_at",)
-    actions = [delete_old_scans]
-
-
-def mark_reports_as_expired(modeladmin, request, queryset):
-    """Mark selected reports as expired."""
+def mark_scans_as_expired(modeladmin, request, queryset):
+    """Mark selected scans as expired."""
     count = queryset.update(is_expired=True)
     modeladmin.message_user(
         request,
         ngettext(
-            "%d report was marked as expired.",
-            "%d reports were marked as expired.",
+            "%d scan was marked as expired.",
+            "%d scans were marked as expired.",
             count,
         )
         % count,
     )
 
 
-mark_reports_as_expired.short_description = "Mark selected reports as expired"
+mark_scans_as_expired.short_description = "Mark selected scans as expired"
 
 
-@admin.register(Report)
-class ReportAdmin(admin.ModelAdmin):
-    list_display = ("url", "is_expired", "expires_at")
-    list_filter = ("is_expired", "expires_at")
-    search_fields = ("scan__url",)
-    ordering = ("-scan__created_at",)
-    actions = [mark_reports_as_expired]
+@admin.register(Scan)
+class ScanAdmin(admin.ModelAdmin):
+    list_display = ("url", "score", "is_expired", "expires_at", "created_at", "report_id")
+    list_filter = (ScoreRangeFilter, "is_expired", "created_at")
+    search_fields = ("url", "report_id")
+    readonly_fields = ("report_id", "created_at")
+    ordering = ("-created_at",)
+    actions = [delete_old_scans, mark_scans_as_expired]
 
-    @admin.display(description="URL")
-    def url(self, obj):
-        return obj.scan.url
+
+@admin.register(Target)
+class TargetAdmin(admin.ModelAdmin):
+    list_display = ("url", "owner", "environment", "created_at")
+    search_fields = ("url", "owner__email", "owner__username")
+    ordering = ("-created_at",)

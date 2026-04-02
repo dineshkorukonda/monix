@@ -28,7 +28,7 @@ from typing import Dict, List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 
-from api.analyzers.traffic import is_suspicious_url, classify_threat_level
+from scan_engine.analyzers.traffic import is_suspicious_url, classify_threat_level
 
 # Global configuration for scanner requests
 DEFAULT_HEADERS = {
