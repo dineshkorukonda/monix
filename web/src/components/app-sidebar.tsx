@@ -2,9 +2,11 @@
 
 import {
   BarChart3,
+  Cloud,
   FolderKanban,
   History,
   LayoutDashboard,
+  Plug,
   Settings,
   User,
 } from "lucide-react";
@@ -25,61 +27,121 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
-const workspace = [
+type NavItem = {
+  title: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+  activeWhen?: (pathname: string, fromProject: boolean) => boolean;
+};
+
+const workspace: NavItem[] = [
   {
     title: "Overview",
     url: "/dashboard",
     icon: LayoutDashboard,
-    match: "exact" as const,
+    activeWhen: (p) => p === "/dashboard",
   },
   {
     title: "Projects",
     url: "/dashboard/projects",
     icon: FolderKanban,
-    match: "projects" as const,
+    activeWhen: (p, fromProject) =>
+      p === "/dashboard/projects" ||
+      p.startsWith("/dashboard/project/") ||
+      (p.startsWith("/dashboard/report/") && fromProject),
   },
   {
-    title: "Analytics",
-    url: "/dashboard/analytics",
-    icon: BarChart3,
-    match: "analytics" as const,
-  },
-  {
-    title: "Scan history",
+    title: "Scan History",
     url: "/dashboard/scans",
     icon: History,
-    match: "scans" as const,
+    activeWhen: (p, fromProject) =>
+      p === "/dashboard/scans" ||
+      (p.startsWith("/dashboard/report/") && !fromProject),
   },
 ];
 
-const account = [
-  { title: "Profile", url: "/dashboard/profile", icon: User },
-  { title: "Settings", url: "/dashboard/settings", icon: Settings },
+const analyticsNav: NavItem[] = [
+  {
+    title: "Search Console",
+    url: "/dashboard/analytics",
+    icon: BarChart3,
+    activeWhen: (p) => p === "/dashboard/analytics",
+  },
 ];
 
-function navActive(
-  pathname: string | null,
-  url: string,
-  match: "exact" | "projects" | "analytics" | "scans",
-  fromProject: boolean,
-): boolean {
-  if (!pathname) return false;
-  if (match === "exact") return pathname === url;
-  if (match === "analytics") return pathname === "/dashboard/analytics";
-  if (match === "projects") {
-    return (
-      pathname === "/dashboard/projects" ||
-      pathname.startsWith("/dashboard/project/") ||
-      (pathname.startsWith("/dashboard/report/") && fromProject)
-    );
-  }
-  if (match === "scans") {
-    return (
-      pathname === "/dashboard/scans" ||
-      (pathname.startsWith("/dashboard/report/") && !fromProject)
-    );
-  }
-  return false;
+const integrationsNav: NavItem[] = [
+  {
+    title: "Integrations",
+    url: "/dashboard/integrations",
+    icon: Plug,
+    activeWhen: (p) => p === "/dashboard/integrations",
+  },
+  {
+    title: "Cloudflare",
+    url: "/dashboard/integrations/cloudflare",
+    icon: Cloud,
+    activeWhen: (p) => p.startsWith("/dashboard/integrations/cloudflare"),
+  },
+];
+
+const account: NavItem[] = [
+  {
+    title: "Profile",
+    url: "/dashboard/profile",
+    icon: User,
+    activeWhen: (p) => p === "/dashboard/profile",
+  },
+  {
+    title: "Settings",
+    url: "/dashboard/settings",
+    icon: Settings,
+    activeWhen: (p) => p === "/dashboard/settings",
+  },
+];
+
+function NavGroup({
+  label,
+  items,
+  pathname,
+  fromProject,
+}: {
+  label: string;
+  items: NavItem[];
+  pathname: string | null;
+  fromProject: boolean;
+}) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/40">
+        {label}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu className="gap-0.5">
+          {items.map((item) => {
+            const active = pathname
+              ? (item.activeWhen?.(pathname, fromProject) ?? pathname === item.url)
+              : false;
+            return (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={active}
+                  className={cn(
+                    "h-9 rounded-md px-2 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[active=true]:shadow-none",
+                  )}
+                >
+                  <Link href={item.url} className="gap-3">
+                    <item.icon className="h-4 w-4 shrink-0 opacity-90" />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
 }
 
 export function AppSidebar() {
@@ -107,68 +169,36 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="gap-0 px-2 py-4">
-        <SidebarGroup>
-          <SidebarGroupLabel className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/40">
-            Workspace
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
-              {workspace.map((item) => {
-                const active = navActive(
-                  pathname,
-                  item.url,
-                  item.match,
-                  fromProject,
-                );
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      className={cn(
-                        "h-9 rounded-md px-2 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[active=true]:shadow-none",
-                      )}
-                    >
-                      <Link href={item.url} className="gap-3">
-                        <item.icon className="h-4 w-4 shrink-0 opacity-90" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup className="mt-6">
-          <SidebarGroupLabel className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/40">
-            Account
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
-              {account.map((item) => {
-                const active = pathname === item.url;
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      className={cn(
-                        "h-9 rounded-md px-2 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground",
-                      )}
-                    >
-                      <Link href={item.url} className="gap-3">
-                        <item.icon className="h-4 w-4 shrink-0 opacity-90" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <NavGroup
+          label="Workspace"
+          items={workspace}
+          pathname={pathname}
+          fromProject={fromProject}
+        />
+        <div className="mt-6">
+          <NavGroup
+            label="Analytics"
+            items={analyticsNav}
+            pathname={pathname}
+            fromProject={fromProject}
+          />
+        </div>
+        <div className="mt-6">
+          <NavGroup
+            label="Integrations"
+            items={integrationsNav}
+            pathname={pathname}
+            fromProject={fromProject}
+          />
+        </div>
+        <div className="mt-6">
+          <NavGroup
+            label="Account"
+            items={account}
+            pathname={pathname}
+            fromProject={fromProject}
+          />
+        </div>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">

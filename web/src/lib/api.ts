@@ -776,3 +776,124 @@ export async function deleteAccount(): Promise<void> {
   });
   if (!res.ok) throw new Error("Failed to delete account");
 }
+
+// ── Cloudflare Integration ───────────────────────────────────────────────────
+
+export interface CloudflareStatus {
+  connected: boolean;
+  account_name?: string;
+  account_id?: string;
+  zones_count?: number;
+}
+
+export interface CloudflareZone {
+  id: string;
+  name: string;
+  status: string;
+  plan_name: string;
+}
+
+export interface CloudflareTimeSeries {
+  date: string;
+  requests: number;
+  cached_requests: number;
+  threats: number;
+  bandwidth: number;
+  pageviews: number;
+  uniques: number;
+}
+
+export interface CloudflareAnalytics {
+  zone_id: string;
+  zone_name: string;
+  period_days: number;
+  totals: {
+    requests: number;
+    cached_requests: number;
+    bandwidth_bytes: number;
+    threats: number;
+    pageviews: number;
+    uniques: number;
+  };
+  series: CloudflareTimeSeries[];
+  top_countries: { country: string; requests: number }[];
+  status_codes: { status: string; requests: number }[];
+}
+
+/** Check whether a Cloudflare API token has been saved for the current user. */
+export async function getCloudflareStatus(): Promise<CloudflareStatus> {
+  const res = await fetch(`${DJANGO_BASE}/api/cloudflare/status/`, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(
+      (err as { error?: string }).error || "Failed to fetch Cloudflare status",
+      res.status,
+    );
+  }
+  return res.json();
+}
+
+/** Save a Cloudflare API token and verify it by fetching the account. */
+export async function connectCloudflare(
+  apiToken: string,
+): Promise<{ success: boolean; account_name: string; zones_count: number }> {
+  const res = await fetch(`${DJANGO_BASE}/api/cloudflare/connect/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ api_token: apiToken }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { error?: string }).error || "Failed to connect Cloudflare",
+    );
+  }
+  return res.json();
+}
+
+/** Remove the stored Cloudflare API token. */
+export async function disconnectCloudflare(): Promise<void> {
+  const res = await fetch(`${DJANGO_BASE}/api/cloudflare/disconnect/`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to disconnect Cloudflare");
+}
+
+/** List all zones accessible via the stored Cloudflare token. */
+export async function getCloudflareZones(): Promise<CloudflareZone[]> {
+  const res = await fetch(`${DJANGO_BASE}/api/cloudflare/zones/`, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(
+      (err as { error?: string }).error || "Failed to fetch zones",
+      res.status,
+    );
+  }
+  return res.json();
+}
+
+/** Fetch traffic/threat analytics for a zone over the given number of days. */
+export async function getCloudflareAnalytics(
+  zoneId: string,
+  days = 7,
+): Promise<CloudflareAnalytics> {
+  const params = new URLSearchParams({ zone_id: zoneId, days: String(days) });
+  const res = await fetch(
+    `${DJANGO_BASE}/api/cloudflare/analytics/?${params}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new ApiError(
+      (err as { error?: string }).error || "Failed to fetch analytics",
+      res.status,
+    );
+  }
+  return res.json();
+}
