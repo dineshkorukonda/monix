@@ -42,13 +42,18 @@ import {
   formatPct,
   formatPosition,
 } from "@/components/gsc-metrics";
+import { formatCfBytes } from "@/components/cf-metrics";
+import {
+  buildCfEdgeIssues,
+  loadCloudflareWorkspaceMetrics,
+  type CfEdgeIssue,
+  type CfWorkspaceResult,
+} from "@/lib/cf-workspace";
 import {
   ApiError,
   getDashboardData,
-  getCloudflareStatus,
   getScans,
   getTargets,
-  type CloudflareStatus,
   type DashboardData,
   type ScanSummary,
   type Target,
@@ -221,19 +226,37 @@ function RecentScansTable({ scans }: { scans: ScanSummary[] }) {
 
 // ── Recent issues list ────────────────────────────────────────────────────────
 
-function RecentIssuesList({ projects, alerts }: { projects: Target[]; alerts: string[] }) {
+function RecentIssuesList({
+  projects,
+  alerts,
+  cfEdgeIssues = [],
+}: {
+  projects: Target[];
+  alerts: string[];
+  cfEdgeIssues?: CfEdgeIssue[];
+}) {
   const issues = useMemo(() => {
-    const list: { severity: "critical" | "warning"; site: string; text: string }[] = [];
+    const list: { severity: "critical" | "warning" | "info"; site: string; text: string }[] = [];
     for (const p of projects) {
       if (p.score == null) continue;
       if (p.score < 50) list.push({ severity: "critical", site: p.name, text: `Score ${p.score}/100 — immediate attention required` });
       else if (p.score < 70) list.push({ severity: "warning", site: p.name, text: `Score ${p.score}/100 — issues need review` });
     }
+    for (const c of cfEdgeIssues.slice(0, 4)) {
+      list.push({ severity: c.severity, site: c.site, text: c.title });
+    }
     for (const a of alerts.slice(0, 3)) {
       list.push({ severity: "warning", site: "Network", text: a });
     }
-    return list.slice(0, 6);
-  }, [projects, alerts]);
+    const rank: Record<"critical" | "warning" | "info", number> = {
+      critical: 3,
+      warning: 2,
+      info: 1,
+    };
+    return list
+      .sort((a, b) => rank[b.severity] - rank[a.severity])
+      .slice(0, 8);
+  }, [projects, alerts, cfEdgeIssues]);
 
   if (issues.length === 0) {
     return (
@@ -248,14 +271,30 @@ function RecentIssuesList({ projects, alerts }: { projects: Target[]; alerts: st
     <div className="divide-y divide-border">
       {issues.map((issue, i) => (
         <div key={i} className="flex items-start gap-3 px-5 py-3.5">
-          <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${issue.severity === "critical" ? "bg-rose-500/10" : "bg-amber-500/10"}`}>
-            <AlertTriangle className={`h-3 w-3 ${issue.severity === "critical" ? "text-rose-500" : "text-amber-500"}`} />
+          <div
+            className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${
+              issue.severity === "critical"
+                ? "bg-rose-500/10"
+                : issue.severity === "info"
+                  ? "bg-blue-500/10"
+                  : "bg-amber-500/10"
+            }`}
+          >
+            <AlertTriangle
+              className={`h-3 w-3 ${
+                issue.severity === "critical"
+                  ? "text-rose-500"
+                  : issue.severity === "info"
+                    ? "text-blue-500"
+                    : "text-amber-500"
+              }`}
+            />
           </div>
           <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground">{issue.site}</p>
             <p className="text-sm text-foreground truncate">{issue.text}</p>
           </div>
-          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border uppercase ${issue.severity === "critical" ? "bg-rose-500/10 text-rose-500 border-rose-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"}`}>
+          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border uppercase ${issue.severity === "critical" ? "bg-rose-500/10 text-rose-500 border-rose-500/20" : issue.severity === "info" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"}`}>
             {issue.severity}
           </span>
         </div>
@@ -284,7 +323,7 @@ export default function OverviewPage() {
   const [stats, setStats]             = useState<DashboardData | null>(null);
   const [projects, setProjects]       = useState<Target[]>([]);
   const [scans, setScans]             = useState<ScanSummary[]>([]);
-  const [cfStatus, setCfStatus]       = useState<CloudflareStatus | null>(null);
+  const [cfWs, setCfWs]               = useState<CfWorkspaceResult | null>(null);
   const [loading, setLoading]         = useState(true);
 
   useEffect(() => {
@@ -293,16 +332,22 @@ export default function OverviewPage() {
       console.error(`Overview (${src}):`, err);
     };
 
-    Promise.allSettled([getDashboardData(), getTargets(), getScans(), getCloudflareStatus()])
-      .then(([dashR, targR, scansR, cfR]) => {
+    Promise.allSettled([getDashboardData(), getTargets(), getScans()])
+      .then(async ([dashR, targR, scansR]) => {
         if (dashR.status  === "fulfilled") setStats(dashR.value);
         else logErr("dashboard", dashR.reason);
         if (targR.status  === "fulfilled") setProjects(targR.value);
         else logErr("targets", targR.reason);
         if (scansR.status === "fulfilled") setScans(scansR.value);
         else logErr("scans", scansR.reason);
-        if (cfR.status    === "fulfilled") setCfStatus(cfR.value);
-        // Cloudflare not connected is expected — don't log
+        if (targR.status === "fulfilled") {
+          try {
+            const ws = await loadCloudflareWorkspaceMetrics(targR.value);
+            setCfWs(ws);
+          } catch {
+            setCfWs(null);
+          }
+        }
       })
       .finally(() => setLoading(false));
   }, []);
@@ -320,6 +365,11 @@ export default function OverviewPage() {
   );
 
   const gsc = useMemo(() => aggregateGscFromTargets(projects), [projects]);
+
+  const cfEdgeIssues = useMemo(
+    () => (cfWs ? buildCfEdgeIssues(projects, cfWs) : []),
+    [projects, cfWs],
+  );
 
   // Loading skeleton
   if (loading) {
@@ -360,57 +410,91 @@ export default function OverviewPage() {
         <MetricCard label="Open Issues"   value={openIssues}      sub={openIssues > 0 ? "Sites below 80" : "All sites healthy"} icon={AlertTriangle} variant={openIssues > 0 ? "rose" : "emerald"} />
       </div>
 
-      {/* Section 3: Integration summaries (GSC + Cloudflare) */}
-      {(gsc.hasData || cfStatus?.connected) && (
+      {/* Section 3: Search (GSC) */}
+      {gsc.hasData && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {gsc.hasData && (
-            <>
-              <MetricCard
-                label="Total Clicks"
-                value={formatCompactNumber(gsc.totalClicks)}
-                sub={gsc.dateLabel ?? "Search Console"}
-                icon={MousePointerClick}
-                variant="emerald"
-              />
-              <MetricCard
-                label="Impressions"
-                value={formatCompactNumber(gsc.totalImpressions)}
-                sub="Google Search Console"
-                icon={Search}
-                variant="indigo"
-              />
-              <MetricCard
-                label="Avg CTR"
-                value={formatPct(gsc.ctr)}
-                sub="Across all sites"
-                icon={Activity}
-                variant="indigo"
-              />
-              <MetricCard
-                label="Avg Position"
-                value={formatPosition(gsc.avgPosition)}
-                sub="Google Search ranking"
-                icon={TrendingUp}
-                variant={
-                  gsc.avgPosition != null && gsc.avgPosition <= 10
-                    ? "emerald"
-                    : gsc.avgPosition != null && gsc.avgPosition <= 20
-                      ? "amber"
-                      : "default"
-                }
-              />
-            </>
-          )}
-          {cfStatus?.connected && !gsc.hasData && (
-            <MetricCard
-              label="Cloudflare"
-              value={cfStatus.account_name ?? "Connected"}
-              sub={`${cfStatus.zones_count ?? 0} zone${(cfStatus.zones_count ?? 0) !== 1 ? "s" : ""}`}
-              icon={Zap}
-              variant="amber"
-            />
-          )}
+          <MetricCard
+            label="Total Clicks"
+            value={formatCompactNumber(gsc.totalClicks)}
+            sub={gsc.dateLabel ?? "Search Console"}
+            icon={MousePointerClick}
+            variant="emerald"
+          />
+          <MetricCard
+            label="Impressions"
+            value={formatCompactNumber(gsc.totalImpressions)}
+            sub="Google Search Console"
+            icon={Search}
+            variant="indigo"
+          />
+          <MetricCard
+            label="Avg CTR"
+            value={formatPct(gsc.ctr)}
+            sub="Across all sites"
+            icon={Activity}
+            variant="indigo"
+          />
+          <MetricCard
+            label="Avg Position"
+            value={formatPosition(gsc.avgPosition)}
+            sub="Google Search ranking"
+            icon={TrendingUp}
+            variant={
+              gsc.avgPosition != null && gsc.avgPosition <= 10
+                ? "emerald"
+                : gsc.avgPosition != null && gsc.avgPosition <= 20
+                  ? "amber"
+                  : "default"
+            }
+          />
         </div>
+      )}
+
+      {/* Section 3b: Cloudflare edge (matched zones) */}
+      {cfWs?.connected && cfWs.aggregate.hasData && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="Edge requests"
+            value={formatCompactNumber(cfWs.aggregate.totalRequests)}
+            sub={`Last ${cfWs.aggregate.periodDays} days · Cloudflare`}
+            icon={Zap}
+            variant="amber"
+          />
+          <MetricCard
+            label="Threats (edge)"
+            value={formatCompactNumber(cfWs.aggregate.totalThreats)}
+            sub="Security events recorded"
+            icon={AlertTriangle}
+            variant={cfWs.aggregate.totalThreats > 0 ? "rose" : "emerald"}
+          />
+          <MetricCard
+            label="Cache hit rate"
+            value={
+              cfWs.aggregate.cacheRatio != null
+                ? `${(cfWs.aggregate.cacheRatio * 100).toFixed(1)}%`
+                : "—"
+            }
+            sub="Cached ÷ all requests"
+            icon={Activity}
+            variant="indigo"
+          />
+          <MetricCard
+            label="Edge bandwidth"
+            value={formatCfBytes(cfWs.aggregate.bandwidthBytes)}
+            sub={`${cfWs.aggregate.matchedProjectCount} site${cfWs.aggregate.matchedProjectCount !== 1 ? "s" : ""} matched`}
+            icon={Globe}
+            variant="default"
+          />
+        </div>
+      )}
+      {cfWs?.connected && !cfWs.aggregate.hasData && projects.length > 0 && (
+        <p className="text-xs text-muted-foreground rounded-lg border border-border bg-muted/20 px-4 py-3">
+          Cloudflare is connected — edge totals appear when a monitored site&apos;s hostname matches a zone on your token (
+          <Link href="/dashboard/integrations/cloudflare" className="underline underline-offset-2 hover:text-foreground">
+            integration
+          </Link>
+          ).
+        </p>
       )}
 
       {/* Section 5: Health score distribution */}
@@ -444,7 +528,11 @@ export default function OverviewPage() {
           </Link>
         }
       >
-        <RecentIssuesList projects={projects} alerts={stats?.alerts ?? []} />
+        <RecentIssuesList
+          projects={projects}
+          alerts={stats?.alerts ?? []}
+          cfEdgeIssues={cfEdgeIssues}
+        />
       </DataCard>
 
       {/* World map */}
