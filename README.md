@@ -6,15 +6,20 @@ shareable report for later retrieval.
 
 ## Project Layout
 
-- `core/scan_engine/` — scan analyzers, collectors, monitoring, SEO/PageSpeed scoring
-- `core/reports/` — Django app (REST API, auth, GSC, persistence)
-- `core/config/` — Django project settings
-- `web/` Next.js frontend
-- `tests/` centralized backend test suite
+
+| Path                | Role                                                               |
+| ------------------- | ------------------------------------------------------------------ |
+| `core/scan_engine/` | Analyzers, collectors, monitoring, SEO/PageSpeed scoring           |
+| `core/reports/`     | Django app (REST API, auth, GSC, persistence)                      |
+| `core/config/`      | Django project settings (`DJANGO_SETTINGS_MODULE=config.settings`) |
+| `web/`              | Next.js frontend (Bun + Next 16)                                   |
+| `tests/`            | Backend pytest suite (Django + scan engine); see `tests/README.md` |
+
 
 ## What Monix Checks
 
 ### Security
+
 - SSL/TLS certificate validity
 - Security header coverage
 - DNS and host intelligence
@@ -23,12 +28,14 @@ shareable report for later retrieval.
 - Geo and IP enrichment
 
 ### SEO
+
 - Meta title and description quality
 - Open Graph tags
 - `robots.txt` and `sitemap.xml`
 - Canonical and H1 validation
 
 ### Performance
+
 - Google PageSpeed Insights results
 - Core Web Vitals
 - Accessibility and best-practices scores
@@ -77,6 +84,8 @@ bun install
 bun run dev
 ```
 
+Dependency lockfile for the frontend is `web/bun.lock` (Bun). Do not add `package-lock.json`.
+
 Point the web app at Django (default `http://localhost:8000`) via `NEXT_PUBLIC_DJANGO_URL`.
 Supabase Auth requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `web/.env.local`.
 
@@ -97,17 +106,23 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 The Django admin login is rate-limited with
 [django-axes](https://django-axes.readthedocs.io/).
 
-| Variable | Default | Description |
-|---|---|---|
-| `AXES_FAILURE_LIMIT` | `5` | Failed attempts before lockout |
-| `AXES_COOLOFF_TIME` | `1` | Lockout duration in hours |
+
+| Variable             | Default | Description                    |
+| -------------------- | ------- | ------------------------------ |
+| `AXES_FAILURE_LIMIT` | `5`     | Failed attempts before lockout |
+| `AXES_COOLOFF_TIME`  | `1`     | Lockout duration in hours      |
+
 
 ## Testing
 
-Run the backend suite with coverage from the repo root:
+Backend tests live under `tests/` and target `scan_engine` and `reports` (pytest-django, PostgreSQL not required for most tests). From the repo root with the venv active:
 
 ```bash
-./.venv/bin/pytest
+# Fast feedback (default; no coverage)
+pytest
+
+# Same as CI: coverage for scan_engine + reports
+pytest --cov=scan_engine --cov=reports --cov-report=term-missing
 ```
 
-CI builds the frontend with Bun and runs the backend suite on Python 3.11.
+CI (GitHub Actions): **Frontend** — `bun install` and `next build` in `web/`. **Backend** — Python 3.11, Postgres 16 service, pytest with coverage. Pushes and pull requests to `main` share one concurrent run per branch (new commits cancel superseded runs).
