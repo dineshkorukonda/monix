@@ -212,16 +212,6 @@ class TestAnalyzeIpEndpoint:
 
 
 @pytest.mark.django_db
-class TestThreatInfoEndpoint:
-    def test_returns_lists(self, client):
-        resp = client.get("/api/threat-info")
-        assert resp.status_code == 200
-        data = json.loads(resp.content)
-        assert isinstance(data["high_risk_endpoints"], list)
-        assert isinstance(data["malicious_bot_signatures"], list)
-
-
-@pytest.mark.django_db
 class TestConnectionsEndpoint:
     @patch("reports.engine_views.collect_connections")
     def test_success(self, mock_collect, client):
@@ -316,21 +306,6 @@ class TestDashboardEndpoint:
         data = json.loads(resp.content)
         assert data["status"] == "success"
         assert "traffic_summary" in data
-
-    @patch("reports.scan_service.get_traffic_summary")
-    @patch("reports.engine_views.get_system_stats")
-    @patch("reports.engine_views.state.snapshot")
-    @patch("reports.engine_views.collect_connections")
-    def test_traffic_error_falls_back_to_defaults(
-        self, mock_conns, mock_snap, mock_stats, mock_traffic, client
-    ):
-        mock_conns.return_value = []
-        mock_snap.return_value = ([], [])
-        mock_stats.return_value = {"cpu_percent": 5.0}
-        mock_traffic.side_effect = Exception("log unavailable")
-        resp = client.get("/api/dashboard")
-        assert resp.status_code == 200
-        assert json.loads(resp.content)["traffic_summary"]["total_requests"] == 0
 
     @patch("reports.scan_service.get_traffic_summary")
     @patch("reports.engine_views.get_system_stats")

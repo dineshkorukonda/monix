@@ -42,7 +42,11 @@ ENV/
 Thumbs.db
 
 # Project specific
+.coverage
+htmlcov/
 web/.next/
 web/node_modules/
+# Bun is the package manager for `web/` (`bun.lock`).
+web/package-lock.json
 # SQLite development databases
 *.sqlite3

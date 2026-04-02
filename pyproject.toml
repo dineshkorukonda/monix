@@ -71,4 +71,5 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 DJANGO_SETTINGS_MODULE = "config.settings"
 pythonpath = ["core"]
-addopts = "--cov=scan_engine --cov=reports --cov-report=term-missing"
+# Coverage is opt-in locally (`pytest --cov=...`) and enabled in CI for speed.
+addopts = "-q --tb=short"
