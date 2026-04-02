@@ -3,6 +3,10 @@
 import { AlertTriangle, Filter, Info, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { SectionHeader } from "@/components/dashboard/section-header";
+import {
+  buildCfEdgeIssues,
+  loadCloudflareWorkspaceMetrics,
+} from "@/lib/cf-workspace";
 import { getReport, getScans, getTargets, type ScanReport, type Target } from "@/lib/api";
 
 type Severity = "critical" | "warning" | "info";
@@ -27,6 +31,7 @@ function severityTone(sev: Severity) {
 export default function IssuesPage() {
   const [sites, setSites] = useState<Target[]>([]);
   const [reports, setReports] = useState<ScanReport[]>([]);
+  const [cfEdgeIssues, setCfEdgeIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
@@ -37,6 +42,23 @@ export default function IssuesPage() {
       try {
         const [targetRows, scans] = await Promise.all([getTargets(), getScans()]);
         setSites(targetRows);
+        try {
+          const cfWs = await loadCloudflareWorkspaceMetrics(targetRows);
+          setCfEdgeIssues(
+            buildCfEdgeIssues(targetRows, cfWs).map((c) => ({
+              id: c.id,
+              severity: c.severity,
+              title: c.title,
+              site: c.site,
+              page: c.page,
+              recommendation: c.recommendation,
+              category: c.category,
+              date: c.date,
+            })),
+          );
+        } catch {
+          setCfEdgeIssues([]);
+        }
         const reportRows = await Promise.all(
           scans.slice(0, 40).map((scan) => getReport(scan.report_id).catch(() => null)),
         );
@@ -50,7 +72,7 @@ export default function IssuesPage() {
   }, []);
 
   const issues = useMemo(() => {
-    const list: Issue[] = [];
+    const list: Issue[] = [...cfEdgeIssues];
     const hostToSite = new Map(
       sites.map((s) => [s.url.replace(/^https?:\/\//, "").split("/")[0], s]),
     );
@@ -98,11 +120,9 @@ export default function IssuesPage() {
         });
       }
     }
-    return list.sort((a, b) => {
-      const w = { critical: 3, warning: 2, info: 1 };
-      return w[b.severity] - w[a.severity];
-    });
-  }, [sites, reports]);
+    const w = { critical: 3, warning: 2, info: 1 };
+    return list.sort((a, b) => w[b.severity] - w[a.severity]);
+  }, [sites, reports, cfEdgeIssues]);
 
   const filtered = issues.filter((i) => {
     if (severityFilter !== "all" && i.severity !== severityFilter) return false;
@@ -128,7 +148,7 @@ export default function IssuesPage() {
     <div className="space-y-6 pb-10">
       <SectionHeader
         title="Detected Issues"
-        description="Review and resolve vulnerabilities across all monitored sites."
+        description="Scan findings and Cloudflare edge signals across your monitored sites."
       />
 
       {/* Toolbar */}

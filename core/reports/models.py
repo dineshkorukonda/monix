@@ -26,6 +26,25 @@ class UserSearchConsoleCredentials(models.Model):
         verbose_name_plural = "User Search Console credentials"
 
 
+class UserCloudflareCredentials(models.Model):
+    """Stored Cloudflare API token (encrypted at rest, same Fernet key as GSC)."""
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="cloudflare_credentials",
+    )
+    api_token_encrypted = models.TextField()
+    account_id = models.CharField(max_length=64, blank=True, default="")
+    account_name = models.CharField(max_length=255, blank=True, default="")
+    zones_count = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "User Cloudflare credentials"
+
+
 class Target(models.Model):
     """A Monitored Target belonging to a User."""
 

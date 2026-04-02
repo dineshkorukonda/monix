@@ -8,11 +8,14 @@ import {
   RefreshCw,
   Search,
   TrendingUp,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -25,12 +28,18 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
+import { formatCfBytes } from "@/components/cf-metrics";
 import {
   aggregateGscFromTargets,
   formatCompactNumber,
   formatPct,
   formatPosition,
 } from "@/components/gsc-metrics";
+import {
+  hostnameFromTargetUrl,
+  loadCloudflareWorkspaceMetrics,
+  type CfWorkspaceResult,
+} from "@/lib/cf-workspace";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -42,9 +51,11 @@ import {
 } from "@/components/ui/table";
 import {
   ApiError,
+  getCloudflareAnalytics,
   getGscStatus,
   getTargets,
   syncGscTargets,
+  type CloudflareAnalytics,
   type Target,
 } from "@/lib/api";
 
@@ -116,6 +127,141 @@ function buildOpportunities(queries: QueryRow[]) {
     .filter((q) => q.position > 3 && q.position <= 15 && q.impressions > 0)
     .sort((a, b) => b.impressions - a.impressions)
     .slice(0, 15);
+}
+
+function CfRequestsTimeSeriesChart({
+  series,
+}: {
+  series: CloudflareAnalytics["series"];
+}) {
+  const c = useChartColors();
+  const data = useMemo(
+    () =>
+      series.map((s) => ({
+        day: s.date.slice(5),
+        requests: s.requests,
+        threats: s.threats,
+      })),
+    [series],
+  );
+
+  if (data.length === 0) {
+    return (
+      <div className="flex h-[200px] items-center justify-center text-xs text-muted-foreground">
+        No daily edge data in this range.
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[220px] w-full min-w-0">
+      <ResponsiveContainer width="100%" height="100%" debounce={1}>
+        <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+          <defs>
+            <linearGradient id="cfReqTs" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={c.amber} stopOpacity={0.25} />
+              <stop offset="95%" stopColor={c.amber} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+          <XAxis dataKey="day" tick={{ fontSize: 10, fill: c.axis }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: c.axis }} tickLine={false} axisLine={false} width={36} />
+          <Tooltip
+            contentStyle={{
+              background: "var(--popover)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="requests"
+            stroke={c.amber}
+            strokeWidth={1.5}
+            fill="url(#cfReqTs)"
+            name="Requests"
+          />
+          <Area
+            type="monotone"
+            dataKey="threats"
+            stroke={c.rose}
+            strokeWidth={1}
+            fill="transparent"
+            name="Threats"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function CfRequestsByProjectChart({
+  rows,
+}: {
+  rows: { name: string; requests: number }[];
+}) {
+  const c = useChartColors();
+  const data = useMemo(
+    () =>
+      rows.map((r) => ({
+        name: r.name.length > 18 ? `${r.name.slice(0, 16)}…` : r.name,
+        requests: r.requests,
+      })),
+    [rows],
+  );
+
+  if (data.length === 0) {
+    return (
+      <div className="flex h-[180px] items-center justify-center text-xs text-muted-foreground">
+        No edge request data yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-[220px] w-full min-w-0">
+      <ResponsiveContainer width="100%" height="100%" debounce={1}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 4, right: 16, bottom: 4, left: 4 }}
+          barSize={10}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke={c.grid} horizontal={false} />
+          <XAxis
+            type="number"
+            tick={{ fontSize: 10, fill: c.axis }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={110}
+            tick={{ fontSize: 10, fill: c.axis }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <Tooltip
+            contentStyle={{
+              background: "var(--popover)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              fontSize: 12,
+              color: "var(--popover-foreground)",
+            }}
+            cursor={{ fill: "var(--muted)", opacity: 0.3 }}
+          />
+          <Bar dataKey="requests" radius={[0, 4, 4, 0]} name="Requests">
+            {data.map((d, idx) => (
+              <Cell key={`${d.name}-${idx}`} fill={c.amber} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }
 
 function buildScatterData(queries: QueryRow[]) {
@@ -436,19 +582,121 @@ function ImprVsPositionScatter({
 export default function AnalyticsPage() {
   const [targets, setTargets] = useState<Target[]>([]);
   const [connected, setConnected] = useState<boolean | null>(null);
+  const [cfWorkspace, setCfWorkspace] = useState<CfWorkspaceResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
+  /** `all` = combined; target id = Monix site; `zone:<id>` = Cloudflare zone without a matching target */
+  const [domainScope, setDomainScope] = useState<string>("all");
+  const [zoneOnlyAnalytics, setZoneOnlyAnalytics] = useState<CloudflareAnalytics | null>(null);
+  const [zoneOnlyLoading, setZoneOnlyLoading] = useState(false);
 
-  const agg = useMemo(() => aggregateGscFromTargets(targets), [targets]);
-  const queries = useMemo(() => allQueries(targets), [targets]);
+  const scopedTargets = useMemo(() => {
+    if (domainScope === "all") return targets;
+    if (domainScope.startsWith("zone:")) return [];
+    return targets.filter((t) => t.id === domainScope);
+  }, [targets, domainScope]);
+
+  const domainOptions = useMemo(() => {
+    const rows: { value: string; label: string }[] = [
+      { value: "all", label: "All domains (combined)" },
+    ];
+    const matchedZoneIds = new Set(
+      Object.values(cfWorkspace?.byTargetId ?? {})
+        .filter(Boolean)
+        .map((r) => r!.zone.id),
+    );
+    for (const t of targets) {
+      const host = hostnameFromTargetUrl(t.url) || t.name;
+      const hasGsc = !!(
+        t.gsc_property_url?.trim() ||
+        t.gsc_analytics?.summary?.clicks != null ||
+        t.gsc_analytics?.summary?.impressions != null
+      );
+      const hasCf = !!cfWorkspace?.byTargetId[t.id]?.analytics;
+      const tags = [hasGsc && "GSC", hasCf && "Edge"].filter(Boolean).join(" · ");
+      rows.push({
+        value: t.id,
+        label: tags ? `${host} (${tags})` : host,
+      });
+    }
+    if (cfWorkspace?.connected) {
+      for (const z of cfWorkspace.zones) {
+        if (matchedZoneIds.has(z.id)) continue;
+        rows.push({
+          value: `zone:${z.id}`,
+          label: `${z.name} (Cloudflare only)`,
+        });
+      }
+    }
+    return rows;
+  }, [targets, cfWorkspace]);
+
+  const cfView = useMemo(() => {
+    if (!cfWorkspace?.connected) return { kind: "none" as const };
+    if (domainScope === "all") {
+      if (!cfWorkspace.aggregate.hasData) return { kind: "none" as const };
+      return { kind: "aggregate" as const, agg: cfWorkspace.aggregate };
+    }
+    if (domainScope.startsWith("zone:")) {
+      const zid = domainScope.slice(5);
+      const zn = cfWorkspace.zones.find((z) => z.id === zid)?.name ?? zid;
+      if (zoneOnlyLoading) return { kind: "zoneLoading" as const, zoneName: zn };
+      if (zoneOnlyAnalytics)
+        return {
+          kind: "single" as const,
+          analytics: zoneOnlyAnalytics,
+          title: zn,
+        };
+      return { kind: "zoneEmpty" as const, zoneName: zn };
+    }
+    const row = cfWorkspace.byTargetId[domainScope];
+    if (row?.analytics) {
+      const title =
+        targets.find((t) => t.id === domainScope)?.name ?? row.zone.name;
+      return { kind: "single" as const, analytics: row.analytics, title };
+    }
+    return { kind: "none" as const };
+  }, [cfWorkspace, domainScope, zoneOnlyAnalytics, zoneOnlyLoading, targets]);
+
+  useEffect(() => {
+    if (domainScope === "all" || domainScope.startsWith("zone:")) return;
+    if (!targets.some((t) => t.id === domainScope)) setDomainScope("all");
+  }, [targets, domainScope]);
+
+  useEffect(() => {
+    if (!domainScope.startsWith("zone:")) {
+      setZoneOnlyAnalytics(null);
+      return;
+    }
+    const zid = domainScope.slice(5);
+    let cancelled = false;
+    setZoneOnlyLoading(true);
+    getCloudflareAnalytics(zid, 7)
+      .then((a) => {
+        if (!cancelled) setZoneOnlyAnalytics(a);
+      })
+      .catch(() => {
+        if (!cancelled) setZoneOnlyAnalytics(null);
+      })
+      .finally(() => {
+        if (!cancelled) setZoneOnlyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [domainScope]);
+
+  const agg = useMemo(() => aggregateGscFromTargets(scopedTargets), [scopedTargets]);
+  const queries = useMemo(() => allQueries(scopedTargets), [scopedTargets]);
   const positionDist = useMemo(() => buildPositionDistribution(queries), [queries]);
-  const ctrByProject = useMemo(() => buildCtrByProject(targets), [targets]);
+  const ctrByProject = useMemo(() => buildCtrByProject(scopedTargets), [scopedTargets]);
   const opportunities = useMemo(() => buildOpportunities(queries), [queries]);
   const scatterData = useMemo(() => buildScatterData(queries), [queries]);
   const projectsWithQueries = useMemo(
-    () => targets.filter((t) => (t.gsc_analytics?.top_queries?.length ?? 0) > 0),
-    [targets],
+    () =>
+      scopedTargets.filter((t) => (t.gsc_analytics?.top_queries?.length ?? 0) > 0),
+    [scopedTargets],
   );
 
   const load = useCallback(async (runSync: boolean) => {
@@ -456,15 +704,19 @@ export default function AnalyticsPage() {
     try {
       const s = await getGscStatus();
       setConnected(s.connected);
+      let t = await getTargets();
       if (!s.connected) {
-        setTargets(await getTargets());
+        setTargets(t);
+        setCfWorkspace(await loadCloudflareWorkspaceMetrics(t));
         return;
       }
       if (runSync) {
         setSyncing(true);
         await syncGscTargets();
+        t = await getTargets();
       }
-      setTargets(await getTargets());
+      setTargets(t);
+      setCfWorkspace(await loadCloudflareWorkspaceMetrics(t));
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403))
         return;
@@ -489,14 +741,41 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-20">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Search analytics
+            Analytics
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Google Search Console metrics for your Monix sites.
+            Search Console metrics and Cloudflare edge traffic for your monitored sites.
           </p>
+          {!loading && targets.length > 0 && (
+            <div className="mt-4 max-w-md">
+              <label htmlFor="domain-scope" className="sr-only">
+                Domain scope
+              </label>
+              <select
+                id="domain-scope"
+                value={
+                  domainOptions.some((o) => o.value === domainScope)
+                    ? domainScope
+                    : "all"
+                }
+                onChange={(e) => setDomainScope(e.target.value)}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {domainOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Default is combined across sites. Pick one domain to filter Search and Edge
+                charts.
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
           <Button
@@ -530,6 +809,138 @@ export default function AnalyticsPage() {
         </div>
       )}
 
+      {!loading && domainScope.startsWith("zone:") && (
+        <p className="text-xs text-muted-foreground rounded-lg border border-border bg-muted/20 px-4 py-2">
+          Search metrics apply to Monix sites. You are viewing Cloudflare edge data only for
+          this zone.
+        </p>
+      )}
+
+      {/* Cloudflare edge — combined or single domain */}
+      {!loading && cfView.kind === "aggregate" && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Edge requests"
+              value={formatCompactNumber(cfView.agg.totalRequests)}
+              sub={`Last ${cfView.agg.periodDays} days · Cloudflare`}
+              icon={Zap}
+            />
+            <StatCard
+              label="Threats (edge)"
+              value={formatCompactNumber(cfView.agg.totalThreats)}
+              sub="Security events"
+              icon={AlertCircle}
+            />
+            <StatCard
+              label="Cache hit rate"
+              value={
+                cfView.agg.cacheRatio != null
+                  ? `${(cfView.agg.cacheRatio * 100).toFixed(1)}%`
+                  : "—"
+              }
+              sub="Cached ÷ all requests"
+              icon={BarChart3}
+            />
+            <StatCard
+              label="Edge bandwidth"
+              value={formatCfBytes(cfView.agg.bandwidthBytes)}
+              sub={`${cfView.agg.matchedProjectCount} project${cfView.agg.matchedProjectCount !== 1 ? "s" : ""}`}
+              icon={TrendingUp}
+            />
+          </div>
+          <SectionCard
+            title="Edge requests by project"
+            subtitle="Cloudflare HTTP requests in the selected window"
+            icon={Zap}
+          >
+            <div className="px-2 py-4">
+              <CfRequestsByProjectChart
+                rows={cfView.agg.byProject.map((p) => ({
+                  name: p.name,
+                  requests: p.requests,
+                }))}
+              />
+            </div>
+          </SectionCard>
+        </>
+      )}
+
+      {!loading && cfView.kind === "single" && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Edge requests"
+              value={formatCompactNumber(cfView.analytics.totals.requests)}
+              sub={`Last ${cfView.analytics.period_days} days · ${cfView.analytics.zone_name}`}
+              icon={Zap}
+            />
+            <StatCard
+              label="Threats (edge)"
+              value={formatCompactNumber(cfView.analytics.totals.threats)}
+              sub="Security events"
+              icon={AlertCircle}
+            />
+            <StatCard
+              label="Cache hit rate"
+              value={
+                cfView.analytics.totals.requests > 0
+                  ? `${(
+                      (cfView.analytics.totals.cached_requests /
+                        cfView.analytics.totals.requests) *
+                      100
+                    ).toFixed(1)}%`
+                  : "—"
+              }
+              sub="Cached ÷ all requests"
+              icon={BarChart3}
+            />
+            <StatCard
+              label="Edge bandwidth"
+              value={formatCfBytes(cfView.analytics.totals.bandwidth_bytes)}
+              sub={cfView.title}
+              icon={TrendingUp}
+            />
+          </div>
+          <SectionCard
+            title="Edge traffic over time"
+            subtitle={`${cfView.title} · daily requests & threats`}
+            icon={Zap}
+          >
+            <div className="px-2 py-4">
+              <CfRequestsTimeSeriesChart series={cfView.analytics.series} />
+            </div>
+          </SectionCard>
+        </>
+      )}
+
+      {!loading && cfView.kind === "zoneLoading" && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 animate-pulse">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 rounded-xl bg-muted/30 border border-border" />
+          ))}
+        </div>
+      )}
+
+      {!loading && cfView.kind === "zoneEmpty" && (
+        <div className="rounded-xl border border-border bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+          Could not load edge analytics for{" "}
+          <span className="font-medium text-foreground">{cfView.zoneName}</span>.
+        </div>
+      )}
+
+      {!loading && targets.length > 0 && cfWorkspace && !cfWorkspace.connected && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-muted-foreground">
+          <Link
+            href="/dashboard/integrations/cloudflare"
+            className="font-medium text-foreground hover:underline"
+          >
+            Connect Cloudflare
+          </Link>{" "}
+          to show edge traffic alongside Search Console on this page.
+        </div>
+      )}
+
       {/* Not connected */}
       {connected === false && (
         <>
@@ -549,23 +960,52 @@ export default function AnalyticsPage() {
             </Button>
           </div>
           {targets.length > 0 && !loading && (
-            <SectionCard title="Your projects" subtitle="Search metrics appear after connecting Search Console.">
+            <SectionCard
+              title="Your projects"
+              subtitle="Edge columns use Cloudflare when your hostname matches a zone. Connect Search Console for search metrics."
+            >
+              {domainScope.startsWith("zone:") ? (
+                <p className="px-5 py-6 text-sm text-muted-foreground">
+                  Select <span className="font-medium text-foreground">All domains</span> or a
+                  Monix site to list projects here. Edge data for the selected zone appears above.
+                </p>
+              ) : (
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent bg-muted/20">
                     <TableHead className="text-muted-foreground text-xs">Project</TableHead>
                     <TableHead className="text-muted-foreground text-xs">URL</TableHead>
+                    <TableHead className="text-muted-foreground text-xs text-right hidden sm:table-cell">
+                      CF req
+                    </TableHead>
+                    <TableHead className="text-muted-foreground text-xs text-right hidden sm:table-cell">
+                      CF thr
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {targets.map((t) => (
-                    <TableRow key={t.id} className="border-border hover:bg-muted/20">
-                      <TableCell className="text-foreground/90 text-sm">{t.name}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs font-mono">{t.url}</TableCell>
-                    </TableRow>
-                  ))}
+                  {scopedTargets.map((t) => {
+                    const cfRow = cfWorkspace?.byTargetId[t.id];
+                    const cfReq = cfRow?.analytics.totals.requests;
+                    const cfThr = cfRow?.analytics.totals.threats;
+                    return (
+                      <TableRow key={t.id} className="border-border hover:bg-muted/20">
+                        <TableCell className="text-foreground/90 text-sm">{t.name}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs font-mono max-w-[220px]">
+                          <span className="truncate block">{t.url}</span>
+                        </TableCell>
+                        <TableCell className="text-right text-xs tabular-nums text-foreground/80 hidden sm:table-cell">
+                          {cfReq != null ? formatCompactNumber(cfReq) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right text-xs tabular-nums text-foreground/80 hidden sm:table-cell">
+                          {cfThr != null ? formatCompactNumber(cfThr) : "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
+              )}
             </SectionCard>
           )}
         </>
@@ -590,6 +1030,16 @@ export default function AnalyticsPage() {
       {/* Connected — full dashboard */}
       {!loading && connected && (
         <>
+          {domainScope.startsWith("zone:") && (
+            <div className="rounded-xl border border-border bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+              Google Search metrics apply to monitored sites. Choose{" "}
+              <span className="font-medium text-foreground">All domains (combined)</span> or a
+              site in the dropdown above to see Search Console charts.
+            </div>
+          )}
+
+          {!domainScope.startsWith("zone:") && (
+            <>
           {/* Stat cards */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
@@ -723,12 +1173,21 @@ export default function AnalyticsPage() {
               </Table>
             </SectionCard>
           )}
+            </>
+          )}
 
           {/* All projects table */}
           <SectionCard
             title="All projects"
-            subtitle="Security scans + Search performance"
+            subtitle="Security scans, Search Console, and Cloudflare edge"
           >
+            {domainScope.startsWith("zone:") ? (
+              <p className="px-5 py-8 text-sm text-muted-foreground text-center">
+                This table lists Monix sites. Select{" "}
+                <span className="font-medium text-foreground">All domains (combined)</span> or a
+                site to see Search and edge columns together.
+              </p>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent bg-muted/20">
@@ -739,13 +1198,15 @@ export default function AnalyticsPage() {
                   <TableHead className="text-muted-foreground text-xs text-right hidden sm:table-cell">Impr.</TableHead>
                   <TableHead className="text-muted-foreground text-xs text-right hidden md:table-cell">CTR</TableHead>
                   <TableHead className="text-muted-foreground text-xs text-right hidden md:table-cell">Pos.</TableHead>
+                  <TableHead className="text-muted-foreground text-xs text-right hidden lg:table-cell">CF req</TableHead>
+                  <TableHead className="text-muted-foreground text-xs text-right hidden lg:table-cell">CF thr</TableHead>
                   <TableHead className="text-muted-foreground text-xs hidden xl:table-cell">Note</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {targets.length === 0 ? (
+                {scopedTargets.length === 0 ? (
                   <TableRow className="border-border">
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-10 text-sm">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground py-10 text-sm">
                       No sites yet.{" "}
                       <Link href="/dashboard/sites" className="underline underline-offset-2 hover:text-foreground">
                         Add a URL
@@ -753,7 +1214,7 @@ export default function AnalyticsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  targets.map((t) => {
+                  scopedTargets.map((t) => {
                     const sum = t.gsc_analytics?.summary;
                     const hasNum =
                       sum &&
@@ -762,6 +1223,9 @@ export default function AnalyticsPage() {
                         sum.ctr != null ||
                         sum.position != null);
                     const err = t.gsc_sync_error?.trim();
+                    const cfRow = cfWorkspace?.byTargetId[t.id];
+                    const cfReq = cfRow?.analytics.totals.requests;
+                    const cfThr = cfRow?.analytics.totals.threats;
                     return (
                       <TableRow key={t.id} className="border-border hover:bg-muted/20">
                         <TableCell className="text-foreground/90 text-sm font-medium">{t.name}</TableCell>
@@ -783,6 +1247,12 @@ export default function AnalyticsPage() {
                         <TableCell className="text-right text-sm tabular-nums text-foreground/80 hidden md:table-cell">
                           {hasNum ? formatPosition(sum?.position) : "—"}
                         </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-foreground/80 hidden lg:table-cell">
+                          {cfReq != null ? formatCompactNumber(cfReq) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums text-foreground/80 hidden lg:table-cell">
+                          {cfThr != null ? formatCompactNumber(cfThr) : "—"}
+                        </TableCell>
                         <TableCell className="text-xs text-amber-500 hidden xl:table-cell max-w-[220px]">
                           {err || (hasNum ? "" : connected ? "No match / no data" : "")}
                         </TableCell>
@@ -792,10 +1262,11 @@ export default function AnalyticsPage() {
                 )}
               </TableBody>
             </Table>
+            )}
           </SectionCard>
 
           {/* Top queries per project */}
-          {projectsWithQueries.length > 0 && (
+          {!domainScope.startsWith("zone:") && projectsWithQueries.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-foreground">
                 Top queries by project

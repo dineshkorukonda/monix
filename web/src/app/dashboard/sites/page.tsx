@@ -13,7 +13,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import { CfEdgeProjectCardSnippet } from "@/components/cf-metrics";
 import { GscProjectCardSnippet } from "@/components/gsc-metrics";
+import {
+  loadCloudflareWorkspaceMetrics,
+  type CfWorkspaceResult,
+} from "@/lib/cf-workspace";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ScoreBadge } from "@/components/dashboard/status-badge";
 import { SectionHeader } from "@/components/dashboard/section-header";
@@ -74,7 +79,17 @@ function AddSiteForm({ onAdded }: { onAdded: () => void }) {
   );
 }
 
-function SitesTable({ sites, onDelete, deletingId }: { sites: Target[]; onDelete: (id: string) => void; deletingId: string | null }) {
+function SitesTable({
+  sites,
+  cfWs,
+  onDelete,
+  deletingId,
+}: {
+  sites: Target[];
+  cfWs: CfWorkspaceResult | null;
+  onDelete: (id: string) => void;
+  deletingId: string | null;
+}) {
   const [search, setSearch] = useState("");
   const filtered = sites.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()) || s.url.toLowerCase().includes(search.toLowerCase()));
 
@@ -97,6 +112,7 @@ function SitesTable({ sites, onDelete, deletingId }: { sites: Target[]; onDelete
             <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground">Site</th>
             <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground hidden md:table-cell">Scans</th>
             <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground hidden lg:table-cell">Search</th>
+            <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground hidden xl:table-cell">Edge</th>
             <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground">Score</th>
             <th className="px-4 py-3" />
           </tr>
@@ -122,6 +138,13 @@ function SitesTable({ sites, onDelete, deletingId }: { sites: Target[]; onDelete
               <td className="px-4 py-3.5 text-right hidden lg:table-cell">
                 {site.gsc_analytics?.summary?.clicks != null ? <GscProjectCardSnippet target={site} /> : <span className="text-xs text-muted-foreground">—</span>}
               </td>
+              <td className="px-4 py-3.5 text-right hidden xl:table-cell align-top min-w-[140px]">
+                {cfWs?.connected ? (
+                  <CfEdgeProjectCardSnippet edge={cfWs.byTargetId[site.id]} />
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </td>
               <td className="px-4 py-3.5 text-right"><ScoreBadge score={site.score} /></td>
               <td className="px-4 py-3.5">
                 <div className="flex items-center justify-end gap-1">
@@ -143,6 +166,7 @@ function SitesTable({ sites, onDelete, deletingId }: { sites: Target[]; onDelete
 
 export default function SitesPage() {
   const [sites, setSites]             = useState<Target[]>([]);
+  const [cfWs, setCfWs]               = useState<CfWorkspaceResult | null>(null);
   const [loading, setLoading]         = useState(true);
   const [deletingId, setDeletingId]   = useState<string | null>(null);
 
@@ -150,6 +174,11 @@ export default function SitesPage() {
     try {
       const tR = await getTargets();
       setSites(tR);
+      try {
+        setCfWs(await loadCloudflareWorkspaceMetrics(tR));
+      } catch {
+        setCfWs(null);
+      }
     } catch { /* silent */ } finally { setLoading(false); }
   }, []);
 
@@ -176,7 +205,7 @@ export default function SitesPage() {
     <div className="space-y-6 pb-10">
       <SectionHeader title="Sites" description="Monitor, scan and manage all your domains." />
       <AddSiteForm onAdded={refresh} />
-      <SitesTable sites={sites} onDelete={handleDelete} deletingId={deletingId} />
+      <SitesTable sites={sites} cfWs={cfWs} onDelete={handleDelete} deletingId={deletingId} />
     </div>
   );
 }
