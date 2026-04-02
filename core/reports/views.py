@@ -291,18 +291,22 @@ def api_targets(request):
                     "name": t.url.replace("https://", "").replace("http://", "").split("/")[0],
                     "url": t.url,
                     "environment": t.environment,
-                    "ip": "Analyzing Target",
-                    "location": "",
+                    "ip": None,
+                    "location": None,
                     "activity": (
-                        latest_scan.results.get("threat", "Awaiting initial scan telemetry")
+                        f"{len((latest_scan.results or {}).get('findings', []))} findings"
                         if latest_scan
-                        else "No scans active on this target yet"
+                        else None
                     ),
-                    "status": "Healthy" if not latest_scan or latest_scan.score > 80 else "Warning",
+                    "status": (
+                        "Healthy"
+                        if latest_scan and latest_scan.score > 80
+                        else ("Warning" if latest_scan else "Not scanned")
+                    ),
                     "lastScan": (
-                        latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else "Never"
+                        latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else None
                     ),
-                    "score": latest_scan.score if latest_scan else 100,
+                    "score": latest_scan.score if latest_scan else None,
                     "created_at": t.created_at.isoformat(),
                     "scan_count": scans_qs.count(),
                     "gsc_property_url": t.gsc_property_url or None,
@@ -372,11 +376,15 @@ def api_target_detail(request, target_id):
                 "name": target.url.replace("https://", "").replace("http://", "").split("/")[0],
                 "url": target.url,
                 "environment": target.environment,
-                "status": "Healthy" if not latest_scan or latest_scan.score > 80 else "Warning",
-                "lastScan": (
-                    latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else "Never"
+                "status": (
+                    "Healthy"
+                    if latest_scan and latest_scan.score > 80
+                    else ("Warning" if latest_scan else "Not scanned")
                 ),
-                "score": latest_scan.score if latest_scan else 100,
+                "lastScan": (
+                    latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else None
+                ),
+                "score": latest_scan.score if latest_scan else None,
                 "latest_report_id": (
                     str(latest_scan.report_id) if latest_scan else None
                 ),

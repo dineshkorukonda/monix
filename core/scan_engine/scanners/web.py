@@ -562,18 +562,19 @@ def scan_ports(host: str, ports: List[int] = None, full_scan: bool = False) -> D
     Args:
         host: Hostname or IP address
         ports: List of ports to scan (defaults to essential web ports)
-        full_scan: If True, scan all common ports; otherwise only essential ports
+        full_scan: If True, scan a wider set of common ports; otherwise scan
+                   the standard security-relevant set.
 
     Returns:
         Dictionary with open ports information
     """
     if ports is None:
-        # By default, only scan essential ports (faster)
         if full_scan:
-            ports = [80, 443, 22, 21, 25, 53, 3306, 5432, 8080, 8443]
+            ports = [21, 22, 25, 53, 80, 110, 143, 443, 465, 587, 993, 995,
+                     3306, 5432, 6379, 8080, 8443, 8888, 9200, 27017]
         else:
-            # Essential web ports only
-            ports = [80, 443, 8080]
+            # Standard set — covers web, SSH, common DB/cache services
+            ports = [22, 80, 443, 3306, 5432, 6379, 8080, 8443, 27017]
 
     result = {"open_ports": [], "closed_ports": [], "filtered_ports": [], "error": None}
 
@@ -816,8 +817,7 @@ def analyze_web_security(
 
         if ip_address:
             tasks["server_location"] = executor.submit(get_server_location, ip_address)
-            if include_port_scan:
-                tasks["port_scan"] = executor.submit(scan_ports, ip_address, None, False)
+            tasks["port_scan"] = executor.submit(scan_ports, ip_address, None, include_port_scan)
 
         if include_metadata:
             tasks["metadata"] = executor.submit(check_page_metadata, url)
@@ -844,9 +844,7 @@ def analyze_web_security(
         if "server_location" not in results:
             results["server_location"] = {"error": "No IP address"}
         if "port_scan" not in results:
-            results["port_scan"] = {
-                "error": "Port scan not requested" if not include_port_scan else "No IP address"
-            }
+            results["port_scan"] = {"error": "No IP address resolved"}
         if "metadata" not in results:
             results["metadata"] = {
                 "title": "",

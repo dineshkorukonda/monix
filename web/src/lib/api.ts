@@ -69,6 +69,80 @@ export class ApiError extends Error {
   }
 }
 
+type CachedRequestOptions = {
+  force?: boolean;
+  ttlMs?: number;
+};
+
+type CacheEntry<T> = {
+  value?: T;
+  expiresAt?: number;
+  inFlight?: Promise<T>;
+};
+
+const DEFAULT_CACHE_TTL_MS = 15_000;
+const responseCache = new Map<string, CacheEntry<unknown>>();
+
+function getCachedValue<T>(key: string): T | undefined {
+  const entry = responseCache.get(key) as CacheEntry<T> | undefined;
+  if (!entry || entry.value === undefined || entry.expiresAt === undefined) {
+    return undefined;
+  }
+  if (Date.now() > entry.expiresAt) {
+    responseCache.delete(key);
+    return undefined;
+  }
+  return entry.value;
+}
+
+async function cachedRequest<T>(
+  key: string,
+  loader: () => Promise<T>,
+  options?: CachedRequestOptions,
+): Promise<T> {
+  const force = options?.force ?? false;
+  const ttlMs = options?.ttlMs ?? DEFAULT_CACHE_TTL_MS;
+
+  const existing = responseCache.get(key) as CacheEntry<T> | undefined;
+  if (!force) {
+    const cached = getCachedValue<T>(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+    if (existing?.inFlight) {
+      return existing.inFlight;
+    }
+  }
+
+  const inFlight = loader()
+    .then((value) => {
+      responseCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+      return value;
+    })
+    .catch((error) => {
+      const current = responseCache.get(key) as CacheEntry<T> | undefined;
+      if (current?.inFlight) {
+        responseCache.delete(key);
+      }
+      throw error;
+    });
+
+  responseCache.set(key, { ...existing, inFlight });
+  return inFlight;
+}
+
+export function invalidateApiCache(prefix?: string): void {
+  if (!prefix) {
+    responseCache.clear();
+    return;
+  }
+  for (const key of responseCache.keys()) {
+    if (key.startsWith(prefix)) {
+      responseCache.delete(key);
+    }
+  }
+}
+
 export interface WebSecurityAnalysis {
   status: "success" | "error";
   url?: string;
@@ -83,6 +157,8 @@ export interface WebSecurityAnalysis {
     subject: Record<string, string> | string;
     issuer: Record<string, string> | string;
     expires?: string | null;
+    renewed?: string | null;
+    serial_number?: string;
     error?: string;
   };
   dns_records?: {
@@ -91,6 +167,7 @@ export interface WebSecurityAnalysis {
     mx: string[];
     ns: string[];
     txt: string[];
+    error?: string | null;
   };
   http_headers?: {
     headers?: Record<string, string>;
@@ -126,6 +203,8 @@ export interface WebSecurityAnalysis {
   port_scan?: {
     open_ports: number[];
     closed_ports: number[];
+    filtered_ports?: number[];
+    error?: string;
   };
   technologies?: {
     server?: string;
@@ -315,7 +394,13 @@ export async function analyzeUrl(
     });
 
     if (proxied.ok) {
-      return proxied.json() as Promise<WebSecurityAnalysis>;
+      const result = (await proxied.json()) as WebSecurityAnalysis;
+      invalidateApiCache("scans");
+      invalidateApiCache("targets");
+      if (targetId) {
+        invalidateApiCache(`target:${targetId}`);
+      }
+      return result;
     }
 
     if (proxied.status === 401 || proxied.status === 403) {
@@ -332,7 +417,13 @@ export async function analyzeUrl(
             `Analysis failed: ${direct.statusText}`,
         );
       }
-      return direct.json() as Promise<WebSecurityAnalysis>;
+      const result = (await direct.json()) as WebSecurityAnalysis;
+      invalidateApiCache("scans");
+      invalidateApiCache("targets");
+      if (targetId) {
+        invalidateApiCache(`target:${targetId}`);
+      }
+      return result;
     }
 
     const errBody = await parseJson(proxied);
@@ -440,26 +531,35 @@ export async function getAlerts(): Promise<string[]> {
 /**
  * Get a persisted shareable report by UUID.
  */
-export async function getReport(reportId: string): Promise<ScanReport> {
-  const response = await fetch(
-    `${djangoApiBase()}/api/reports/${reportId}/`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+export async function getReport(
+  reportId: string,
+  options?: CachedRequestOptions,
+): Promise<ScanReport> {
+  return cachedRequest(
+    `report:${reportId}`,
+    async () => {
+      const response = await fetch(
+        `${djangoApiBase()}/api/reports/${reportId}/`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ApiError(
+          errorData.error || `Failed to fetch report: ${response.statusText}`,
+          response.status,
+        );
+      }
+
+      return response.json();
     },
+    { ttlMs: 30_000, ...options },
   );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new ApiError(
-      errorData.error || `Failed to fetch report: ${response.statusText}`,
-      response.status,
-    );
-  }
-
-  return response.json();
 }
 
 /**
@@ -560,6 +660,7 @@ export interface UserProfile {
   first_name: string;
   last_name: string;
   initials: string;
+  avatar_url?: string | null;
 }
 
 export interface AuthUser {
@@ -629,19 +730,29 @@ export async function syncGscTargets(): Promise<{
       res.status,
     );
   }
-  return res.json();
+  const payload = await res.json();
+  invalidateApiCache("targets");
+  return payload;
 }
 
 /** Fetch all targets for the current user. */
-export async function getTargets(): Promise<Target[]> {
-  const res = await fetch(`${djangoApiBase()}/api/targets/`, {
-    headers: await authHeaders(),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new ApiError(err.error || "Failed to fetch targets", res.status);
-  }
-  return res.json();
+export async function getTargets(
+  options?: CachedRequestOptions,
+): Promise<Target[]> {
+  return cachedRequest(
+    "targets",
+    async () => {
+      const res = await fetch(`${djangoApiBase()}/api/targets/`, {
+        headers: await authHeaders(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new ApiError(err.error || "Failed to fetch targets", res.status);
+      }
+      return res.json();
+    },
+    { ttlMs: 20_000, ...options },
+  );
 }
 
 /** Create a new monitored target (URL only). */
@@ -655,16 +766,28 @@ export async function createTarget(url: string): Promise<Target> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to create target");
   }
-  return res.json();
+  const created = await res.json();
+  invalidateApiCache("targets");
+  invalidateApiCache("scans");
+  return created;
 }
 
 /** Fetch a single target by UUID. */
-export async function getTarget(id: string): Promise<Target> {
-  const res = await fetch(`${djangoApiBase()}/api/targets/${id}/`, {
-    headers: await authHeaders(),
-  });
-  if (!res.ok) throw new Error("Target not found");
-  return res.json();
+export async function getTarget(
+  id: string,
+  options?: CachedRequestOptions,
+): Promise<Target> {
+  return cachedRequest(
+    `target:${id}`,
+    async () => {
+      const res = await fetch(`${djangoApiBase()}/api/targets/${id}/`, {
+        headers: await authHeaders(),
+      });
+      if (!res.ok) throw new Error("Target not found");
+      return res.json();
+    },
+    { ttlMs: 20_000, ...options },
+  );
 }
 
 /** Delete a monitored target. */
@@ -674,6 +797,9 @@ export async function deleteTarget(id: string): Promise<void> {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to delete target");
+  invalidateApiCache("targets");
+  invalidateApiCache("scans");
+  invalidateApiCache(`target:${id}`);
 }
 
 export interface ScanLocation {
@@ -702,40 +828,75 @@ export async function getScanLocations(): Promise<ScanLocation[]> {
 }
 
 /** Fetch all scans belonging to the current user's targets. */
-export async function getScans(): Promise<ScanSummary[]> {
-  const res = await fetch(`${djangoApiBase()}/api/scans/`, {
-    headers: await authHeaders(),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new ApiError(err.error || "Failed to fetch scans", res.status);
-  }
-  return res.json();
+export async function getScans(
+  options?: CachedRequestOptions,
+): Promise<ScanSummary[]> {
+  return cachedRequest(
+    "scans",
+    async () => {
+      const res = await fetch(`${djangoApiBase()}/api/scans/`, {
+        headers: await authHeaders(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new ApiError(err.error || "Failed to fetch scans", res.status);
+      }
+      return res.json();
+    },
+    { ttlMs: 10_000, ...options },
+  );
 }
 
 /** Get the current user's profile. */
-export async function getMe(): Promise<UserProfile> {
-  const res = await fetch(`${djangoApiBase()}/api/auth/me/`, {
-    headers: await authHeaders(),
-  });
-  if (res.ok) return res.json();
+export async function getMe(
+  options?: CachedRequestOptions,
+): Promise<UserProfile> {
+  return cachedRequest(
+    "me",
+    async () => {
+      const res = await fetch(`${djangoApiBase()}/api/auth/me/`, {
+        headers: await authHeaders(),
+      });
+      if (res.ok) {
+        const serverProfile = (await res.json()) as UserProfile;
+        // Enrich with Supabase metadata (Google avatar, custom avatar, etc.)
+        if (supabase) {
+          const { data } = await supabase.auth.getUser();
+          const u = data.user;
+          const avatar =
+            (u?.user_metadata?.avatar_url as string | undefined) ||
+            (u?.user_metadata?.picture as string | undefined) ||
+            null;
+          if (avatar) {
+            return { ...serverProfile, avatar_url: avatar };
+          }
+        }
+        return serverProfile;
+      }
 
-  // Fall back to Supabase session info so UI can render even if Django is down.
-  if (!supabase) throw new ApiError("Not authenticated", 401);
-  const { data } = await supabase.auth.getUser();
-  const u = data.user;
-  if (!u) throw new ApiError("Not authenticated", 401);
-  const full =
-    (u.user_metadata?.full_name as string | undefined) ||
-    (u.user_metadata?.name as string | undefined) ||
-    "";
-  return {
-    email: u.email || "",
-    name: full || u.email || "",
-    first_name: (u.user_metadata?.first_name as string | undefined) || "",
-    last_name: (u.user_metadata?.last_name as string | undefined) || "",
-    initials: (u.email || "U").slice(0, 2).toUpperCase(),
-  };
+      // Fall back to Supabase session info so UI can render even if Django is down.
+      if (!supabase) throw new ApiError("Not authenticated", 401);
+      const { data } = await supabase.auth.getUser();
+      const u = data.user;
+      if (!u) throw new ApiError("Not authenticated", 401);
+      const full =
+        (u.user_metadata?.full_name as string | undefined) ||
+        (u.user_metadata?.name as string | undefined) ||
+        "";
+      return {
+        email: u.email || "",
+        name: full || u.email || "",
+        first_name: (u.user_metadata?.first_name as string | undefined) || "",
+        last_name: (u.user_metadata?.last_name as string | undefined) || "",
+        initials: (u.email || "U").slice(0, 2).toUpperCase(),
+        avatar_url:
+          (u.user_metadata?.avatar_url as string | undefined) ||
+          (u.user_metadata?.picture as string | undefined) ||
+          null,
+      };
+    },
+    { ttlMs: 60_000, ...options },
+  );
 }
 
 /** Email + password sign-in via Supabase; JWT is sent to Django on subsequent API calls. */
@@ -772,17 +933,20 @@ export async function signup(data: {
 export async function updateProfile(data: {
   first_name?: string;
   last_name?: string;
-}): Promise<{ ok: boolean; name: string; initials: string }> {
+  avatar_url?: string;
+}): Promise<{ ok: boolean; name: string; initials: string; avatar_url?: string | null }> {
   if (!supabase) throw new Error("Supabase is not configured");
   const { error } = await supabase.auth.updateUser({
     data: {
       ...(data.first_name != null ? { first_name: data.first_name } : {}),
       ...(data.last_name != null ? { last_name: data.last_name } : {}),
+      ...(data.avatar_url !== undefined ? { avatar_url: data.avatar_url } : {}),
     },
   });
   if (error) throw new Error(error.message);
+  invalidateApiCache("me");
   const u = await getMe();
-  return { ok: true, name: u.name, initials: u.initials };
+  return { ok: true, name: u.name, initials: u.initials, avatar_url: u.avatar_url ?? null };
 }
 
 /** Change the authenticated user's password. */
@@ -800,6 +964,7 @@ export async function changePassword(
 export async function logout(): Promise<void> {
   if (!supabase) return;
   await supabase.auth.signOut();
+  invalidateApiCache();
 }
 
 /** Permanently delete the user account and all data. */
@@ -809,6 +974,7 @@ export async function deleteAccount(): Promise<void> {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to delete account");
+  invalidateApiCache();
 }
 
 // ── Cloudflare Integration ───────────────────────────────────────────────────
@@ -855,18 +1021,26 @@ export interface CloudflareAnalytics {
 }
 
 /** Check whether a Cloudflare API token has been saved for the current user. */
-export async function getCloudflareStatus(): Promise<CloudflareStatus> {
-  const res = await fetch(`${djangoApiBase()}/api/cloudflare/status/`, {
-    headers: await authHeaders(),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new ApiError(
-      (err as { error?: string }).error || "Failed to fetch Cloudflare status",
-      res.status,
-    );
-  }
-  return res.json();
+export async function getCloudflareStatus(
+  options?: CachedRequestOptions,
+): Promise<CloudflareStatus> {
+  return cachedRequest(
+    "cloudflare:status",
+    async () => {
+      const res = await fetch(`${djangoApiBase()}/api/cloudflare/status/`, {
+        headers: await authHeaders(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new ApiError(
+          (err as { error?: string }).error || "Failed to fetch Cloudflare status",
+          res.status,
+        );
+      }
+      return res.json();
+    },
+    { ttlMs: 30_000, ...options },
+  );
 }
 
 /** Save a Cloudflare API token and verify it by fetching the account. */
@@ -884,7 +1058,9 @@ export async function connectCloudflare(
       (err as { error?: string }).error || "Failed to connect Cloudflare",
     );
   }
-  return res.json();
+  const payload = await res.json();
+  invalidateApiCache("cloudflare:");
+  return payload;
 }
 
 /** Remove the stored Cloudflare API token. */
@@ -894,6 +1070,7 @@ export async function disconnectCloudflare(): Promise<void> {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to disconnect Cloudflare");
+  invalidateApiCache("cloudflare:");
 }
 
 /** List all zones accessible via the stored Cloudflare token. */

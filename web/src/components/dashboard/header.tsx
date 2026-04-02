@@ -3,11 +3,12 @@
 // DashboardHeader — 64 px top bar with site selector, search, actions.
 // Single Responsibility: top-of-page chrome only.
 
-import { Bell, Plus, Search } from "lucide-react";
+import { Bell, LogOut, Plus, Search } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getMe, getTargets, type Target, type UserProfile } from "@/lib/api";
+import { getMe, getTargets, logout, type Target, type UserProfile } from "@/lib/api";
 
 // ── Site selector ─────────────────────────────────────────────────────────────
 
@@ -31,7 +32,7 @@ function SiteSelector() {
         onChange={(e) => {
           const site = sites.find((s) => s.id === e.target.value);
           if (site) {
-            window.location.href = `/dashboard/project/${site.id}`;
+            window.location.href = `/dashboard/site/${site.id}`;
           }
         }}
       >
@@ -51,21 +52,37 @@ function SiteSelector() {
 // ── User avatar button ────────────────────────────────────────────────────────
 
 function UserMenu() {
-  const [user, setUser] = useState<Pick<UserProfile, "name" | "initials"> | null>(null);
+  const [user, setUser] = useState<Pick<UserProfile, "name" | "initials" | "avatar_url"> | null>(null);
 
   useEffect(() => {
     getMe()
-      .then((data) => setUser({ name: data.name, initials: data.initials }))
+      .then((data) =>
+        setUser({
+          name: data.name,
+          initials: data.initials,
+          avatar_url: data.avatar_url ?? null,
+        }),
+      )
       .catch(() => {});
   }, []);
 
   return (
     <Link
-      href="/dashboard/settings"
-      className="h-8 w-8 rounded-full bg-accent border border-border flex items-center justify-center text-xs font-bold text-foreground hover:bg-muted transition-all"
+      href="/dashboard/profile"
+      className="h-8 w-8 rounded-full bg-accent border border-border flex items-center justify-center text-xs font-bold text-foreground hover:bg-muted transition-all overflow-hidden"
       title={user?.name ?? "Account"}
     >
-      {user?.initials ?? ".."}
+      {user?.avatar_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={user.avatar_url}
+          alt={user.name ?? "Profile"}
+          className="h-full w-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        user?.initials ?? ".."
+      )}
     </Link>
   );
 }
@@ -73,6 +90,20 @@ function UserMenu() {
 // ── Header ────────────────────────────────────────────────────────────────────
 
 export function DashboardHeader() {
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await logout();
+    } finally {
+      router.replace("/login");
+      setSigningOut(false);
+    }
+  };
+
   return (
     <header className="h-16 shrink-0 flex items-center justify-between px-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 sticky top-0 z-20">
       {/* Left: site selector */}
@@ -87,7 +118,7 @@ export function DashboardHeader() {
           size="sm"
           className="gap-1.5 bg-foreground text-background hover:bg-foreground/90 border-0 hidden sm:inline-flex"
         >
-          <Link href="/dashboard/projects">
+          <Link href="/dashboard/sites">
             <Plus className="h-3.5 w-3.5" />
             Run Scan
           </Link>
@@ -100,6 +131,20 @@ export function DashboardHeader() {
         >
           <Bell className="h-4 w-4" />
         </button>
+
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={handleLogout}
+          disabled={signingOut}
+          className="h-8 px-2.5 gap-1.5"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">
+            {signingOut ? "Signing out…" : "Logout"}
+          </span>
+        </Button>
 
         <UserMenu />
       </div>

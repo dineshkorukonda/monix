@@ -7,8 +7,12 @@ import {
   ChevronRight,
   Clock,
   Globe,
+  MousePointerClick,
   Plus,
+  Search,
   ShieldCheck,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -33,10 +37,18 @@ import { ScoreBadge } from "@/components/dashboard/status-badge";
 import { SectionHeader } from "@/components/dashboard/section-header";
 import { Button } from "@/components/ui/button";
 import {
+  aggregateGscFromTargets,
+  formatCompactNumber,
+  formatPct,
+  formatPosition,
+} from "@/components/gsc-metrics";
+import {
   ApiError,
   getDashboardData,
+  getCloudflareStatus,
   getScans,
   getTargets,
+  type CloudflareStatus,
   type DashboardData,
   type ScanSummary,
   type Target,
@@ -160,10 +172,10 @@ function RecentScansTable({ scans }: { scans: ScanSummary[] }) {
       <EmptyState
         icon={Activity}
         title="No scans yet"
-        description="Add a project to run your first scan."
+        description="Add a site to run your first scan."
         action={
           <Button asChild size="sm" className="bg-foreground hover:bg-foreground/90 text-background border-0">
-            <Link href="/dashboard/projects"><Plus className="h-3.5 w-3.5 mr-1.5" />Add site</Link>
+            <Link href="/dashboard/sites"><Plus className="h-3.5 w-3.5 mr-1.5" />Add site</Link>
           </Button>
         }
       />
@@ -269,10 +281,11 @@ function DataCard({ title, action, children }: { title: string; action?: React.R
 // ── Overview page ─────────────────────────────────────────────────────────────
 
 export default function OverviewPage() {
-  const [stats, setStats]       = useState<DashboardData | null>(null);
-  const [projects, setProjects] = useState<Target[]>([]);
-  const [scans, setScans]       = useState<ScanSummary[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [stats, setStats]             = useState<DashboardData | null>(null);
+  const [projects, setProjects]       = useState<Target[]>([]);
+  const [scans, setScans]             = useState<ScanSummary[]>([]);
+  const [cfStatus, setCfStatus]       = useState<CloudflareStatus | null>(null);
+  const [loading, setLoading]         = useState(true);
 
   useEffect(() => {
     const logErr = (src: string, err: unknown) => {
@@ -280,14 +293,16 @@ export default function OverviewPage() {
       console.error(`Overview (${src}):`, err);
     };
 
-    Promise.allSettled([getDashboardData(), getTargets(), getScans()])
-      .then(([dashR, targR, scansR]) => {
+    Promise.allSettled([getDashboardData(), getTargets(), getScans(), getCloudflareStatus()])
+      .then(([dashR, targR, scansR, cfR]) => {
         if (dashR.status  === "fulfilled") setStats(dashR.value);
         else logErr("dashboard", dashR.reason);
         if (targR.status  === "fulfilled") setProjects(targR.value);
         else logErr("targets", targR.reason);
         if (scansR.status === "fulfilled") setScans(scansR.value);
         else logErr("scans", scansR.reason);
+        if (cfR.status    === "fulfilled") setCfStatus(cfR.value);
+        // Cloudflare not connected is expected — don't log
       })
       .finally(() => setLoading(false));
   }, []);
@@ -303,6 +318,8 @@ export default function OverviewPage() {
     () => projects.filter((p) => p.score != null && p.score < 80).length,
     [projects],
   );
+
+  const gsc = useMemo(() => aggregateGscFromTargets(projects), [projects]);
 
   // Loading skeleton
   if (loading) {
@@ -327,7 +344,7 @@ export default function OverviewPage() {
         description="Monitor all your sites and catch issues early."
         action={
           <Button asChild size="sm" className="bg-foreground hover:bg-foreground/90 text-background border-0 gap-1.5">
-            <Link href="/dashboard/projects">
+            <Link href="/dashboard/sites">
               <Plus className="h-3.5 w-3.5" />
               Run Scan
             </Link>
@@ -343,7 +360,60 @@ export default function OverviewPage() {
         <MetricCard label="Open Issues"   value={openIssues}      sub={openIssues > 0 ? "Sites below 80" : "All sites healthy"} icon={AlertTriangle} variant={openIssues > 0 ? "rose" : "emerald"} />
       </div>
 
-      {/* Section 3: Health score distribution */}
+      {/* Section 3: Integration summaries (GSC + Cloudflare) */}
+      {(gsc.hasData || cfStatus?.connected) && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {gsc.hasData && (
+            <>
+              <MetricCard
+                label="Total Clicks"
+                value={formatCompactNumber(gsc.totalClicks)}
+                sub={gsc.dateLabel ?? "Search Console"}
+                icon={MousePointerClick}
+                variant="emerald"
+              />
+              <MetricCard
+                label="Impressions"
+                value={formatCompactNumber(gsc.totalImpressions)}
+                sub="Google Search Console"
+                icon={Search}
+                variant="indigo"
+              />
+              <MetricCard
+                label="Avg CTR"
+                value={formatPct(gsc.ctr)}
+                sub="Across all sites"
+                icon={Activity}
+                variant="indigo"
+              />
+              <MetricCard
+                label="Avg Position"
+                value={formatPosition(gsc.avgPosition)}
+                sub="Google Search ranking"
+                icon={TrendingUp}
+                variant={
+                  gsc.avgPosition != null && gsc.avgPosition <= 10
+                    ? "emerald"
+                    : gsc.avgPosition != null && gsc.avgPosition <= 20
+                      ? "amber"
+                      : "default"
+                }
+              />
+            </>
+          )}
+          {cfStatus?.connected && !gsc.hasData && (
+            <MetricCard
+              label="Cloudflare"
+              value={cfStatus.account_name ?? "Connected"}
+              sub={`${cfStatus.zones_count ?? 0} zone${(cfStatus.zones_count ?? 0) !== 1 ? "s" : ""}`}
+              icon={Zap}
+              variant="amber"
+            />
+          )}
+        </div>
+      )}
+
+      {/* Section 5: Health score distribution */}
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard title="Health Score Trend" subtitle="Average score across last 20 scans">
           <ScoreTrendChart scans={scans} />
@@ -353,7 +423,7 @@ export default function OverviewPage() {
         </ChartCard>
       </div>
 
-      {/* Section 4: Recent scans */}
+      {/* Section 6: Recent scans */}
       <DataCard
         title="Recent Scans"
         action={
@@ -365,7 +435,7 @@ export default function OverviewPage() {
         <RecentScansTable scans={scans} />
       </DataCard>
 
-      {/* Section 5: Recent issues */}
+      {/* Section 7: Recent issues */}
       <DataCard
         title="Recent Issues"
         action={
