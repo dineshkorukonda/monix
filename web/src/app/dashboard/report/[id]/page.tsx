@@ -5,9 +5,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Clock,
   Copy,
-  ExternalLink,
   Globe,
   Loader2,
   RefreshCw,
@@ -268,7 +266,7 @@ function OverviewHero({ report, scores, onBack, fromProject, fromProjectId, copi
             <Link
               href={
                 fromProject && fromProjectId
-                  ? `/dashboard/project/${fromProjectId}?autoscan=1`
+                  ? `/dashboard/site/${fromProjectId}?autoscan=1`
                   : `/web?url=${encodeURIComponent(report.url)}`
               }
             >
@@ -407,6 +405,192 @@ function CheckGroup({ title, score, checks }: { title: string; score: number; ch
 }
 
 // ---------------------------------------------------------------------------
+// Detail section components
+// ---------------------------------------------------------------------------
+
+const PORT_SERVICES: Record<number, string> = {
+  21: "FTP", 22: "SSH", 25: "SMTP", 53: "DNS", 80: "HTTP", 110: "POP3",
+  143: "IMAP", 443: "HTTPS", 465: "SMTPS", 587: "SMTP/TLS", 993: "IMAPS",
+  995: "POP3S", 3306: "MySQL", 5432: "PostgreSQL", 6379: "Redis",
+  8080: "HTTP-Alt", 8443: "HTTPS-Alt", 8888: "HTTP-Dev", 9200: "Elasticsearch",
+  27017: "MongoDB",
+};
+
+function DetailSection({ title, children, defaultOpen = true }: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-white/[0.03] transition-colors"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className="text-sm font-semibold text-white">{title}</span>
+        <ChevronDown className={cn("h-4 w-4 text-white/30 transition-transform", open ? "rotate-180" : "")} />
+      </button>
+      {open && <div className="border-t border-white/[0.06]">{children}</div>}
+    </div>
+  );
+}
+
+function PortScanSection({ r }: { r: StoredReportResults }) {
+  const scan = r.port_scan;
+  if (!scan || scan.error === "No IP address resolved") return null;
+
+  const open = [...(scan.open_ports ?? [])].sort((a, b) => a - b);
+  const filtered = [...(scan.filtered_ports ?? [])].sort((a, b) => a - b);
+
+  return (
+    <DetailSection title="Network — Open Ports">
+      {open.length === 0 && filtered.length === 0 ? (
+        <p className="px-5 py-4 text-sm text-white/40">No open ports detected from the scanned set.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="border-b border-white/[0.06]">
+            <tr>
+              <th className="text-left px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-white/30">Port</th>
+              <th className="text-left px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-white/30">Service</th>
+              <th className="text-left px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-white/30">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.04]">
+            {open.map((port) => (
+              <tr key={port} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-3 font-mono text-white/80">{port}</td>
+                <td className="px-5 py-3 text-white/60">{PORT_SERVICES[port] ?? "Unknown"}</td>
+                <td className="px-5 py-3">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+                    Open
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {filtered.map((port) => (
+              <tr key={port} className="hover:bg-white/[0.02]">
+                <td className="px-5 py-3 font-mono text-white/40">{port}</td>
+                <td className="px-5 py-3 text-white/30">{PORT_SERVICES[port] ?? "Unknown"}</td>
+                <td className="px-5 py-3">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/30">
+                    Filtered
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </DetailSection>
+  );
+}
+
+function SslDetailSection({ r }: { r: StoredReportResults }) {
+  const ssl = r.ssl_certificate;
+  if (!ssl) return null;
+
+  const subject = typeof ssl.subject === "object" && ssl.subject !== null ? ssl.subject : {};
+  const issuer = typeof ssl.issuer === "object" && ssl.issuer !== null ? ssl.issuer : {};
+
+  const rows: [string, string][] = [
+    ["Status", ssl.valid ? "Valid" : ssl.error ?? "Invalid"],
+    ["Subject", (subject as Record<string, string>).commonName || (subject as Record<string, string>).CN || (typeof ssl.subject === "string" ? ssl.subject : "") || "—"],
+    ["Issuer", (issuer as Record<string, string>).organizationName || (issuer as Record<string, string>).O || (typeof ssl.issuer === "string" ? ssl.issuer : "") || "—"],
+    ["Issued", ssl.renewed ? new Date(ssl.renewed).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—"],
+    ["Expires", ssl.expires ? new Date(ssl.expires).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "—"],
+  ];
+
+  return (
+    <DetailSection title="SSL / TLS Certificate">
+      <dl className="divide-y divide-white/[0.04]">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-start gap-4 px-5 py-3">
+            <dt className="w-24 shrink-0 text-[10px] uppercase tracking-widest text-white/30 font-semibold pt-0.5">{label}</dt>
+            <dd className={cn("text-sm break-all", label === "Status" ? (ssl.valid ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold") : "text-white/70")}>{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </DetailSection>
+  );
+}
+
+function DnsSection({ r }: { r: StoredReportResults }) {
+  const dns = r.dns_records;
+  if (!dns || dns.error) return null;
+
+  const sections: [string, string[]][] = [
+    ["A", dns.a ?? []],
+    ["AAAA", dns.aaaa ?? []],
+    ["MX", dns.mx ?? []],
+    ["NS", dns.ns ?? []],
+    ["TXT", dns.txt ?? []],
+  ].filter(([, v]) => (v as string[]).length > 0) as [string, string[]][];
+
+  if (sections.length === 0) return null;
+
+  return (
+    <DetailSection title="DNS Records" defaultOpen={false}>
+      <div className="divide-y divide-white/[0.04]">
+        {sections.map(([type, values]) => (
+          <div key={type} className="flex items-start gap-4 px-5 py-3">
+            <span className="w-12 shrink-0 font-mono text-xs font-bold text-white/30 pt-0.5">{type}</span>
+            <div className="space-y-1">
+              {values.map((v, i) => (
+                <p key={i} className="font-mono text-xs text-white/70 break-all">{v}</p>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </DetailSection>
+  );
+}
+
+function SecurityHeadersSection({ r }: { r: StoredReportResults }) {
+  const analysis = r.security_headers_analysis;
+  if (!analysis?.headers) return null;
+
+  const entries = Object.entries(analysis.headers);
+  if (entries.length === 0) return null;
+
+  return (
+    <DetailSection title={`Security Headers — ${analysis.percentage ?? 0}% coverage`} defaultOpen={false}>
+      <table className="w-full text-sm">
+        <thead className="border-b border-white/[0.06]">
+          <tr>
+            <th className="text-left px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-white/30">Header</th>
+            <th className="text-left px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-white/30">Status</th>
+            <th className="text-left px-5 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-white/30">Value</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.04]">
+          {entries.map(([header, info]) => (
+            <tr key={header} className="hover:bg-white/[0.02]">
+              <td className="px-5 py-3 font-mono text-xs text-white/70">{header}</td>
+              <td className="px-5 py-3">
+                {info.present ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+                    Present
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-400">
+                    Missing
+                  </span>
+                )}
+              </td>
+              <td className="px-5 py-3 font-mono text-xs text-white/40 max-w-xs truncate" title={info.value ?? ""}>
+                {info.value ?? "—"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </DetailSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -426,7 +610,7 @@ function ReportPageInner() {
 
   function handleBack() {
     if (fromProject && fromProjectId) {
-      router.push(`/dashboard/project/${fromProjectId}`);
+      router.push(`/dashboard/site/${fromProjectId}`);
     } else {
       router.push("/dashboard/scans");
     }
@@ -534,6 +718,11 @@ function ReportPageInner() {
         <CheckGroup title="Security checks" score={scores.security} checks={securityChecks} />
         <CheckGroup title="SEO checks" score={scores.seo} checks={seoChecks} />
         <CheckGroup title="Performance checks" score={scores.performance} checks={performanceChecks} />
+
+        <PortScanSection r={results} />
+        <SslDetailSection r={results} />
+        <DnsSection r={results} />
+        <SecurityHeadersSection r={results} />
 
         {(results.findings?.length || results.recommendations?.length) ? (
           <div className="grid gap-4 lg:grid-cols-2">

@@ -29,7 +29,7 @@ from scan_engine.seo_checker import run_seo_checks
 from scan_engine.scoring import calculate_overall_score
 from scan_engine.utils.geo import get_ip_info
 
-from .persistence import save_scan_result
+from . import persistence
 
 
 def analyze_url(url: str) -> dict[str, Any]:
@@ -179,7 +179,7 @@ def run_full_url_analysis(
     result["scores"] = scores
 
     if persist:
-        report_id = save_scan_result(
+        report_id = persistence.save_scan_result(
             url=url, score=scores["overall"], results=result, target_id=target_id
         )
         if report_id:
@@ -207,12 +207,27 @@ def threat_info() -> dict[str, Any]:
     }
 
 
-def dashboard_payload() -> dict[str, Any]:
-    connections = collect_connections()
-    _, alerts = state.snapshot()
-    system_stats = get_system_stats()
+def dashboard_payload(
+    *,
+    collect_connections_fn=None,
+    state_snapshot_fn=None,
+    get_system_stats_fn=None,
+    get_traffic_summary_fn=None,
+) -> dict[str, Any]:
+    if collect_connections_fn is None:
+        collect_connections_fn = collect_connections
+    if state_snapshot_fn is None:
+        state_snapshot_fn = state.snapshot
+    if get_system_stats_fn is None:
+        get_system_stats_fn = get_system_stats
+    if get_traffic_summary_fn is None:
+        get_traffic_summary_fn = get_traffic_summary
+
+    connections = collect_connections_fn()
+    _, alerts = state_snapshot_fn()
+    system_stats = get_system_stats_fn()
     try:
-        traffic_summary = get_traffic_summary(DEFAULT_LOG_PATH, window_minutes=10)
+        traffic_summary = get_traffic_summary_fn(DEFAULT_LOG_PATH, window_minutes=10)
     except Exception:
         traffic_summary = {
             "total_requests": 0,

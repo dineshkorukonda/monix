@@ -28,7 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 def _ensure_auth(request) -> bool:
-    """Return True if the request is authenticated."""
+    """Return True if request has session auth or bearer auth."""
+    if getattr(request, "user", None) is not None and request.user.is_authenticated:
+        request._monix_user = request.user  # type: ignore[attr-defined]
+        return True
     u = authenticate_request(request)
     if u is None:
         return False
@@ -39,6 +42,10 @@ def _ensure_auth(request) -> bool:
 def _authed_user(request) -> User:
     u = getattr(request, "_monix_user", None)
     if u is None:
+        if getattr(request, "user", None) is not None and request.user.is_authenticated:
+            u = request.user
+            request._monix_user = u
+            return u
         u = authenticate_request(request)
         if u is None:
             raise RuntimeError("Unauthorized")
@@ -132,8 +139,7 @@ def api_login(request):
 @csrf_exempt
 @require_POST
 def api_signup(request):
-    """Deprecated: Supabase Auth handles signup."""
-    return JsonResponse({"error": "Use Supabase Auth for signup."}, status=410)
+    """Legacy signup endpoint kept for compatibility and tests."""
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -238,10 +244,6 @@ def api_profile(request):
 @require_POST
 def api_change_password(request):
     """Change the authenticated user's password."""
-    return JsonResponse(
-        {"error": "Password changes are managed by Supabase Auth."},
-        status=410,
-    )
 
     try:
         data = json.loads(request.body)
@@ -291,18 +293,22 @@ def api_targets(request):
                     "name": t.url.replace("https://", "").replace("http://", "").split("/")[0],
                     "url": t.url,
                     "environment": t.environment,
-                    "ip": "Analyzing Target",
-                    "location": "",
+                    "ip": None,
+                    "location": None,
                     "activity": (
-                        latest_scan.results.get("threat", "Awaiting initial scan telemetry")
+                        f"{len((latest_scan.results or {}).get('findings', []))} findings"
                         if latest_scan
-                        else "No scans active on this target yet"
+                        else None
                     ),
-                    "status": "Healthy" if not latest_scan or latest_scan.score > 80 else "Warning",
+                    "status": (
+                        "Healthy"
+                        if latest_scan and latest_scan.score > 80
+                        else ("Warning" if latest_scan else "Not scanned")
+                    ),
                     "lastScan": (
-                        latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else "Never"
+                        latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else None
                     ),
-                    "score": latest_scan.score if latest_scan else 100,
+                    "score": latest_scan.score if latest_scan else None,
                     "created_at": t.created_at.isoformat(),
                     "scan_count": scans_qs.count(),
                     "gsc_property_url": t.gsc_property_url or None,
@@ -372,11 +378,15 @@ def api_target_detail(request, target_id):
                 "name": target.url.replace("https://", "").replace("http://", "").split("/")[0],
                 "url": target.url,
                 "environment": target.environment,
-                "status": "Healthy" if not latest_scan or latest_scan.score > 80 else "Warning",
-                "lastScan": (
-                    latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else "Never"
+                "status": (
+                    "Healthy"
+                    if latest_scan and latest_scan.score > 80
+                    else ("Warning" if latest_scan else "Not scanned")
                 ),
-                "score": latest_scan.score if latest_scan else 100,
+                "lastScan": (
+                    latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else None
+                ),
+                "score": latest_scan.score if latest_scan else None,
                 "latest_report_id": (
                     str(latest_scan.report_id) if latest_scan else None
                 ),

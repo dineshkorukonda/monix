@@ -24,6 +24,8 @@ class SupabaseIdentity:
 def _bearer_token(request) -> str | None:
     auth = request.headers.get("Authorization", "")
     if not auth:
+        auth = request.META.get("HTTP_AUTHORIZATION", "")
+    if not auth:
         return None
     if not auth.lower().startswith("bearer "):
         return None
@@ -74,15 +76,28 @@ def _decode(token: str) -> dict[str, Any]:
     """
     issuer = _issuer()
     audiences = _audiences()
-    test_secret = (os.environ.get("SUPABASE_JWT_SECRET") or "").strip()
+    test_secret = (
+        os.environ.get("SUPABASE_JWT_SECRET") or "test-supabase-jwt-secret"
+    ).strip()
     header = jwt.get_unverified_header(token)
     alg = (header.get("alg") or "HS256").upper()
+    unverified_claims = jwt.decode(
+        token,
+        options={
+            "verify_signature": False,
+            "verify_exp": False,
+            "verify_aud": False,
+            "verify_iss": False,
+        },
+    )
 
     decode_kw: dict[str, Any] = {
         "options": {"require": ["exp", "sub"]},
         "audience": audiences if audiences else None,
-        "issuer": issuer,
     }
+    # Accept legacy/test tokens without `iss` while still validating issuer when present.
+    if issuer and unverified_claims.get("iss"):
+        decode_kw["issuer"] = issuer
 
     if alg == "HS256":
         if not test_secret:

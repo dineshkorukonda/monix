@@ -32,13 +32,20 @@ function AddSiteForm({ onAdded }: { onAdded: () => void }) {
   const [adding, setAdding] = useState(false);
   const [error, setError]   = useState("");
 
+  const normalizeSiteInput = (raw: string) => {
+    const v = raw.trim();
+    // Accept plain domains like "vercel.com"; backend will add https:// when needed.
+    return v.replace(/\s+/g, "");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!url.trim()) return;
+    const normalized = normalizeSiteInput(url);
+    if (!normalized) return;
     setAdding(true); setError("");
     try {
-      const target = await createTarget(url.trim());
-      router.push(`/dashboard/project/${target.id}?autoscan=1`);
+      const target = await createTarget(normalized);
+      router.push(`/dashboard/site/${target.id}?autoscan=1`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add site.");
       setAdding(false);
@@ -53,11 +60,11 @@ function AddSiteForm({ onAdded }: { onAdded: () => void }) {
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">Add a new site</p>
-          <p className="text-xs text-muted-foreground">Creates the project and starts a security scan immediately.</p>
+          <p className="text-xs text-muted-foreground">Creates the site and starts a security scan immediately.</p>
         </div>
       </div>
       <form onSubmit={handleSubmit} className="flex gap-2">
-        <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" disabled={adding} className="flex-1 h-9" />
+        <Input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="example.com or https://example.com" disabled={adding} className="flex-1 h-9" />
         <Button type="submit" disabled={!url.trim() || adding} className="h-9 bg-foreground text-background hover:bg-foreground/90 border-0 shrink-0">
           {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add & Scan"}
         </Button>
@@ -118,7 +125,7 @@ function SitesTable({ sites, onDelete, deletingId }: { sites: Target[]; onDelete
               <td className="px-4 py-3.5 text-right"><ScoreBadge score={site.score} /></td>
               <td className="px-4 py-3.5">
                 <div className="flex items-center justify-end gap-1">
-                  <Link href={`/dashboard/project/${site.id}`} className="h-7 w-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
+                  <Link href={`/dashboard/site/${site.id}`} className="h-7 w-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
                   <button type="button" onClick={() => onDelete(site.id)} disabled={deletingId === site.id} className="h-7 w-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:text-rose-500 hover:border-rose-500/30 transition-colors">
