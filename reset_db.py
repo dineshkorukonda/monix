@@ -37,7 +37,6 @@ def reset_data(conn):
     """Delete all rows from app tables, preserving schema."""
     with conn.cursor() as cur:
         tables = [
-            "reports_report",
             "reports_scan",
             "reports_target",
             "axes_accessattempt",

@@ -10,7 +10,7 @@ const nav = [
   { id: "google-oauth-console", title: "Google OAuth (Console)" },
   { id: "google-search-console", title: "Google Search Console" },
   { id: "architecture", title: "Architecture" },
-  { id: "flask-api", title: "Flask scan API" },
+  { id: "scan-engine", title: "Scan engine" },
   { id: "django", title: "Django reports & auth" },
   { id: "nextjs", title: "Next.js web app" },
   { id: "analysis", title: "What gets analyzed" },
@@ -69,10 +69,10 @@ export default function DocsPage() {
                 How everything fits together
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/50">
-                This guide matches the repo: Flask runs scans and scoring,
-                Django stores reports and serves authenticated APIs (including
-                optional Google Search Console OAuth), and the Next.js app is
-                what you sign into to manage projects and read results.
+                This guide matches the repo: Django runs the scan engine and
+                stores reports, serves authenticated APIs (including optional
+                Google Search Console OAuth), and the Next.js app is what you
+                sign into to manage projects and read results.
               </p>
             </header>
 
@@ -381,49 +381,36 @@ export default function DocsPage() {
                 <div className="mt-6 max-w-3xl space-y-4 border border-white/10 bg-white/[0.02] p-6 font-mono text-xs leading-relaxed text-white/55 md:text-sm">
                   <pre className="whitespace-pre-wrap">{`Browser (Next.js)
        │
-       ├─► Django :8000  — session auth, targets, scans, report CRUD
-       │        │
-       │        └─► Flask :3030  — scan execution (server-side proxy uses shared secret)
-       │
-       └─► Flask :3030  — optional direct API use (e.g. dev); web client uses env NEXT_PUBLIC_API_URL
+       └─► Django :8000  — session auth, scan engine, targets, scans, reports, GSC OAuth
 
-PostgreSQL — single DATABASE_URL shared by Flask ORM and Django.
+PostgreSQL — DATABASE_URL for Django.
 
 Google APIs — Django calls Google Search Console (OAuth + Webmasters API)
-  using stored refresh tokens; Flask is not involved in GSC.`}</pre>
+  using stored refresh tokens.`}</pre>
                 </div>
                 <p className="mt-6 max-w-3xl text-base leading-relaxed text-white/60">
                   When you trigger a scan from the authenticated app, Django
                   validates your session, associates the run with a target, and
-                  calls Flask internally using{" "}
+                  runs the scan engine in-process. Results are persisted as{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    FLASK_API_URL
+                    Scan
                   </code>{" "}
-                  and{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    MONIX_INTERNAL_SCAN_SECRET
-                  </code>
-                  . Flask returns structured results; Django persists the report
-                  and score for the UI to load.
+                  rows for the UI to load.
                 </p>
               </section>
 
-              <section id="flask-api" className="scroll-mt-28">
+              <section id="scan-engine" className="scroll-mt-28">
                 <h2 className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">
-                  Flask scan API
+                  Scan engine
                 </h2>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
                   The{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    api/
+                    core/scan_engine/
                   </code>{" "}
-                  package hosts scan orchestration, enrichment, and scoring. It
-                  listens on{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    PORT
-                  </code>{" "}
-                  (default 3030). Tasks such as TLS, DNS, headers, redirects,
-                  cookies, geo, optional port checks, and—when
+                  package hosts scan orchestration, enrichment, and scoring
+                  (invoked from Django views). Tasks such as TLS, DNS, headers,
+                  redirects, cookies, geo, optional port checks, and—when
                   configured—PageSpeed run and feed into category scores. The
                   response model includes findings, recommendations, summaries,
                   and raw fields the UI renders in tables and panels.
@@ -475,17 +462,13 @@ Google APIs — Django calls Google Search Console (OAuth + Webmasters API)
                   <code className="font-mono text-[13px] text-white/70">
                     src/lib/api.ts
                   </code>
-                  : Flask base URL from{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    NEXT_PUBLIC_API_URL
-                  </code>{" "}
-                  (defaults to{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    http://localhost:3030
-                  </code>
-                  ), Django from{" "}
+                  : Django base URL from{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     NEXT_PUBLIC_DJANGO_URL
+                  </code>{" "}
+                  or legacy{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    NEXT_PUBLIC_API_URL
                   </code>{" "}
                   (defaults to{" "}
                   <code className="font-mono text-[13px] text-white/70">
@@ -496,8 +479,7 @@ Google APIs — Django calls Google Search Console (OAuth + Webmasters API)
                     /api/*
                   </code>{" "}
                   routes in a way that fights Django&apos;s trailing-slash
-                  behavior—the client is written to hit Django and Flask
-                  directly.
+                  behavior—the client calls Django directly.
                 </p>
               </section>
 
@@ -568,19 +550,11 @@ Google APIs — Django calls Google Search Console (OAuth + Webmasters API)
                   {[
                     [
                       "DATABASE_URL",
-                      "PostgreSQL URL shared by Flask and Django.",
+                      "PostgreSQL URL for Django.",
                     ],
                     [
                       "DJANGO_SECRET_KEY",
                       "Required for Django sessions and signing.",
-                    ],
-                    [
-                      "FLASK_API_URL",
-                      "Where Django calls Flask for scans (server-side).",
-                    ],
-                    [
-                      "MONIX_INTERNAL_SCAN_SECRET",
-                      "Shared secret for Django→Flask scan proxy; set a strong value in production.",
                     ],
                     [
                       "PAGESPEED_API_KEY",
@@ -638,11 +612,7 @@ Google APIs — Django calls Google Search Console (OAuth + Webmasters API)
                   <code className="font-mono text-[13px] text-white/70">
                     .env
                   </code>
-                  , run Flask (e.g.{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    python app.py
-                  </code>
-                  ), run Django in{" "}
+                  , run Django in{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     core/
                   </code>{" "}

@@ -1,14 +1,14 @@
-"""
-Tests for Django JSON auth endpoints and target CRUD (session-based API).
-"""
+"""Tests for Supabase Bearer JWT auth on Django APIs."""
 
 import json
 import os
 import sys
+import time
 import uuid
 from unittest.mock import patch
 
 import django
+import jwt
 
 _CORE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "core")
 if _CORE_DIR not in sys.path:
@@ -17,76 +17,115 @@ if _CORE_DIR not in sys.path:
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from django.contrib.auth.models import User  # noqa: E402
 from django.test import Client, TestCase  # noqa: E402
 from django.urls import reverse  # noqa: E402
 
 from reports.models import Target  # noqa: E402
 
 
-class AuthLoginApiTest(TestCase):
+def _token(sub: str, email: str) -> str:
+    secret = os.environ.get("SUPABASE_JWT_SECRET", "test-supabase-jwt-secret")
+    now = int(time.time())
+    return jwt.encode(
+        {
+            "sub": sub,
+            "email": email,
+            "aud": "authenticated",
+            "iat": now,
+            "exp": now + 3600,
+            "user_metadata": {"full_name": "Test User"},
+        },
+        secret,
+        algorithm="HS256",
+    )
+
+
+class BearerAuthMeTest(TestCase):
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(
-            username="loginuser@example.com",
-            email="loginuser@example.com",
-            password="correct-horse-1",
-        )
+        self.h = {
+            "HTTP_AUTHORIZATION": f"Bearer {_token('sb-' + uuid.uuid4().hex, 'me@example.com')}"
+        }
 
-    def test_login_returns_200_and_email_on_success(self):
-        r = self.client.post(
-            reverse("api_login"),
-            data=json.dumps(
-                {"email": "loginuser@example.com", "password": "correct-horse-1"}
-            ),
-            content_type="application/json",
-        )
-        self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.json()["email"], "loginuser@example.com")
-
-    def test_login_accepts_legacy_username_key(self):
-        r = self.client.post(
-            reverse("api_login"),
-            data=json.dumps(
-                {"username": "loginuser@example.com", "password": "correct-horse-1"}
-            ),
-            content_type="application/json",
-        )
-        self.assertEqual(r.status_code, 200)
-
-    def test_login_invalid_password_returns_401(self):
-        r = self.client.post(
-            reverse("api_login"),
-            data=json.dumps(
-                {"email": "loginuser@example.com", "password": "wrong-password"}
-            ),
-            content_type="application/json",
-        )
+    def test_me_requires_token(self):
+        r = self.client.get(reverse("api_me"))
         self.assertEqual(r.status_code, 401)
 
-    def test_login_unknown_email_returns_401(self):
-        r = self.client.post(
-            reverse("api_login"),
-            data=json.dumps({"email": "nobody@example.com", "password": "x"}),
-            content_type="application/json",
-        )
+    def test_me_returns_profile_fields(self):
+        r = self.client.get(reverse("api_me"), **self.h)
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["email"], "me@example.com")
+        self.assertIn("initials", data)
+
+
+class TargetsBearerAuthTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.h = {
+            "HTTP_AUTHORIZATION": f"Bearer {_token('sb-' + uuid.uuid4().hex, 't@example.com')}"
+        }
+
+    def test_targets_list_requires_auth(self):
+        r = self.client.get(reverse("api_targets"))
         self.assertEqual(r.status_code, 401)
 
-    def test_login_missing_fields_returns_400(self):
-        r = self.client.post(
-            reverse("api_login"),
-            data=json.dumps({"email": "loginuser@example.com"}),
-            content_type="application/json",
-        )
-        self.assertEqual(r.status_code, 400)
+    def test_targets_list_empty(self):
+        r = self.client.get(reverse("api_targets"), **self.h)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), [])
 
-    def test_login_invalid_json_returns_400(self):
+    def test_targets_create_prepends_https_and_returns_201(self):
         r = self.client.post(
-            reverse("api_login"),
-            data="{not-json",
+            reverse("api_targets"),
+            data=json.dumps({"url": "example.com"}),
             content_type="application/json",
+            **self.h,
         )
-        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.status_code, 201)
+        data = r.json()
+        self.assertTrue(data["url"].startswith("https://"))
+
+
+class TargetDetailBearerAuthTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.h1 = {
+            "HTTP_AUTHORIZATION": f"Bearer {_token('sb-' + uuid.uuid4().hex, 'a@example.com')}"
+        }
+        self.h2 = {
+            "HTTP_AUTHORIZATION": f"Bearer {_token('sb-' + uuid.uuid4().hex, 'b@example.com')}"
+        }
+        r = self.client.post(
+            reverse("api_targets"),
+            data=json.dumps({"url": "https://mine.example.com"}),
+            content_type="application/json",
+            **self.h1,
+        )
+        self.target_id = r.json()["id"]
+
+    def test_detail_404_for_other_user(self):
+        r = self.client.get(
+            reverse("api_target_detail", kwargs={"target_id": self.target_id}),
+            **self.h2,
+        )
+        self.assertEqual(r.status_code, 404)
+
+    def test_detail_get_returns_target_json(self):
+        r = self.client.get(
+            reverse("api_target_detail", kwargs={"target_id": self.target_id}),
+            **self.h1,
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["id"], str(self.target_id))
+
+    def test_detail_delete_removes_target(self):
+        r = self.client.delete(
+            reverse("api_target_detail", kwargs={"target_id": self.target_id}),
+            **self.h1,
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(Target.objects.filter(id=self.target_id).exists())
 
 
 class AuthSignupApiTest(TestCase):

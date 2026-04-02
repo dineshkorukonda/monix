@@ -55,14 +55,32 @@ def decrypt_refresh_token(ciphertext: str) -> str:
 def google_oauth_config() -> tuple[str, str, str]:
     client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
-    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI", "").strip()
+    redirect_uri = (
+        os.environ.get("GOOGLE_REDIRECT_URI", "").strip()
+        or os.environ.get("GOOGLE_REDIRECT_URL", "").strip()
+    )
     return client_id, client_secret, redirect_uri
 
 
 def build_authorization_url(state: str) -> str:
-    client_id, _, redirect_uri = google_oauth_config()
-    if not client_id or not redirect_uri:
-        raise RuntimeError("GOOGLE_CLIENT_ID and GOOGLE_REDIRECT_URI must be set.")
+    client_id, client_secret, redirect_uri = google_oauth_config()
+    missing = []
+    if not client_id:
+        missing.append("GOOGLE_CLIENT_ID")
+    if not redirect_uri:
+        missing.append("GOOGLE_REDIRECT_URI (or GOOGLE_REDIRECT_URL)")
+    if missing:
+        raise RuntimeError(
+            "Google OAuth is not configured: set "
+            + ", ".join(missing)
+            + " in the environment. "
+            "GOOGLE_REDIRECT_URI / GOOGLE_REDIRECT_URL must match an authorized redirect URI in Google Cloud "
+            "(e.g. http://localhost:8000/api/auth/google/callback/ for local dev)."
+        )
+    if not client_secret:
+        logger.warning(
+            "GOOGLE_CLIENT_SECRET is empty; token exchange after OAuth will fail until it is set."
+        )
 
     params = {
         "client_id": client_id,

@@ -1,16 +1,13 @@
 import os
-import sys
 import time
 from collections import defaultdict
 from threading import Thread
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from api.monitoring.state import state  # noqa: E402
-from api.analyzers.traffic import get_traffic_summary, DEFAULT_LOG_PATH  # noqa: E402
-from utils.network import TCP_STATES, hex_ip, hex_port  # noqa: E402
-from utils.geo import geo_lookup, reverse_dns  # noqa: E402
-from utils.processes import get_process_map  # noqa: E402
+from scan_engine.monitoring.state import state  # noqa: E402
+from scan_engine.analyzers.traffic import get_traffic_summary, DEFAULT_LOG_PATH  # noqa: E402
+from scan_engine.utils.network import TCP_STATES, hex_ip, hex_port  # noqa: E402
+from scan_engine.utils.geo import geo_lookup, reverse_dns  # noqa: E402
+from scan_engine.utils.processes import get_process_map  # noqa: E402
 
 PORT_SCAN_WINDOW = 10
 PORT_SCAN_THRESHOLD = 5

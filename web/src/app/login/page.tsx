@@ -1,19 +1,20 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
-import { Eye, EyeOff, Lock, Mail, Shield, User } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ApiError, logout as apiLogout, getMe, login, signup } from "@/lib/api";
-
-const DJANGO_BASE =
-  process.env.NEXT_PUBLIC_DJANGO_URL || "http://localhost:8000";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { ApiError, logout as apiLogout, login, signup } from "@/lib/api";
+import { describeAuthError, isGoogleAuthUiEnabled } from "@/lib/auth-errors";
+import { supabase } from "@/lib/supabase";
 
 type AuthMode = "login" | "signup" | "reset";
+
+const fieldClassName =
+  "w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
 
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+      <title>Google</title>
       <path
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
         fill="#4285F4"
@@ -39,29 +40,68 @@ export default function LoginPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [passwordUpdatedBanner, setPasswordUpdatedBanner] = useState(false);
 
   useEffect(() => {
-    getMe()
-      .then((u) => setSessionEmail(u.email || null))
+    if (!supabase) {
+      setSessionEmail(null);
+      setSessionChecked(true);
+      return;
+    }
+    supabase.auth
+      .getUser()
+      .then(({ data }) => setSessionEmail(data.user?.email || null))
       .catch(() => setSessionEmail(null))
       .finally(() => setSessionChecked(true));
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (
+      new URLSearchParams(window.location.search).get("reset") === "success"
+    ) {
+      setPasswordUpdatedBanner(true);
+      window.history.replaceState({}, "", "/login");
+    }
+  }, []);
+
   const switchMode = (next: AuthMode) => {
     setError("");
+    setResetEmailSent(false);
     setMode(next);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === "reset") {
-      alert("Password reset is not yet configured.");
-      switchMode("login");
+      if (!supabase) {
+        setError(
+          "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+        );
+        return;
+      }
+      setError("");
+      setIsSubmitting(true);
+      try {
+        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
+          email.trim(),
+          {
+            redirectTo: `${window.location.origin}/auth/reset-password`,
+          },
+        );
+        if (resetErr) {
+          setError(describeAuthError(resetErr));
+          return;
+        }
+        setResetEmailSent(true);
+      } finally {
+        setIsSubmitting(false);
+      }
       return;
     }
     setError("");
@@ -76,21 +116,20 @@ export default function LoginPage() {
       } else {
         await login(email.trim(), password);
       }
-      // Full navigation so the browser reliably applies Django's session cookie before /dashboard runs getMe().
       window.location.assign("/dashboard");
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 401) {
+        if (err.status === 401 && mode === "login") {
+          setError(describeAuthError(err.message));
+        } else if (err.status === 401) {
           setError(
-            mode === "login"
-              ? "Invalid email or password."
-              : "Could not create your session. Sign out below if you are already signed in, then try again.",
+            "Could not create your session. Sign out below if you are already signed in, then try again.",
           );
         } else {
-          setError(err.message);
+          setError(describeAuthError(err.message));
         }
       } else {
-        setError("Unable to continue right now. Please try again.");
+        setError(describeAuthError(err));
       }
     } finally {
       setIsSubmitting(false);
@@ -98,311 +137,226 @@ export default function LoginPage() {
   };
 
   const titles: Record<AuthMode, string> = {
-    login: "Welcome back",
-    signup: "Create account",
-    reset: "Reset password",
+    login: "Sign in to your account",
+    signup: "Create your account",
+    reset: "Reset your password",
   };
 
   const subtitles: Record<AuthMode, string> = {
-    login: "Sign in to your Monix workspace",
-    signup: "Start monitoring your security posture",
-    reset: "We'll send you a secure reset link",
+    login: "Enter your email and password",
+    signup: "Enter your details below",
+    reset: "We will email you a link to choose a new password",
   };
 
   return (
-    <div className="min-h-screen w-full lg:grid lg:grid-cols-[1fr_480px] bg-black">
-      {/* ── Left panel: visual ──────────────────────── */}
-      <div className="hidden lg:flex flex-col relative overflow-hidden bg-black border-r border-white/[0.06]">
-        {/* Glow blobs */}
-        <div className="absolute top-1/3 left-1/3 w-80 h-80 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+    <AuthShell>
+      {passwordUpdatedBanner ? (
+        <p className="rounded-md border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-xs text-zinc-300">
+          Password updated. Sign in with your new password.
+        </p>
+      ) : null}
 
-        <div className="relative z-10 flex flex-col h-full p-12">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-xl font-bold tracking-tight text-white">
-              Monix
-            </span>
-          </Link>
-
-          {/* Headline */}
-          <div className="mt-auto mb-auto space-y-6 max-w-xs">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <h2 className="text-4xl font-bold text-white leading-tight tracking-tight">
-                Security posture,
-                <br />
-                <span className="text-emerald-400">at a glance.</span>
-              </h2>
-              <p className="text-sm text-white/40 mt-4 leading-6">
-                Scan any URL for vulnerabilities, headers, SSL, SEO, and
-                performance. All in one dashboard.
-              </p>
-            </motion.div>
-
-            <motion.div
-              className="space-y-3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.5 }}
-            >
-              {[
-                "Security headers & SSL analysis",
-                "SEO and performance scores",
-                "Persistent reports & scan history",
-                "Server location mapping",
-              ].map((f) => (
-                <div key={f} className="flex items-center gap-2.5">
-                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                  <p className="text-xs text-white/50">{f}</p>
-                </div>
-              ))}
-            </motion.div>
-          </div>
-
-          <p className="text-[10px] text-white/20 mt-auto">
-            © {new Date().getFullYear()} Monix Security
+      {sessionChecked && sessionEmail ? (
+        <div className="rounded-md border border-zinc-700 bg-zinc-900/80 px-3 py-2.5 text-xs text-zinc-300">
+          <p>
+            You are signed in as{" "}
+            <span className="font-medium text-zinc-100">{sessionEmail}</span>.
+            Sign out first to use a different account.
           </p>
-        </div>
-      </div>
-
-      {/* ── Right panel: auth form ────────────────────────────── */}
-      <div className="flex flex-col items-center justify-center min-h-screen px-6 py-12 bg-black">
-        <div className="w-full max-w-sm space-y-8">
-          {sessionChecked && sessionEmail ? (
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-xs text-amber-100/90">
-              <p>
-                You are signed in as{" "}
-                <span className="font-medium text-white">{sessionEmail}</span>.
-                Sign out first to create a new account or use a different Google
-                account.
-              </p>
-              <button
-                type="button"
-                className="mt-2 font-semibold text-emerald-400 hover:text-emerald-300"
-                onClick={async () => {
-                  try {
-                    await apiLogout();
-                  } finally {
-                    setSessionEmail(null);
-                    window.location.reload();
-                  }
-                }}
-              >
-                Sign out
-              </button>
-            </div>
-          ) : null}
-
-          {/* Mobile logo */}
-          <Link
-            href="/"
-            className="lg:hidden flex items-center gap-2 justify-center mb-2"
+          <button
+            type="button"
+            className="mt-2 font-medium text-zinc-100 underline underline-offset-2 hover:text-white"
+            onClick={async () => {
+              try {
+                await apiLogout();
+              } finally {
+                setSessionEmail(null);
+                window.location.reload();
+              }
+            }}
           >
-            <div className="h-8 w-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-              <Shield className="h-4 w-4 text-emerald-400" />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-white">
-              Monix
-            </span>
-          </Link>
-
-          {/* Heading */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={mode + "-head"}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.18 }}
-            >
-              <h1 className="text-2xl font-bold tracking-tight text-white">
-                {titles[mode]}
-              </h1>
-              <p className="text-sm text-white/40 mt-1">{subtitles[mode]}</p>
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Google button — shown on login & signup */}
-          {mode !== "reset" && (
-            <div className="space-y-3">
-              <a
-                href={`${DJANGO_BASE}/api/auth/login/google-oauth2/`}
-                className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-4 py-2.5 text-sm font-medium text-white transition-all"
-              >
-                <GoogleIcon />
-                Continue with Google
-              </a>
-
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-white/[0.07]" />
-                <span className="text-[11px] uppercase tracking-widest text-white/25 font-semibold">
-                  or
-                </span>
-                <div className="flex-1 h-px bg-white/[0.07]" />
-              </div>
-            </div>
-          )}
-
-          {/* Form */}
-          <AnimatePresence mode="wait">
-            <motion.form
-              key={mode}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              onSubmit={handleSubmit}
-              className="space-y-4"
-            >
-              {mode === "signup" && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-widest text-white/40">
-                    Full name
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20" />
-                    <input
-                      type="text"
-                      placeholder="Jane Doe"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full h-11 rounded-xl border border-white/10 bg-white/[0.04] pl-10 pr-4 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.06] transition-all"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-widest text-white/40">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20" />
-                  <input
-                    type="email"
-                    placeholder="you@example.com"
-                    required
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full h-11 rounded-xl border border-white/10 bg-white/[0.04] pl-10 pr-4 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.06] transition-all"
-                  />
-                </div>
-              </div>
-
-              {mode !== "reset" && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold uppercase tracking-widest text-white/40">
-                      Password
-                    </label>
-                    {mode === "login" && (
-                      <button
-                        type="button"
-                        onClick={() => switchMode("reset")}
-                        className="text-xs text-white/35 hover:text-emerald-400 transition-colors"
-                      >
-                        Forgot password?
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/20" />
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      required
-                      autoComplete={
-                        mode === "login" ? "current-password" : "new-password"
-                      }
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full h-11 rounded-xl border border-white/10 bg-white/[0.04] pl-10 pr-10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 focus:bg-white/[0.06] transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60 transition-colors"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {error && (
-                <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-2.5">
-                  {error}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full h-11 rounded-xl bg-white text-black text-sm font-bold hover:bg-white/90 active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
-              >
-                {isSubmitting
-                  ? mode === "signup"
-                    ? "Creating account…"
-                    : "Signing in…"
-                  : mode === "login"
-                    ? "Sign in"
-                    : mode === "signup"
-                      ? "Create account"
-                      : "Send reset link"}
-              </button>
-            </motion.form>
-          </AnimatePresence>
-
-          {/* Mode switches */}
-          <p className="text-center text-sm text-white/30">
-            {mode === "login" && (
-              <>
-                Don't have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => switchMode("signup")}
-                  className="text-white font-semibold hover:text-emerald-400 transition-colors"
-                >
-                  Sign up
-                </button>
-              </>
-            )}
-            {mode === "signup" && (
-              <>
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => switchMode("login")}
-                  className="text-white font-semibold hover:text-emerald-400 transition-colors"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-            {mode === "reset" && (
-              <>
-                Remember it?{" "}
-                <button
-                  type="button"
-                  onClick={() => switchMode("login")}
-                  className="text-white font-semibold hover:text-emerald-400 transition-colors"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-          </p>
+            Sign out
+          </button>
         </div>
+      ) : null}
+
+      {mode === "reset" && resetEmailSent ? (
+        <p className="rounded-md border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-xs text-zinc-300">
+          If an account exists for that email, we sent a link to set a new
+          password.
+        </p>
+      ) : null}
+
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold tracking-tight text-white">
+          {titles[mode]}
+        </h1>
+        <p className="text-sm text-zinc-500">{subtitles[mode]}</p>
       </div>
-    </div>
+
+      {mode !== "reset" && isGoogleAuthUiEnabled() ? (
+        <div className="space-y-4">
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 py-2.5 text-sm font-medium text-zinc-100 shadow-sm hover:bg-zinc-900/80 transition-colors disabled:opacity-50"
+            onClick={async () => {
+              setError("");
+              setIsSubmitting(true);
+              try {
+                if (!supabase) {
+                  setError(
+                    "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+                  );
+                  return;
+                }
+                const { error: oauthErr } = await supabase.auth.signInWithOAuth(
+                  {
+                    provider: "google",
+                    options: {
+                      redirectTo: `${window.location.origin}/dashboard`,
+                      queryParams: { prompt: "select_account" },
+                    },
+                  },
+                );
+                if (oauthErr) setError(describeAuthError(oauthErr));
+              } finally {
+                setIsSubmitting(false);
+              }
+            }}
+            disabled={isSubmitting}
+          >
+            <GoogleIcon />
+            Continue with Google
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-zinc-800" />
+            <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">
+              or
+            </span>
+            <div className="h-px flex-1 bg-zinc-800" />
+          </div>
+        </div>
+      ) : null}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {mode === "signup" ? (
+          <input
+            type="text"
+            name="fullName"
+            placeholder="Full name"
+            required
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className={fieldClassName}
+            autoComplete="name"
+          />
+        ) : null}
+
+        <input
+          type="email"
+          name="email"
+          placeholder="name@example.com"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={fieldClassName}
+        />
+
+        {mode !== "reset" ? (
+          <div className="space-y-2">
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              required
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={fieldClassName}
+            />
+            {mode === "login" ? (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => switchMode("reset")}
+                  className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  Forgot password
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {error ? (
+          <p className="rounded-md border border-red-900/50 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+            {error}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full rounded-md bg-white py-2.5 text-sm font-medium text-zinc-950 shadow-sm hover:bg-zinc-100 transition-colors disabled:opacity-50"
+        >
+          {isSubmitting
+            ? mode === "signup"
+              ? "Creating account…"
+              : "Signing in…"
+            : mode === "login"
+              ? "Sign in"
+              : mode === "signup"
+                ? "Create account"
+                : "Send reset link"}
+        </button>
+      </form>
+
+      <p className="text-center text-xs text-zinc-500">
+        {mode === "login" ? (
+          <>
+            No account?{" "}
+            <button
+              type="button"
+              onClick={() => switchMode("signup")}
+              className="font-medium text-zinc-300 hover:text-white transition-colors"
+            >
+              Sign up
+            </button>
+          </>
+        ) : null}
+        {mode === "signup" ? (
+          <>
+            Already have an account?{" "}
+            <button
+              type="button"
+              onClick={() => switchMode("login")}
+              className="font-medium text-zinc-300 hover:text-white transition-colors"
+            >
+              Sign in
+            </button>
+          </>
+        ) : null}
+        {mode === "reset" ? (
+          <>
+            Remember it?{" "}
+            <button
+              type="button"
+              onClick={() => switchMode("login")}
+              className="font-medium text-zinc-300 hover:text-white transition-colors"
+            >
+              Sign in
+            </button>
+          </>
+        ) : null}
+      </p>
+
+      <p className="text-center text-[11px] leading-relaxed text-zinc-600">
+        If you have an existing account, sign in above. New accounts may be
+        disabled depending on how Monix is configured.
+      </p>
+    </AuthShell>
   );
 }
