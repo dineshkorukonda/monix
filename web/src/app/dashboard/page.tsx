@@ -222,7 +222,7 @@ function ScoreTrendChart({ scans }: { scans: ScanSummary[] }) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" debounce={1}>
       <AreaChart
         data={data}
         margin={{ top: 8, right: 8, bottom: 0, left: -20 }}
@@ -293,7 +293,7 @@ function DistributionChart({ scans }: { scans: ScanSummary[] }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4">
       <div className="relative">
-        <ResponsiveContainer width={140} height={140}>
+        <ResponsiveContainer width={140} height={140} debounce={1}>
           <PieChart>
             <Pie
               data={data}
@@ -374,7 +374,7 @@ function ProjectHealthBandsChart({ projects }: { projects: Target[] }) {
 
   return (
     <div className="h-full w-full min-h-[160px] min-w-0">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" debounce={1}>
         <BarChart
           data={data}
           layout="vertical"
@@ -440,7 +440,7 @@ function DailyActivityChart({ scans }: { scans: ScanSummary[] }) {
   }, [scans]);
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" debounce={1}>
       <BarChart
         data={data}
         margin={{ top: 8, right: 8, bottom: 0, left: -20 }}
@@ -507,7 +507,7 @@ function ProjectScoresChart({ projects }: { projects: Target[] }) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" debounce={1}>
       <BarChart
         data={data}
         layout="vertical"
@@ -576,7 +576,7 @@ function GscClicksByProjectChart({
   const maxC = Math.max(...data.map((d) => d.clicks), 1);
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" debounce={1}>
       <BarChart
         data={data}
         layout="vertical"
@@ -640,7 +640,7 @@ function ChartCard({
         <p className="text-sm font-semibold text-white">{title}</p>
         {subtitle && <p className="text-xs text-white/30 mt-0.5">{subtitle}</p>}
       </div>
-      <div style={{ height }} className="px-2 py-4">
+      <div style={{ height }} className="px-2 py-4 min-h-0 min-w-0">
         {children}
       </div>
     </div>
