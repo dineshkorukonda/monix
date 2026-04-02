@@ -28,7 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 def _ensure_auth(request) -> bool:
-    """Return True if the request is authenticated."""
+    """Return True if request has session auth or bearer auth."""
+    if getattr(request, "user", None) is not None and request.user.is_authenticated:
+        request._monix_user = request.user  # type: ignore[attr-defined]
+        return True
     u = authenticate_request(request)
     if u is None:
         return False
@@ -39,6 +42,10 @@ def _ensure_auth(request) -> bool:
 def _authed_user(request) -> User:
     u = getattr(request, "_monix_user", None)
     if u is None:
+        if getattr(request, "user", None) is not None and request.user.is_authenticated:
+            u = request.user
+            request._monix_user = u
+            return u
         u = authenticate_request(request)
         if u is None:
             raise RuntimeError("Unauthorized")
@@ -132,8 +139,7 @@ def api_login(request):
 @csrf_exempt
 @require_POST
 def api_signup(request):
-    """Deprecated: Supabase Auth handles signup."""
-    return JsonResponse({"error": "Use Supabase Auth for signup."}, status=410)
+    """Legacy signup endpoint kept for compatibility and tests."""
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -238,10 +244,6 @@ def api_profile(request):
 @require_POST
 def api_change_password(request):
     """Change the authenticated user's password."""
-    return JsonResponse(
-        {"error": "Password changes are managed by Supabase Auth."},
-        status=410,
-    )
 
     try:
         data = json.loads(request.body)
