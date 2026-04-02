@@ -19,6 +19,7 @@ django.setup()
 
 from django.test import Client, TestCase  # noqa: E402
 from django.urls import reverse  # noqa: E402
+from django.contrib.auth.models import User  # noqa: E402
 
 from reports.models import Target  # noqa: E402
 

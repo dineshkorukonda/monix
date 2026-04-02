@@ -138,6 +138,12 @@ def processes_view(request):
 @require_GET
 def dashboard_view(request):
     try:
-        return JsonResponse(dashboard_payload())
+        return JsonResponse(
+            dashboard_payload(
+                collect_connections_fn=collect_connections,
+                state_snapshot_fn=state.snapshot,
+                get_system_stats_fn=get_system_stats,
+            )
+        )
     except Exception as e:
         return _json_error(str(e), 500)
