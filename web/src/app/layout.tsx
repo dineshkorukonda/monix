@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const poppins = Poppins({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-poppins",
-  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-inter",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "monix",
+  title: "Monix — Website Intelligence",
   description:
-    "Security, SEO, and performance analysis in one workspace. Sign in for category scores, shareable reports, and a dashboard for projects and scan history.",
+    "Security, SEO, and performance analysis in one workspace. Monitor sites, track issues, and connect integrations.",
 };
 
 export default function RootLayout({
@@ -21,15 +22,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className="dark selection:bg-[var(--accent)] selection:text-[var(--ink-strong)]"
-      data-scroll-behavior="smooth"
-    >
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${poppins.variable} bg-background text-foreground antialiased`}
+        className={`${inter.variable} bg-background text-foreground antialiased`}
       >
-        <TooltipProvider>{children}</TooltipProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <TooltipProvider>{children}</TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
