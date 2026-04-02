@@ -85,7 +85,7 @@ function ClicksByProjectChart({
 
   return (
     <div className="h-[220px] w-full min-h-[200px] min-w-0">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" debounce={1}>
         <BarChart
           data={data}
           layout="vertical"
