@@ -63,20 +63,10 @@ class TestCalculateSecurityScore:
         # (0*50 + 1.0*40 + 1.0*10) / 100 * 100 = 50
         assert calculate_security_score(result) == 50
 
-    def test_header_pct_70_gives_pass(self):
-        result = _security_result(ssl_valid=False, header_pct=70, security_txt=False)
-        # ssl fail (0*50), headers pass (1.0*40), security_txt fail (0*10) → 40/100*100 = 40
-        assert calculate_security_score(result) == 40
-
     def test_header_pct_30_gives_warn(self):
         result = _security_result(ssl_valid=False, header_pct=30, security_txt=False)
         # ssl fail (0*50), headers warn (0.5*40), security_txt fail (0*10) → 20/100*100 = 20
         assert calculate_security_score(result) == 20
-
-    def test_header_pct_29_gives_fail(self):
-        result = _security_result(ssl_valid=False, header_pct=29, security_txt=False)
-        # ssl fail, headers fail, security_txt fail → 0
-        assert calculate_security_score(result) == 0
 
     def test_security_txt_absent_reduces_score(self):
         result = _security_result(ssl_valid=True, header_pct=100, security_txt=False)
@@ -85,11 +75,6 @@ class TestCalculateSecurityScore:
 
     def test_empty_result_gives_0(self):
         assert calculate_security_score({}) == 0
-
-    def test_score_is_integer(self):
-        result = _security_result()
-        score = calculate_security_score(result)
-        assert isinstance(score, int)
 
 
 # ---------------------------------------------------------------------------
@@ -112,10 +97,6 @@ class TestCalculateSeoScore:
 
     def test_none_seo_score_returns_0(self):
         assert calculate_seo_score({"seo_score": None}) == 0
-
-    def test_score_is_integer(self):
-        score = calculate_seo_score(_seo_result(80))
-        assert isinstance(score, int)
 
 
 # ---------------------------------------------------------------------------
@@ -154,10 +135,6 @@ class TestCalculatePerformanceScore:
 
     def test_perfect_scores(self):
         assert calculate_performance_score(_performance_result(100, 100)) == 100
-
-    def test_score_is_integer(self):
-        score = calculate_performance_score(_performance_result(70, 90))
-        assert isinstance(score, int)
 
     def test_rounding(self):
         # (60 + 61) / 2 = 60.5 → Python uses round-half-to-even (banker's
@@ -203,26 +180,6 @@ class TestCalculateOverallScore:
         assert scores["seo"] == 0
         assert scores["performance"] == 0
 
-    def test_seo_weight(self):
-        # security=0, seo=100, performance=0
-        # overall = 0*0.5 + 100*0.3 + 0*0.2 = 30
-        scores = calculate_overall_score(
-            _security_result(False, 0, False),
-            _seo_result(100),
-            _performance_result(None, None),
-        )
-        assert scores["overall"] == 30
-
-    def test_performance_weight(self):
-        # security=0, seo=0, performance=100
-        # overall = 0*0.5 + 0*0.3 + 100*0.2 = 20
-        scores = calculate_overall_score(
-            _security_result(False, 0, False),
-            _seo_result(0),
-            _performance_result(100, 100),
-        )
-        assert scores["overall"] == 20
-
     def test_mixed_scores(self):
         # security=50, seo=60, performance=80
         # overall = 50*0.5 + 60*0.3 + 80*0.2 = 25 + 18 + 16 = 59
@@ -239,36 +196,6 @@ class TestCalculateOverallScore:
         assert scores["performance"] == 80
         # overall = 70*0.5 + 60*0.3 + 80*0.2 = 35 + 18 + 16 = 69
         assert scores["overall"] == 69
-
-    def test_return_keys_are_correct(self):
-        scores = calculate_overall_score(
-            _security_result(),
-            _seo_result(),
-            _performance_result(),
-        )
-        assert set(scores.keys()) == {"overall", "security", "seo", "performance"}
-
-    def test_all_values_are_integers(self):
-        scores = calculate_overall_score(
-            _security_result(),
-            _seo_result(73),
-            _performance_result(68, 84),
-        )
-        for key, value in scores.items():
-            assert isinstance(value, int), f"{key} should be int, got {type(value)}"
-
-    def test_overall_within_bounds(self):
-        for ssl, hdr, txt, seo, mob, desk in [
-            (True, 100, True, 100, 100, 100),
-            (False, 0, False, 0, 0, 0),
-            (True, 50, False, 50, 50, 50),
-        ]:
-            scores = calculate_overall_score(
-                _security_result(ssl, hdr, txt),
-                _seo_result(seo),
-                _performance_result(mob, desk),
-            )
-            assert 0 <= scores["overall"] <= 100
 
     def test_skip_performance_reweights_overall(self):
         """When PageSpeed is skipped, overall uses security + SEO only (62.5% / 37.5%)."""

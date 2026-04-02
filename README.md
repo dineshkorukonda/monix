@@ -84,6 +84,8 @@ bun install
 bun run dev
 ```
 
+Dependency lockfile for the frontend is `web/bun.lock` (Bun). Do not add `package-lock.json`.
+
 Point the web app at Django (default `http://localhost:8000`) via `NEXT_PUBLIC_DJANGO_URL`.
 Supabase Auth requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `web/.env.local`.
 
