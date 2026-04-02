@@ -1,16 +1,63 @@
 /**
  * API client for Monix backend services.
  *
- * This module provides functions to interact with the Monix Flask API server,
- * handling all HTTP requests and type definitions for the web interface.
+ * Auth:
+ * - Supabase Auth runs in the browser and provides a JWT access token.
+ * - Django APIs accept `Authorization: Bearer <token>` for authenticated routes.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3030";
-// Django exposes CORS headers (django-cors-headers) allowing direct browser calls.
-// Do NOT proxy through Next.js /api/* — that creates a redirect loop with Django's APPEND_SLASH.
-const DJANGO_BASE =
-  process.env.NEXT_PUBLIC_DJANGO_URL || "http://localhost:8000";
-const REPORTS_API_BASE_URL = DJANGO_BASE;
+import { supabase } from "@/lib/supabase";
+
+/**
+ * Base URL for Django API requests.
+ *
+ * **Browser (development):** Prefer `NEXT_PUBLIC_DJANGO_URL` if set; otherwise call
+ * Django directly at `http://127.0.0.1:8000`. That avoids Turbopack/rewrite quirks
+ * and works with Bearer auth once CORS allows your Next origin (including LAN URLs
+ * like `http://10.x.x.x:3000` — see Django `CORS_ALLOWED_ORIGIN_REGEXES` in DEBUG).
+ *
+ * **Browser (production):** Use `NEXT_PUBLIC_DJANGO_URL` (your deployed API) or same-origin
+ * `""` when the app and API share one host.
+ *
+ * **Server (SSR):** Absolute URL from env or `http://127.0.0.1:8000`.
+ */
+export function djangoApiBase(): string {
+  if (typeof window !== "undefined") {
+    const fromEnv = (
+      process.env.NEXT_PUBLIC_DJANGO_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      ""
+    ).trim();
+    if (fromEnv) {
+      return fromEnv.replace(/\/$/, "");
+    }
+    if (process.env.NODE_ENV === "development") {
+      return "http://127.0.0.1:8000";
+    }
+    return "";
+  }
+  return (
+    process.env.NEXT_PUBLIC_DJANGO_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://127.0.0.1:8000"
+  );
+}
+
+/** Shown in error messages — where Django should be listening (rewrite target). */
+function djangoApiDisplayUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_DJANGO_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://127.0.0.1:8000"
+  );
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  if (!supabase) return {};
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export class ApiError extends Error {
   status: number;
@@ -258,13 +305,11 @@ export async function analyzeUrl(
   const parseJson = async (res: Response) => res.json().catch(() => ({}));
 
   try {
-    // Prefer Django proxy (session cookie) so Flask can persist with the internal
-    // secret and scans show up in your account. Falls back to direct Flask when
-    // not logged in (e.g. public /web scanner).
-    const proxied = await fetch(`${DJANGO_BASE}/api/scans/run/`, {
+    // Prefer Django authenticated scan so results link to your targets; fall back
+    // to public analyze-url when not logged in.
+    const proxied = await fetch(`${djangoApiBase()}/api/scans/run/`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -274,7 +319,7 @@ export async function analyzeUrl(
     }
 
     if (proxied.status === 401 || proxied.status === 403) {
-      const direct = await fetch(`${API_BASE_URL}/api/analyze-url`, {
+      const direct = await fetch(`${djangoApiBase()}/api/analyze-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -308,9 +353,9 @@ export async function analyzeUrl(
         error.message.includes("Failed to fetch")
       ) {
         throw new Error(
-          "Cannot connect to API server - ensure the backend is running on " +
-            API_BASE_URL +
-            " (run: python api/server.py)",
+          "Cannot connect to API server - ensure Django is running on " +
+            djangoApiDisplayUrl() +
+            " (e.g. cd core && python manage.py runserver)",
         );
       }
     }
@@ -322,7 +367,7 @@ export async function analyzeUrl(
  * Get current system dashboard data.
  */
 export async function getDashboardData(): Promise<DashboardData> {
-  const response = await fetch(`${API_BASE_URL}/api/dashboard`, {
+  const response = await fetch(`${djangoApiBase()}/api/dashboard`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -340,7 +385,7 @@ export async function getDashboardData(): Promise<DashboardData> {
  * Get system statistics.
  */
 export async function getSystemStats(): Promise<SystemStats> {
-  const response = await fetch(`${API_BASE_URL}/api/system-stats`, {
+  const response = await fetch(`${djangoApiBase()}/api/system-stats`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -358,7 +403,7 @@ export async function getSystemStats(): Promise<SystemStats> {
  * Get current network connections.
  */
 export async function getConnections(): Promise<Connection[]> {
-  const response = await fetch(`${API_BASE_URL}/api/connections`, {
+  const response = await fetch(`${djangoApiBase()}/api/connections`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -377,7 +422,7 @@ export async function getConnections(): Promise<Connection[]> {
  * Get security alerts.
  */
 export async function getAlerts(): Promise<string[]> {
-  const response = await fetch(`${API_BASE_URL}/api/alerts`, {
+  const response = await fetch(`${djangoApiBase()}/api/alerts`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -397,7 +442,7 @@ export async function getAlerts(): Promise<string[]> {
  */
 export async function getReport(reportId: string): Promise<ScanReport> {
   const response = await fetch(
-    `${REPORTS_API_BASE_URL}/api/reports/${reportId}/`,
+    `${djangoApiBase()}/api/reports/${reportId}/`,
     {
       method: "GET",
       headers: {
@@ -425,7 +470,7 @@ export async function checkHealth(): Promise<{
   service: string;
 }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`, {
+    const response = await fetch(`${djangoApiBase()}/api/health`, {
       method: "GET",
       signal: AbortSignal.timeout(5000), // 5 second timeout
     });
@@ -440,13 +485,13 @@ export async function checkHealth(): Promise<{
       if (error.name === "TimeoutError") {
         throw new Error(
           "API server timeout - ensure the backend is running on " +
-            API_BASE_URL,
+            djangoApiDisplayUrl(),
         );
       }
       if (error.message.includes("fetch")) {
         throw new Error(
           "Cannot connect to API server - ensure the backend is running on " +
-            API_BASE_URL,
+            djangoApiDisplayUrl(),
         );
       }
     }
@@ -458,7 +503,7 @@ export async function checkHealth(): Promise<{
  * Get the current API base URL.
  */
 export function getApiUrl(): string {
-  return API_BASE_URL;
+  return djangoApiDisplayUrl();
 }
 
 // ---------------------------------------------------------------------------
@@ -505,6 +550,8 @@ export interface Target {
   gsc_analytics?: GscAnalyticsPayload | null;
   gsc_synced_at?: string | null;
   gsc_sync_error?: string | null;
+  /** Latest persisted scan for this target (load full results via getReport). */
+  latest_report_id?: string | null;
 }
 
 export interface UserProfile {
@@ -531,8 +578,8 @@ export interface ScanSummary {
 
 /** Fetch whether the user has connected Google Search Console (server-side tokens). */
 export async function getGscStatus(): Promise<{ connected: boolean }> {
-  const res = await fetch(`${DJANGO_BASE}/api/gsc/status/`, {
-    credentials: "include",
+  const res = await fetch(`${djangoApiBase()}/api/gsc/status/`, {
+    headers: await authHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -551,8 +598,8 @@ export async function getGscStatus(): Promise<{ connected: boolean }> {
 export async function getGscConnectAuthorizationUrl(): Promise<{
   authorization_url: string;
 }> {
-  const res = await fetch(`${DJANGO_BASE}/api/gsc/connect/`, {
-    credentials: "include",
+  const res = await fetch(`${djangoApiBase()}/api/gsc/connect/`, {
+    headers: await authHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -570,10 +617,9 @@ export async function syncGscTargets(): Promise<{
   targets: number;
   errors: number;
 }> {
-  const res = await fetch(`${DJANGO_BASE}/api/gsc/sync-targets/`, {
+  const res = await fetch(`${djangoApiBase()}/api/gsc/sync-targets/`, {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: "{}",
   });
   if (!res.ok) {
@@ -588,8 +634,8 @@ export async function syncGscTargets(): Promise<{
 
 /** Fetch all targets for the current user. */
 export async function getTargets(): Promise<Target[]> {
-  const res = await fetch(`${DJANGO_BASE}/api/targets/`, {
-    credentials: "include",
+  const res = await fetch(`${djangoApiBase()}/api/targets/`, {
+    headers: await authHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -600,10 +646,9 @@ export async function getTargets(): Promise<Target[]> {
 
 /** Create a new monitored target (URL only). */
 export async function createTarget(url: string): Promise<Target> {
-  const res = await fetch(`${DJANGO_BASE}/api/targets/`, {
+  const res = await fetch(`${djangoApiBase()}/api/targets/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ url }),
   });
   if (!res.ok) {
@@ -615,8 +660,8 @@ export async function createTarget(url: string): Promise<Target> {
 
 /** Fetch a single target by UUID. */
 export async function getTarget(id: string): Promise<Target> {
-  const res = await fetch(`${DJANGO_BASE}/api/targets/${id}/`, {
-    credentials: "include",
+  const res = await fetch(`${djangoApiBase()}/api/targets/${id}/`, {
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Target not found");
   return res.json();
@@ -624,9 +669,9 @@ export async function getTarget(id: string): Promise<Target> {
 
 /** Delete a monitored target. */
 export async function deleteTarget(id: string): Promise<void> {
-  const res = await fetch(`${DJANGO_BASE}/api/targets/${id}/`, {
+  const res = await fetch(`${djangoApiBase()}/api/targets/${id}/`, {
     method: "DELETE",
-    credentials: "include",
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to delete target");
 }
@@ -643,8 +688,8 @@ export interface ScanLocation {
 
 /** Fetch unique server coordinates for all scans belonging to the current user. */
 export async function getScanLocations(): Promise<ScanLocation[]> {
-  const res = await fetch(`${DJANGO_BASE}/api/scans/locations/`, {
-    credentials: "include",
+  const res = await fetch(`${djangoApiBase()}/api/scans/locations/`, {
+    headers: await authHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -658,8 +703,8 @@ export async function getScanLocations(): Promise<ScanLocation[]> {
 
 /** Fetch all scans belonging to the current user's targets. */
 export async function getScans(): Promise<ScanSummary[]> {
-  const res = await fetch(`${DJANGO_BASE}/api/scans/`, {
-    credentials: "include",
+  const res = await fetch(`${djangoApiBase()}/api/scans/`, {
+    headers: await authHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -670,59 +715,57 @@ export async function getScans(): Promise<ScanSummary[]> {
 
 /** Get the current user's profile. */
 export async function getMe(): Promise<UserProfile> {
-  const res = await fetch(`${DJANGO_BASE}/api/auth/me/`, {
-    credentials: "include",
+  const res = await fetch(`${djangoApiBase()}/api/auth/me/`, {
+    headers: await authHeaders(),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new ApiError(err.error || "Not authenticated", res.status);
-  }
-  return res.json();
+  if (res.ok) return res.json();
+
+  // Fall back to Supabase session info so UI can render even if Django is down.
+  if (!supabase) throw new ApiError("Not authenticated", 401);
+  const { data } = await supabase.auth.getUser();
+  const u = data.user;
+  if (!u) throw new ApiError("Not authenticated", 401);
+  const full =
+    (u.user_metadata?.full_name as string | undefined) ||
+    (u.user_metadata?.name as string | undefined) ||
+    "";
+  return {
+    email: u.email || "",
+    name: full || u.email || "",
+    first_name: (u.user_metadata?.first_name as string | undefined) || "",
+    last_name: (u.user_metadata?.last_name as string | undefined) || "",
+    initials: (u.email || "U").slice(0, 2).toUpperCase(),
+  };
 }
 
-/** Authenticate and create a Django session (email + password; server uses session cookies, not JWT). */
+/** Email + password sign-in via Supabase; JWT is sent to Django on subsequent API calls. */
 export async function login(
   email: string,
   password: string,
 ): Promise<AuthUser> {
-  const res = await fetch(`${DJANGO_BASE}/api/auth/login/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+  if (!supabase) throw new ApiError("Supabase is not configured", 500);
+  const { error, data } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
   });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new ApiError(err.error || "Login failed", res.status);
-  }
-
-  return res.json();
+  if (error) throw new ApiError(error.message, 401);
+  return { email: data.user?.email || email };
 }
 
-/** Register with full name, email, and password (Django session cookie, not JWT). */
+/** Register via Supabase; confirm email if required by your Supabase project settings. */
 export async function signup(data: {
   full_name: string;
   email: string;
   password: string;
 }): Promise<AuthUser> {
-  const res = await fetch(`${DJANGO_BASE}/api/auth/signup/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      full_name: data.full_name.trim(),
-      email: data.email.trim().toLowerCase(),
-      password: data.password,
-    }),
+  if (!supabase) throw new ApiError("Supabase is not configured", 500);
+  const { error, data: out } = await supabase.auth.signUp({
+    email: data.email.trim().toLowerCase(),
+    password: data.password,
+    options: { data: { full_name: data.full_name.trim() } },
   });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new ApiError(err.error || "Sign up failed", res.status);
-  }
-
-  return res.json();
+  if (error) throw new ApiError(error.message, 400);
+  return { email: out.user?.email || data.email };
 }
 
 /** Update first and/or last name. */
@@ -730,17 +773,16 @@ export async function updateProfile(data: {
   first_name?: string;
   last_name?: string;
 }): Promise<{ ok: boolean; name: string; initials: string }> {
-  const res = await fetch(`${DJANGO_BASE}/api/auth/profile/`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(data),
+  if (!supabase) throw new Error("Supabase is not configured");
+  const { error } = await supabase.auth.updateUser({
+    data: {
+      ...(data.first_name != null ? { first_name: data.first_name } : {}),
+      ...(data.last_name != null ? { last_name: data.last_name } : {}),
+    },
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to update profile");
-  }
-  return res.json();
+  if (error) throw new Error(error.message);
+  const u = await getMe();
+  return { ok: true, name: u.name, initials: u.initials };
 }
 
 /** Change the authenticated user's password. */
@@ -748,31 +790,23 @@ export async function changePassword(
   old_password: string,
   new_password: string,
 ): Promise<void> {
-  const res = await fetch(`${DJANGO_BASE}/api/auth/password/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ old_password, new_password }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to change password");
-  }
+  void old_password;
+  if (!supabase) throw new Error("Supabase is not configured");
+  const { error } = await supabase.auth.updateUser({ password: new_password });
+  if (error) throw new Error(error.message);
 }
 
 /** End the current session. */
 export async function logout(): Promise<void> {
-  await fetch(`${DJANGO_BASE}/api/auth/logout/`, {
-    method: "POST",
-    credentials: "include",
-  });
+  if (!supabase) return;
+  await supabase.auth.signOut();
 }
 
 /** Permanently delete the user account and all data. */
 export async function deleteAccount(): Promise<void> {
-  const res = await fetch(`${DJANGO_BASE}/api/auth/account/`, {
+  const res = await fetch(`${djangoApiBase()}/api/auth/account/`, {
     method: "DELETE",
-    credentials: "include",
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to delete account");
 }
@@ -822,8 +856,8 @@ export interface CloudflareAnalytics {
 
 /** Check whether a Cloudflare API token has been saved for the current user. */
 export async function getCloudflareStatus(): Promise<CloudflareStatus> {
-  const res = await fetch(`${DJANGO_BASE}/api/cloudflare/status/`, {
-    credentials: "include",
+  const res = await fetch(`${djangoApiBase()}/api/cloudflare/status/`, {
+    headers: await authHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -839,10 +873,9 @@ export async function getCloudflareStatus(): Promise<CloudflareStatus> {
 export async function connectCloudflare(
   apiToken: string,
 ): Promise<{ success: boolean; account_name: string; zones_count: number }> {
-  const res = await fetch(`${DJANGO_BASE}/api/cloudflare/connect/`, {
+  const res = await fetch(`${djangoApiBase()}/api/cloudflare/connect/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ api_token: apiToken }),
   });
   if (!res.ok) {
@@ -856,17 +889,17 @@ export async function connectCloudflare(
 
 /** Remove the stored Cloudflare API token. */
 export async function disconnectCloudflare(): Promise<void> {
-  const res = await fetch(`${DJANGO_BASE}/api/cloudflare/disconnect/`, {
+  const res = await fetch(`${djangoApiBase()}/api/cloudflare/disconnect/`, {
     method: "DELETE",
-    credentials: "include",
+    headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to disconnect Cloudflare");
 }
 
 /** List all zones accessible via the stored Cloudflare token. */
 export async function getCloudflareZones(): Promise<CloudflareZone[]> {
-  const res = await fetch(`${DJANGO_BASE}/api/cloudflare/zones/`, {
-    credentials: "include",
+  const res = await fetch(`${djangoApiBase()}/api/cloudflare/zones/`, {
+    headers: await authHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -885,8 +918,8 @@ export async function getCloudflareAnalytics(
 ): Promise<CloudflareAnalytics> {
   const params = new URLSearchParams({ zone_id: zoneId, days: String(days) });
   const res = await fetch(
-    `${DJANGO_BASE}/api/cloudflare/analytics/?${params}`,
-    { credentials: "include" },
+    `${djangoApiBase()}/api/cloudflare/analytics/?${params}`,
+    { headers: await authHeaders() },
   );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

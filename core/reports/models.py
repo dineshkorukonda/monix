@@ -1,14 +1,13 @@
 """
 Models for the reports app.
 
-Scan stores the raw result of a URL security scan.
-Report wraps a Scan with expiry metadata.
-Both are persisted to the shared PostgreSQL database that Flask also writes to.
+Scan stores the raw result of a URL security scan and expiry metadata
+for shareable report URLs.
 """
 
 import uuid
-from django.core.validators import MaxValueValidator, MinValueValidator
 from django.contrib.auth.models import User
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -49,7 +48,7 @@ class Target(models.Model):
 
 
 class Scan(models.Model):
-    """Represents one URL security scan result."""
+    """Represents one URL security scan result and shareable report lifetime."""
 
     target = models.ForeignKey(
         Target, on_delete=models.SET_NULL, null=True, blank=True, related_name="scans"
@@ -66,28 +65,16 @@ class Scan(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Composite posture score 0–100 from the scan engine (higher is better).",
     )
-    results = models.JSONField(help_text="Full scan result payload returned by the Flask engine.")
+    results = models.JSONField(help_text="Full scan result payload returned by the scan engine.")
     created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self) -> str:
-        return f"Scan {self.report_id} — {self.url} (score={self.score})"
-
-
-class Report(models.Model):
-    """Wraps a Scan with expiry information."""
-
-    scan = models.OneToOneField(Scan, on_delete=models.CASCADE, related_name="report")
     is_expired = models.BooleanField(default=False)
     expires_at = models.DateTimeField(
         help_text="Timestamp after which this report is considered expired."
     )
 
     class Meta:
-        ordering = ["-scan__created_at"]
+        ordering = ["-created_at"]
 
     def __str__(self) -> str:
         status = "expired" if self.is_expired else "active"
-        return f"Report for {self.scan.report_id} ({status})"
+        return f"Scan {self.report_id} — {self.url} (score={self.score}, {status})"

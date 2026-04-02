@@ -1,9 +1,9 @@
-"""Tests for api.monitoring.state."""
+"""Tests for scan_engine.monitoring.state."""
 
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from api.monitoring.state import GlobalState
+from scan_engine.monitoring.state import GlobalState
 
 
 class TestGlobalState:
@@ -30,7 +30,7 @@ class TestGlobalState:
         state = GlobalState()
         fixed_now = datetime(2026, 1, 1, 12, 0, 0)
 
-        with patch("api.monitoring.state.datetime") as mock_datetime:
+        with patch("scan_engine.monitoring.state.datetime") as mock_datetime:
             mock_datetime.now.side_effect = [
                 fixed_now,
                 fixed_now + timedelta(seconds=30),

@@ -22,59 +22,57 @@ from django.utils import timezone  # noqa: E402
 
 from django.contrib.auth.models import User  # noqa: E402
 
-from reports.models import Report, Scan, Target  # noqa: E402
+from reports.models import Scan, Target  # noqa: E402
 
 
-def _make_scan(url="https://example.com", score=20, results=None):
-    return Scan.objects.create(url=url, score=score, results=results or {"status": "success"})
-
-
-def _make_report(scan, is_expired=False, expires_at=None):
-    return Report.objects.create(
-        scan=scan,
+def _make_scan(
+    url="https://example.com",
+    score=20,
+    results=None,
+    *,
+    is_expired=False,
+    expires_at=None,
+):
+    exp = expires_at or (timezone.now() + timedelta(days=30))
+    return Scan.objects.create(
+        url=url,
+        score=score,
+        results=results or {"status": "success"},
         is_expired=is_expired,
-        expires_at=expires_at or (timezone.now() + timedelta(days=30)),
+        expires_at=exp,
     )
 
 
-class ReportModelTest(TestCase):
-    def test_report_string_includes_active_status(self):
-        scan = _make_scan()
-        report = _make_report(scan)
+class ScanModelTest(TestCase):
+    def test_string_includes_active_status(self):
+        scan = _make_scan(is_expired=False)
+        assert "active" in str(scan)
 
-        assert "active" in str(report)
+    def test_string_includes_expired_status(self):
+        scan = _make_scan(is_expired=True)
+        assert "expired" in str(scan)
 
-    def test_report_string_includes_expired_status(self):
-        scan = _make_scan()
-        report = _make_report(scan, is_expired=True)
+    def test_ordering_newest_first(self):
+        older = _make_scan(url="https://older.example.com")
+        newer = _make_scan(url="https://newer.example.com")
+        Scan.objects.filter(pk=older.pk).update(created_at=timezone.now() - timedelta(days=1))
 
-        assert "expired" in str(report)
-
-    def test_report_ordering_uses_newest_scan_first(self):
-        older_scan = _make_scan(url="https://older.example.com")
-        newer_scan = _make_scan(url="https://newer.example.com")
-
-        older_report = _make_report(older_scan)
-        newer_report = _make_report(newer_scan)
-
-        Scan.objects.filter(pk=older_scan.pk).update(created_at=timezone.now() - timedelta(days=1))
-
-        ordered_ids = list(Report.objects.values_list("id", flat=True))
-        assert ordered_ids == [newer_report.id, older_report.id]
+        ordered_ids = list(Scan.objects.values_list("id", flat=True))
+        assert ordered_ids == [newer.id, older.id]
 
 
 class ExpireReportsCommandTest(TestCase):
-    def test_command_marks_only_past_due_reports_as_expired(self):
-        overdue_report = _make_report(
-            _make_scan(url="https://old.example.com"),
+    def test_command_marks_only_past_due_as_expired(self):
+        overdue = _make_scan(
+            url="https://old.example.com",
             expires_at=timezone.now() - timedelta(days=1),
         )
-        fresh_report = _make_report(
-            _make_scan(url="https://fresh.example.com"),
+        fresh = _make_scan(
+            url="https://fresh.example.com",
             expires_at=timezone.now() + timedelta(days=10),
         )
-        already_expired = _make_report(
-            _make_scan(url="https://expired.example.com"),
+        already = _make_scan(
+            url="https://expired.example.com",
             is_expired=True,
             expires_at=timezone.now() - timedelta(days=2),
         )
@@ -82,18 +80,18 @@ class ExpireReportsCommandTest(TestCase):
         out = StringIO()
         call_command("expire_reports", stdout=out)
 
-        overdue_report.refresh_from_db()
-        fresh_report.refresh_from_db()
-        already_expired.refresh_from_db()
+        overdue.refresh_from_db()
+        fresh.refresh_from_db()
+        already.refresh_from_db()
 
-        assert overdue_report.is_expired is True
-        assert fresh_report.is_expired is False
-        assert already_expired.is_expired is True
+        assert overdue.is_expired is True
+        assert fresh.is_expired is False
+        assert already.is_expired is True
         assert "Marked 1 report(s) as expired." in out.getvalue()
 
     def test_command_is_idempotent_when_nothing_is_due(self):
-        _make_report(
-            _make_scan(url="https://future.example.com"),
+        _make_scan(
+            url="https://future.example.com",
             expires_at=timezone.now() + timedelta(days=7),
         )
 

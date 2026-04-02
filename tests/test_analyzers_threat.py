@@ -1,6 +1,6 @@
 """Tests for api.analyzers.threat module."""
 
-from api.analyzers.threat import analyze_connections, detect_threats
+from scan_engine.analyzers.threat import analyze_connections, detect_threats
 
 
 class TestAnalyzeConnections:

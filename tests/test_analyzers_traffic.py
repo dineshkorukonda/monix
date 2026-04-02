@@ -1,7 +1,7 @@
 """Tests for api.analyzers.traffic module."""
 
 from datetime import datetime
-from api.analyzers.traffic import (
+from scan_engine.analyzers.traffic import (
     parse_log_line,
     is_suspicious_url,
     is_malicious_bot,

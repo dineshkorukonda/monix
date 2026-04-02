@@ -1,9 +1,9 @@
-"""Tests for api.seo_checker module."""
+"""Tests for scan_engine.seo_checker module."""
 
 from unittest.mock import patch
 from bs4 import BeautifulSoup
 
-from api.seo_checker import (
+from scan_engine.seo_checker import (
     check_meta_title,
     check_meta_description,
     check_og_tags,
@@ -115,13 +115,13 @@ class TestCheckOgTags:
 # check_robots_txt
 # ---------------------------------------------------------------------------
 class TestCheckRobotsTxt:
-    @patch("api.seo_checker._url_exists", return_value=True)
+    @patch("scan_engine.seo_checker._url_exists", return_value=True)
     def test_present_passes(self, _mock):
         result = check_robots_txt("https://example.com")
         assert result["status"] == "pass"
         assert "robots.txt" in result["detail"]
 
-    @patch("api.seo_checker._url_exists", return_value=False)
+    @patch("scan_engine.seo_checker._url_exists", return_value=False)
     def test_absent_fails(self, _mock):
         result = check_robots_txt("https://example.com")
         assert result["status"] == "fail"
@@ -132,13 +132,13 @@ class TestCheckRobotsTxt:
 # check_sitemap_xml
 # ---------------------------------------------------------------------------
 class TestCheckSitemapXml:
-    @patch("api.seo_checker._url_exists", return_value=True)
+    @patch("scan_engine.seo_checker._url_exists", return_value=True)
     def test_present_passes(self, _mock):
         result = check_sitemap_xml("https://example.com")
         assert result["status"] == "pass"
         assert "sitemap.xml" in result["detail"]
 
-    @patch("api.seo_checker._url_exists", return_value=False)
+    @patch("scan_engine.seo_checker._url_exists", return_value=False)
     def test_absent_fails(self, _mock):
         result = check_sitemap_xml("https://example.com")
         assert result["status"] == "fail"
@@ -252,8 +252,8 @@ class TestCalculateSeoScore:
 # run_seo_checks (integration-level with mocked network)
 # ---------------------------------------------------------------------------
 class TestRunSeoChecks:
-    @patch("api.seo_checker._url_exists", return_value=True)
-    @patch("api.seo_checker._fetch_html")
+    @patch("scan_engine.seo_checker._url_exists", return_value=True)
+    @patch("scan_engine.seo_checker._fetch_html")
     def test_returns_checks_and_score(self, mock_fetch, _mock_exists):
         title = "A" * 55
         desc = "B" * 155
@@ -294,7 +294,7 @@ class TestRunSeoChecks:
             assert check["status"] in ("pass", "warn", "fail")
             assert "detail" in check
 
-    @patch("api.seo_checker._fetch_html")
+    @patch("scan_engine.seo_checker._fetch_html")
     def test_fetch_failure_returns_error(self, mock_fetch):
         mock_fetch.return_value = (None, "Connection refused")
         result = run_seo_checks("https://example.com")
@@ -308,7 +308,7 @@ class TestRunSeoChecks:
         assert result["seo_score"] == 0
         assert result["checks"] == {}
 
-    @patch("api.seo_checker.BS4_AVAILABLE", False)
+    @patch("scan_engine.seo_checker.BS4_AVAILABLE", False)
     def test_missing_bs4_returns_error(self):
         result = run_seo_checks("https://example.com")
         assert "error" in result

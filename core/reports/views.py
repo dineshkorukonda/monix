@@ -1,28 +1,26 @@
 import json
 import logging
-import os
 import secrets
 import urllib.parse
 from datetime import datetime
 
-import requests
 from django.conf import settings
 from django.db.models import Q
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
+from django.core import signing
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.models import User
 
 from . import gsc_client, gsc_tokens
-from .models import Report, Scan, Target, UserSearchConsoleCredentials
-from .scan_proxy import resolve_internal_scan_secret
+from .models import Scan, Target, UserSearchConsoleCredentials
+from .scan_service import run_full_url_analysis
+from .supabase_auth import authenticate_request
 
 logger = logging.getLogger(__name__)
-
-_INTERNAL_SCAN_SECRET_HEADER = "X-Monix-Internal-Scan-Secret"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -31,7 +29,21 @@ _INTERNAL_SCAN_SECRET_HEADER = "X-Monix-Internal-Scan-Secret"
 
 def _ensure_auth(request) -> bool:
     """Return True if the request is authenticated."""
-    return request.user.is_authenticated
+    u = authenticate_request(request)
+    if u is None:
+        return False
+    request._monix_user = u  # type: ignore[attr-defined]
+    return True
+
+
+def _authed_user(request) -> User:
+    u = getattr(request, "_monix_user", None)
+    if u is None:
+        u = authenticate_request(request)
+        if u is None:
+            raise RuntimeError("Unauthorized")
+        request._monix_user = u
+    return u
 
 
 def _scans_for_target(target: Target):
@@ -62,16 +74,11 @@ def _user_initials(user: User) -> str:
 def report_detail(request, report_id):
     """Return the full scan result for a shareable report URL."""
     try:
-        scan = Scan.objects.select_related("report").get(report_id=report_id)
+        scan = Scan.objects.get(report_id=report_id)
     except Scan.DoesNotExist:
         return JsonResponse({"error": "Report not found."}, status=404)
 
-    try:
-        report = scan.report
-    except Report.DoesNotExist:
-        return JsonResponse({"error": "Report not found."}, status=404)
-
-    if report.is_expired or report.expires_at <= timezone.now():
+    if scan.is_expired or scan.expires_at <= timezone.now():
         return JsonResponse({"error": "Report not found."}, status=404)
 
     return JsonResponse(
@@ -80,7 +87,7 @@ def report_detail(request, report_id):
             "url": scan.url,
             "score": scan.score,
             "created_at": scan.created_at.isoformat(),
-            "expires_at": report.expires_at.isoformat(),
+            "expires_at": scan.expires_at.isoformat(),
             "results": scan.results,
         }
     )
@@ -94,7 +101,8 @@ def report_detail(request, report_id):
 @csrf_exempt
 @require_POST
 def api_login(request):
-    """Authenticate and store session login."""
+    """Deprecated: Supabase Auth handles login."""
+    return JsonResponse({"error": "Use Supabase Auth for login."}, status=410)
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -124,7 +132,8 @@ def api_login(request):
 @csrf_exempt
 @require_POST
 def api_signup(request):
-    """Register a new user and create an authenticated session."""
+    """Deprecated: Supabase Auth handles signup."""
+    return JsonResponse({"error": "Use Supabase Auth for signup."}, status=410)
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -175,7 +184,7 @@ def api_me(request):
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
-    user = request.user
+    user = _authed_user(request)
     display_name = f"{user.first_name} {user.last_name}".strip() or user.email or user.username
     return JsonResponse(
         {
@@ -192,7 +201,10 @@ def api_me(request):
 @require_POST
 def api_logout(request):
     """End the current Django session."""
-    logout(request)
+    try:
+        logout(request)
+    except Exception:
+        pass
     return JsonResponse({"ok": True})
 
 
@@ -205,7 +217,7 @@ def api_profile(request):
 
     try:
         data = json.loads(request.body)
-        user = request.user
+        user = _authed_user(request)
         if "first_name" in data:
             user.first_name = data["first_name"].strip()
         if "last_name" in data:
@@ -226,8 +238,10 @@ def api_profile(request):
 @require_POST
 def api_change_password(request):
     """Change the authenticated user's password."""
-    if not _ensure_auth(request):
-        return JsonResponse({"error": "Unauthorized"}, status=401)
+    return JsonResponse(
+        {"error": "Password changes are managed by Supabase Auth."},
+        status=410,
+    )
 
     try:
         data = json.loads(request.body)
@@ -263,8 +277,10 @@ def api_targets(request):
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
+    user = _authed_user(request)
+
     if request.method == "GET":
-        targets = Target.objects.filter(owner=request.user)
+        targets = Target.objects.filter(owner=user)
         data = []
         for t in targets:
             scans_qs = _scans_for_target(t)
@@ -308,7 +324,7 @@ def api_targets(request):
             if not url.startswith(("http://", "https://")):
                 url = "https://" + url
             environment = (data.get("environment") or "").strip()
-            target = Target.objects.create(owner=request.user, url=url, environment=environment)
+            target = Target.objects.create(owner=user, url=url, environment=environment)
             try:
                 gsc_tokens.sync_target_search_console(target)
             except Exception as exc:
@@ -342,7 +358,8 @@ def api_target_detail(request, target_id):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
     try:
-        target = Target.objects.get(id=target_id, owner=request.user)
+        user = _authed_user(request)
+        target = Target.objects.get(id=target_id, owner=user)
     except Target.DoesNotExist:
         return JsonResponse({"error": "Target not found."}, status=404)
 
@@ -360,6 +377,9 @@ def api_target_detail(request, target_id):
                     latest_scan.created_at.strftime("%B %d, %H:%M") if latest_scan else "Never"
                 ),
                 "score": latest_scan.score if latest_scan else 100,
+                "latest_report_id": (
+                    str(latest_scan.report_id) if latest_scan else None
+                ),
                 "created_at": target.created_at.isoformat(),
                 "scan_count": scans_qs.count(),
                 "gsc_property_url": target.gsc_property_url or None,
@@ -387,13 +407,14 @@ def api_target_detail(request, target_id):
 @require_POST
 def api_run_scan(request):
     """
-    Run a full URL analysis via the Flask API on behalf of the logged-in user.
+    Run a full URL analysis on behalf of the logged-in user.
 
-    Validates optional ``target_id`` against the caller's targets, then forwards
-    the request to Flask with an internal secret so scans can be linked safely.
+    Optional ``target_id`` is validated against the caller's targets before the
+    scan is linked.
     """
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
+    user = _authed_user(request)
 
     try:
         data = json.loads(request.body)
@@ -403,48 +424,36 @@ def api_run_scan(request):
     if "url" not in data or not str(data.get("url", "")).strip():
         return JsonResponse({"error": "Missing 'url' in request body"}, status=400)
 
+    url = str(data["url"]).strip()
     target_id = data.get("target_id")
+    tid_str = None
     if target_id is not None and str(target_id).strip():
         tid = str(target_id).strip()
-        if not Target.objects.filter(id=tid, owner=request.user).exists():
+        if not Target.objects.filter(id=tid, owner=user).exists():
             return JsonResponse({"error": "Target not found."}, status=404)
+        tid_str = tid
 
-    secret = resolve_internal_scan_secret(debug=settings.DEBUG)
-    if not secret:
-        logger.error("MONIX_INTERNAL_SCAN_SECRET is not set and DEBUG is off; cannot proxy scans.")
-        return JsonResponse(
-            {
-                "error": (
-                    "Scan service is not configured. Set MONIX_INTERNAL_SCAN_SECRET in the "
-                    "environment for production."
-                ),
-            },
-            status=503,
-        )
-
-    base = (os.environ.get("FLASK_API_URL") or "http://127.0.0.1:3030").rstrip("/")
-    forward_url = f"{base}/api/analyze-url"
-    if request.GET.urlencode():
-        forward_url = f"{forward_url}?{request.GET.urlencode()}"
+    full_scan = request.GET.get("full", "false").lower() == "true"
+    include_port_scan = data.get("include_port_scan", full_scan)
+    include_metadata = data.get("include_metadata", full_scan)
+    include_performance = bool(data.get("include_performance", False))
+    if full_scan:
+        include_performance = True
 
     try:
-        upstream = requests.post(
-            forward_url,
-            json=data,
-            headers={
-                "Content-Type": "application/json",
-                _INTERNAL_SCAN_SECRET_HEADER: secret,
-            },
-            timeout=125,
+        result = run_full_url_analysis(
+            url,
+            full_scan=full_scan,
+            include_port_scan=include_port_scan,
+            include_metadata=include_metadata,
+            include_performance=include_performance,
+            target_id=tid_str,
+            persist=True,
         )
-    except requests.RequestException as exc:
-        logger.warning("Flask scan proxy failed: %s", exc)
-        detail = str(exc) if settings.DEBUG else ""
-        payload = {"error": "Scan service unavailable.", **({"detail": detail} if detail else {})}
-        return JsonResponse(payload, status=502)
-
-    ct = upstream.headers.get("Content-Type") or "application/json"
-    return HttpResponse(upstream.content, status=upstream.status_code, content_type=ct)
+        return JsonResponse(result)
+    except Exception as exc:
+        logger.exception("api_run_scan failed: %s", exc)
+        return JsonResponse({"status": "error", "error": str(exc)}, status=500)
 
 
 @require_GET
@@ -453,7 +462,8 @@ def api_scans(request):
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
-    targets = Target.objects.filter(owner=request.user)
+    user = _authed_user(request)
+    targets = Target.objects.filter(owner=user)
     target_ids = list(targets.values_list("id", flat=True))
     owned_urls = list(targets.values_list("url", flat=True))
     scans = (
@@ -492,7 +502,8 @@ def api_scan_locations(request):
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
-    targets = Target.objects.filter(owner=request.user)
+    user = _authed_user(request)
+    targets = Target.objects.filter(owner=user)
     target_ids = list(targets.values_list("id", flat=True))
     owned_urls = list(targets.values_list("url", flat=True))
     scans = (
@@ -536,12 +547,12 @@ def api_scan_locations(request):
 
 @require_GET
 def api_gsc_connect(request):
-    """Start OAuth: return JSON with Google authorization URL (session stores ``state``)."""
+    """Start OAuth: return JSON with Google authorization URL (stateless signed ``state``)."""
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
-    state = secrets.token_urlsafe(32)
-    request.session["gsc_oauth_state"] = state
-    request.session.modified = True
+    user = _authed_user(request)
+    payload = {"u": user.username, "n": secrets.token_urlsafe(16)}
+    state = signing.dumps(payload, salt="gsc-oauth-state")
     try:
         authorization_url = gsc_client.build_authorization_url(state)
     except RuntimeError as exc:
@@ -558,19 +569,19 @@ def api_gsc_callback(request):
         return redirect(f"{err_base}&reason={urllib.parse.quote(err)}")
     code = request.GET.get("code")
     state = request.GET.get("state")
-    if (
-        not code
-        or not state
-        or state != request.session.get("gsc_oauth_state")
-    ):
+    if not code or not state:
         return redirect(f"{err_base}&reason=invalid_callback")
-    if not _ensure_auth(request):
-        return redirect(f"{err_base}&reason=session")
+    try:
+        decoded = signing.loads(state, salt="gsc-oauth-state", max_age=15 * 60)
+        username = str((decoded or {}).get("u") or "")
+        user = User.objects.get(username=username)
+    except Exception:
+        return redirect(f"{err_base}&reason=invalid_callback")
 
     try:
         bundle = gsc_client.exchange_code_for_tokens(code)
         gsc_tokens.save_tokens_from_oauth(
-            request.user,
+            user,
             access_token=bundle.access_token,
             refresh_token=bundle.refresh_token,
             expires_in=bundle.expires_in,
@@ -582,7 +593,6 @@ def api_gsc_callback(request):
         logger.exception("GSC OAuth callback failed")
         return redirect(f"{err_base}&reason=token_exchange")
 
-    request.session.pop("gsc_oauth_state", None)
     return redirect(settings.GSC_OAUTH_SUCCESS_URL)
 
 
@@ -615,7 +625,8 @@ def api_gsc_status(request):
     """Whether the user has connected Search Console (refresh token on file)."""
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
-    connected = gsc_tokens.get_credentials_row(request.user) is not None
+    user = _authed_user(request)
+    connected = gsc_tokens.get_credentials_row(user) is not None
     return JsonResponse({"connected": connected})
 
 
@@ -624,7 +635,8 @@ def api_gsc_sites(request):
     """List Search Console properties (``/webmasters/v3/sites``)."""
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
-    token = gsc_tokens.get_valid_access_token(request.user)
+    user = _authed_user(request)
+    token = gsc_tokens.get_valid_access_token(user)
     if not token:
         return JsonResponse(
             {"error": "Google Search Console is not connected."},
@@ -657,7 +669,8 @@ def api_gsc_analytics(request):
     if not site_url:
         return JsonResponse({"error": "site_url is required."}, status=400)
 
-    token = gsc_tokens.get_valid_access_token(request.user)
+    user = _authed_user(request)
+    token = gsc_tokens.get_valid_access_token(user)
     if not token:
         return JsonResponse(
             {"error": "Google Search Console is not connected."},
@@ -700,7 +713,8 @@ def api_gsc_disconnect(request):
     """Remove stored Search Console tokens for the current user."""
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
-    UserSearchConsoleCredentials.objects.filter(user=request.user).delete()
+    user = _authed_user(request)
+    UserSearchConsoleCredentials.objects.filter(user=user).delete()
     return JsonResponse({"ok": True})
 
 
@@ -714,13 +728,14 @@ def api_gsc_sync_targets(request):
     """
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
-    if not gsc_tokens.get_credentials_row(request.user):
+    user = _authed_user(request)
+    if not gsc_tokens.get_credentials_row(user):
         return JsonResponse(
             {"error": "Google Search Console is not connected."},
             status=400,
         )
     targets = list(
-        Target.objects.filter(owner=request.user).order_by("-created_at"),
+        Target.objects.filter(owner=user).order_by("-created_at"),
     )
     errors = 0
     for target in targets:
@@ -745,67 +760,10 @@ def api_delete_account(request):
     if not _ensure_auth(request):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
-    user = request.user
+    user = _authed_user(request)
     # Django CASCADE deletion handles removing all targets, scans, and reports.
     user.delete()
     logout(request)
     return JsonResponse({"ok": True})
 
 
-# ---------------------------------------------------------------------------
-# Flask proxy — forwards unhandled /api/* requests to the Flask service so
-# both applications can share a single public URL on one Render service.
-# ---------------------------------------------------------------------------
-
-_FLASK_PROXY_TIMEOUT = 120  # seconds
-_HOP_BY_HOP = frozenset(
-    [
-        "connection",
-        "keep-alive",
-        "proxy-authenticate",
-        "proxy-authorization",
-        "te",
-        "trailers",
-        "transfer-encoding",
-        "upgrade",
-    ]
-)
-
-
-@csrf_exempt
-def flask_proxy(request, path: str):
-    """Reverse-proxy any unmatched /api/<path> request to the Flask service."""
-    flask_base = (os.environ.get("FLASK_API_URL") or "http://127.0.0.1:3030").rstrip("/")
-    url = f"{flask_base}/api/{path}"
-
-    # Strip hop-by-hop headers; pass through the rest.
-    forward_headers = {
-        k: v
-        for k, v in request.headers.items()
-        if k.lower() not in _HOP_BY_HOP and k.lower() != "host"
-    }
-
-    try:
-        upstream = requests.request(
-            method=request.method,
-            url=url,
-            headers=forward_headers,
-            data=request.body,
-            params=request.GET.urlencode(),
-            timeout=_FLASK_PROXY_TIMEOUT,
-            allow_redirects=False,
-        )
-    except requests.RequestException as exc:
-        logger.error("Flask proxy error for %s: %s", url, exc)
-        return JsonResponse({"error": "Flask service unavailable"}, status=502)
-
-    response = HttpResponse(
-        upstream.content,
-        status=upstream.status_code,
-        content_type=upstream.headers.get("Content-Type", "application/json"),
-    )
-    # Forward response headers, excluding hop-by-hop headers.
-    for header, value in upstream.headers.items():
-        if header.lower() not in _HOP_BY_HOP and header.lower() != "content-encoding":
-            response[header] = value
-    return response

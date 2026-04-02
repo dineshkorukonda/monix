@@ -4,9 +4,9 @@ import psutil
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from utils.geo import geo_lookup, reverse_dns  # noqa: E402
-from utils.network import TCP_STATES, hex_ip, hex_port  # noqa: E402
-from utils.processes import get_process_map  # noqa: E402
+from scan_engine.utils.geo import geo_lookup, reverse_dns  # noqa: E402
+from scan_engine.utils.network import TCP_STATES, hex_ip, hex_port  # noqa: E402
+from scan_engine.utils.processes import get_process_map  # noqa: E402
 
 
 def collect_connections():

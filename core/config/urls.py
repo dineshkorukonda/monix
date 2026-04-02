@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from reports import views as report_views
+from reports import cloudflare_views, engine_views, views as report_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -15,8 +15,6 @@ urlpatterns = [
     path("api/auth/profile/", report_views.api_profile, name="api_profile"),
     path("api/auth/password/", report_views.api_change_password, name="api_change_password"),
     path("api/auth/account/", report_views.api_delete_account, name="api_delete_account"),
-    # Legacy paths (must be before social_django include). GSC OAuth may still use
-    # /api/auth/google/callback/ as GOOGLE_REDIRECT_URI in .env / Google Cloud.
     path(
         "api/auth/google/callback/",
         report_views.api_auth_google_callback_compat,
@@ -27,20 +25,13 @@ urlpatterns = [
         report_views.api_auth_google_begin_redirect,
         name="google_auth_begin_legacy",
     ),
-    # Google OAuth2 (python-social-auth): namespace "social" for @psa. Start:
-    # GET /api/auth/login/google-oauth2/ — redirect_uri is /api/auth/google/callback/
-    # (see MonixDjangoStrategy + api_auth_google_callback_compat).
     path("api/auth/", include("social_django.urls")),
-    # Targets
     path("api/targets/", report_views.api_targets, name="api_targets"),
     path("api/targets/<uuid:target_id>/", report_views.api_target_detail, name="api_target_detail"),
-    # Scans
     path("api/scans/run/", report_views.api_run_scan, name="api_run_scan"),
     path("api/scans/", report_views.api_scans, name="api_scans"),
     path("api/scans/locations/", report_views.api_scan_locations, name="api_scan_locations"),
-    # Reports (public/shareable)
     path("api/reports/<uuid:report_id>/", report_views.report_detail, name="report_detail"),
-    # Google Search Console (OAuth + API; tokens stored server-side)
     path("api/gsc/connect/", report_views.api_gsc_connect, name="api_gsc_connect"),
     path("api/gsc/callback/", report_views.api_gsc_callback, name="api_gsc_callback"),
     path("api/gsc/status/", report_views.api_gsc_status, name="api_gsc_status"),
@@ -52,7 +43,26 @@ urlpatterns = [
         report_views.api_gsc_sync_targets,
         name="api_gsc_sync_targets",
     ),
-    # Catch-all: proxy any remaining /api/* requests to the Flask service so
-    # both apps can share a single Render service with one public URL.
-    path("api/<path:path>", report_views.flask_proxy, name="flask_proxy"),
+    path("api/cloudflare/status/", cloudflare_views.api_cloudflare_status, name="api_cf_status"),
+    path("api/cloudflare/connect/", cloudflare_views.api_cloudflare_connect, name="api_cf_connect"),
+    path(
+        "api/cloudflare/disconnect/",
+        cloudflare_views.api_cloudflare_disconnect,
+        name="api_cf_disconnect",
+    ),
+    path("api/cloudflare/zones/", cloudflare_views.api_cloudflare_zones, name="api_cf_zones"),
+    path(
+        "api/cloudflare/analytics/",
+        cloudflare_views.api_cloudflare_analytics,
+        name="api_cf_analytics",
+    ),
+    path("api/health", engine_views.health, name="api_health"),
+    path("api/analyze-url", engine_views.analyze_url_view, name="api_analyze_url"),
+    path("api/analyze-ip", engine_views.analyze_ip_view, name="api_analyze_ip"),
+    path("api/threat-info", engine_views.threat_info_view, name="api_threat_info"),
+    path("api/connections", engine_views.connections_view, name="api_connections"),
+    path("api/alerts", engine_views.alerts_view, name="api_alerts"),
+    path("api/system-stats", engine_views.system_stats_view, name="api_system_stats"),
+    path("api/processes", engine_views.processes_view, name="api_processes"),
+    path("api/dashboard", engine_views.dashboard_view, name="api_dashboard"),
 ]

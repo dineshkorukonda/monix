@@ -6,6 +6,7 @@ import os
 import urllib.parse
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # 1. Define BASE_DIR (This is /core)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,7 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "axes",
     "social_django",
-    "reports",
+    "reports.apps.ReportsConfig",
 ]
 
 MIDDLEWARE = [
@@ -54,6 +55,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "axes.middleware.AxesMiddleware",
+    "config.middleware.AppendSlashApiMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -68,6 +70,15 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+# DEBUG: browser may use http://<LAN-IP>:3000 while API is http://127.0.0.1:8000 (direct fetch).
+if DEBUG:
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^http://localhost:\d+$",
+        r"^http://127\.0\.0\.1:\d+$",
+        r"^http://10\.\d+\.\d+\.\d+:\d+$",
+        r"^http://172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:\d+$",
+        r"^http://192\.168\.\d+\.\d+:\d+$",
+    ]
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     FRONTEND_URL,
@@ -139,21 +150,75 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-_database_url = os.environ.get(
-    "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/monix"
-)
-_parsed = urllib.parse.urlparse(_database_url)
+_database_url = (os.environ.get("DATABASE_URL") or "").strip()
+if not _database_url:
+    raise ImproperlyConfigured(
+        "DATABASE_URL is required (PostgreSQL). Set it in the environment or .env."
+    )
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": _parsed.path.lstrip("/") or "monix",
-        "USER": _parsed.username or "postgres",
-        "PASSWORD": _parsed.password or "postgres",
-        "HOST": _parsed.hostname or "127.0.0.1",
-        "PORT": str(_parsed.port or 5432),
+_parsed = urllib.parse.urlparse(_database_url)
+_db_name = _parsed.path.lstrip("/") or "monix"
+_db_host = _parsed.hostname or "127.0.0.1"
+_db_port = _parsed.port or 5432
+
+# Pass libpq/psycopg2 options from DATABASE_URL query string, e.g.
+# ?sslmode=require&connect_timeout=15
+_qs = urllib.parse.parse_qs(_parsed.query, keep_blank_values=False)
+_db_options: dict = {}
+for _key, _vals in _qs.items():
+    if not _vals:
+        continue
+    _db_options[_key] = _vals[-1]
+
+# Coerce common numeric libpq options (query values are strings).
+_int_option_keys = frozenset(
+    {
+        "connect_timeout",
+        "keepalives",
+        "keepalives_idle",
+        "keepalives_interval",
+        "keepalives_count",
     }
+)
+for _k in list(_db_options.keys()):
+    if _k in _int_option_keys:
+        try:
+            _db_options[_k] = int(_db_options[_k])
+        except (TypeError, ValueError):
+            pass
+
+def _is_supabase_or_managed_postgres(host: str) -> bool:
+    h = (host or "").lower()
+    return "supabase.co" in h or "pooler.supabase.com" in h
+
+
+# Supabase / managed Postgres: require SSL and TCP keepalives to reduce
+# "SSL SYSCALL error: Operation timed out" on flaky networks (VPN/NAT).
+if _is_supabase_or_managed_postgres(_db_host) or os.environ.get("DATABASE_SSLMODE"):
+    _db_options.setdefault("sslmode", os.environ.get("DATABASE_SSLMODE", "require"))
+    _db_options.setdefault("connect_timeout", int(os.environ.get("DATABASE_CONNECT_TIMEOUT", "30")))
+    _db_options.setdefault("keepalives", 1)
+    _db_options.setdefault("keepalives_idle", int(os.environ.get("DATABASE_KEEPALIVES_IDLE", "30")))
+    _db_options.setdefault("keepalives_interval", int(os.environ.get("DATABASE_KEEPALIVES_INTERVAL", "10")))
+    _db_options.setdefault("keepalives_count", int(os.environ.get("DATABASE_KEEPALIVES_COUNT", "3")))
+
+_default_db: dict = {
+    "ENGINE": "django.db.backends.postgresql",
+    "NAME": _db_name,
+    "USER": _parsed.username or "postgres",
+    "PASSWORD": _parsed.password or "postgres",
+    "HOST": _db_host,
+    "PORT": str(_db_port),
 }
+if _db_options:
+    _default_db["OPTIONS"] = _db_options
+
+DATABASES = {"default": _default_db}
+
+# PgBouncer (Supabase pooler port 6543, transaction mode): server-side cursors break.
+if _db_port == 6543:
+    CONN_MAX_AGE = 0
+    DISABLE_SERVER_SIDE_CURSORS = True
 
 AUTH_PASSWORD_VALIDATORS = [
     {
