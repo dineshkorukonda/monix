@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { deleteAccount } from "@/lib/api";
@@ -10,6 +11,12 @@ export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handlePurge = async () => {
     if (
@@ -63,10 +70,14 @@ export default function SettingsPage() {
                     Select how Monix strictly renders across the HUD.
                   </p>
                 </div>
-                <select className="h-9 w-full md:w-48 rounded-md border border-input bg-background/50 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <option>System Default</option>
-                  <option>Pitch Black (OLED)</option>
-                  <option>Standard Dark</option>
+                <select 
+                  value={mounted ? theme : "system"}
+                  onChange={(e) => setTheme(e.target.value)}
+                  className="h-9 w-full md:w-48 rounded-md border border-input bg-background/50 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+                >
+                  <option value="system">System Default</option>
+                  <option value="light">Light Mode</option>
+                  <option value="dark">Dark Mode</option>
                 </select>
               </div>
 
