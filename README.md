@@ -10,7 +10,7 @@ shareable report for later retrieval.
 | Path                | Role                                                               |
 | ------------------- | ------------------------------------------------------------------ |
 | `core/scan_engine/` | Analyzers, collectors, monitoring, SEO/PageSpeed scoring           |
-| `core/reports/`     | Django app (REST API, auth, GSC, persistence)                      |
+| `core/reports/`     | Django app (REST API, auth, GSC, Cloudflare, persistence)          |
 | `core/config/`      | Django project settings (`DJANGO_SETTINGS_MODULE=config.settings`) |
 | `web/`              | Next.js frontend (Bun + Next 16)                                   |
 | `tests/`            | Backend pytest suite (Django + scan engine); see `tests/README.md` |
@@ -40,6 +40,13 @@ shareable report for later retrieval.
 - Core Web Vitals
 - Accessibility and best-practices scores
 
+## Integrations
+
+- **Google Search Console** — After the user completes Google OAuth (see `.env.example`), Django stores a refresh token and syncs search analytics per monitored site. Metrics appear in the dashboard, site detail, and analytics views.
+- **Cloudflare** — Users paste a [Cloudflare API token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/) in the app. Django verifies it, stores it encrypted, and proxies **zone list** and **zone HTTP analytics** (Cloudflare API v4, including GraphQL for dashboard-style HTTP metrics). The UI rolls up edge requests, cache ratio, threats, and related signals when a monitored hostname matches a zone on that token (overview, sites table, analytics, and issues).
+
+Cloudflare HTTP API (authenticated): `GET /api/cloudflare/status/`, `GET /api/cloudflare/zones/`, `GET /api/cloudflare/analytics/`, `POST /api/cloudflare/connect/`, `DELETE /api/cloudflare/disconnect/`. Search Console endpoints live under `/api/gsc/`.
+
 ## Architecture
 
 ```text
@@ -47,7 +54,9 @@ Next.js frontend
       |
       v
 Django (`core/` — REST API + scan engine)
-      |
+      |     \
+      |      +--> Google APIs (OAuth, Search Console)
+      |      +--> Cloudflare API (token — zones + analytics)
       v
 PostgreSQL
 ```
@@ -94,6 +103,7 @@ Supabase Auth requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON
 - `DATABASE_URL` is **required** and connects Django to PostgreSQL (local or Supabase).
 - `DJANGO_SECRET_KEY` should be set for local and production Django usage.
 - `PAGESPEED_API_KEY` enables live PageSpeed Insights data.
+- `GOOGLE_*` variables in `.env.example` configure Google OAuth (sign-in and Search Console). Optional `GOOGLE_REFRESH_TOKEN_FERNET_KEY` sets the Fernet key used for stored Google refresh tokens and Cloudflare API tokens; if omitted, encryption uses a key derived from `DJANGO_SECRET_KEY`.
 
 Generate a Django secret key with:
 
