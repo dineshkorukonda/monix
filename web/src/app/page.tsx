@@ -4,6 +4,7 @@ import { motion, type Variants } from "framer-motion";
 import {
   ArrowRight,
   BookOpen,
+  Cloud,
   Gauge,
   Globe2,
   LayoutDashboard,
@@ -56,6 +57,7 @@ const pillars = [
       "robots.txt, sitemap, canonical",
       "H1 and heading hygiene",
       "Optional: GSC clicks, impressions, queries (verified properties)",
+      "Optional: Cloudflare edge requests & cache ratio (matched zones)",
     ],
   },
   {
@@ -75,7 +77,7 @@ const workflow = [
   {
     step: "01",
     title: "Sign in",
-    body: "Access the workspace with your account—run analyses, attach results to projects, and keep a history of what you have checked.",
+    body: "Access the workspace with your account—run analyses against monitored sites, and keep a history of scans and reports.",
   },
   {
     step: "02",
@@ -89,8 +91,8 @@ const workflow = [
   },
   {
     step: "04",
-    title: "Search Console (optional)",
-    body: "Connect Google Search Console once from Projects. Monix matches verified properties to your targets, syncs search analytics, and surfaces clicks, impressions, and top queries on Overview and Analytics.",
+    title: "Integrations (optional)",
+    body: "Connect Google Search Console for queries and clicks, and Cloudflare with an API token for edge traffic, cache ratio, and security signals. Monix matches verified GSC properties and Cloudflare zones to your monitored sites; manage connections under Dashboard → Integrations.",
   },
 ] as const;
 
@@ -142,9 +144,9 @@ export default function Home() {
                 className="mt-8 max-w-xl text-base leading-relaxed text-white/50 md:text-lg"
               >
                 Category scores for security, SEO, and performance—plus
-                shareable reports, projects, and optional Google Search Console
-                metrics when you connect an account. Sign in to run analyses and
-                keep everything organized.
+                persisted reports, monitored sites, and optional Google Search
+                Console and Cloudflare metrics when you connect accounts. Sign
+                in to run analyses and keep everything organized.
               </motion.p>
               <motion.div
                 variants={itemVariants}
@@ -233,8 +235,8 @@ export default function Home() {
                 line: "Projects, targets, and scan history after you authenticate.",
               },
               {
-                kicker: "Search",
-                line: "Optional Search Console: verified properties map to targets for clicks, impressions, and queries in the dashboard.",
+                kicker: "Search & edge",
+                line: "Optional Search Console for clicks and queries; optional Cloudflare for edge requests and threats when zones match your sites.",
               },
             ].map((block) => (
               <div
@@ -268,8 +270,10 @@ export default function Home() {
               What we evaluate
             </h2>
             <p className="mt-4 max-w-2xl text-base text-white/50 md:text-lg">
-              Three lenses on the same URL—Flask for scanning and scoring,
-              Django for reports, Next.js for the experience.
+              Three lenses on the same URL—the Python scan engine in{" "}
+              <code className="font-mono text-[13px] text-white/60">core/</code>{" "}
+              for analysis and scoring, Django for persistence and APIs, Next.js
+              for the dashboard.
             </p>
           </motion.div>
           <div className="grid gap-px bg-white/10 md:grid-cols-3">
@@ -326,12 +330,12 @@ export default function Home() {
                     Real search performance next to your scans
                   </h2>
                   <p className="mt-4 text-sm leading-relaxed text-white/50 md:text-base">
-                    Connect Search Console from Projects. Monix stores OAuth
-                    tokens server-side, matches each target URL to a verified
-                    property, and syncs summary metrics plus top queries.
-                    Overview and Analytics show clicks, impressions, CTR, and
-                    average position when data is available—without replacing
-                    on-page SEO checks from the scan.
+                    Connect Search Console from Integrations or while setting up
+                    a site. Monix stores OAuth tokens server-side, matches each
+                    target URL to a verified property, and syncs summary metrics
+                    plus top queries. Overview and Analytics show clicks,
+                    impressions, CTR, and average position when data is
+                    available—without replacing on-page SEO checks from the scan.
                   </p>
                 </div>
                 <div className="shrink-0 md:max-w-xs md:text-right">
@@ -345,6 +349,53 @@ export default function Home() {
                     className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-white/80 underline decoration-white/25 underline-offset-4 transition-colors hover:text-white hover:decoration-white/50"
                   >
                     Read the GSC setup guide
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Cloudflare */}
+        <section className="border-t border-white/10 px-6 py-16 md:py-24">
+          <div className="mx-auto max-w-6xl">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="border border-white/10 bg-linear-to-br from-orange-500/[0.07] to-transparent p-8 md:p-10"
+            >
+              <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between md:gap-12">
+                <div className="max-w-xl">
+                  <div className="flex items-center gap-3 text-orange-400/90">
+                    <Cloud className="h-6 w-6" strokeWidth={1.25} />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
+                      Cloudflare
+                    </span>
+                  </div>
+                  <h2 className="mt-4 text-2xl font-bold text-white md:text-3xl">
+                    Edge traffic next to your scans
+                  </h2>
+                  <p className="mt-4 text-sm leading-relaxed text-white/50 md:text-base">
+                    Add an API token with zone read and analytics read. Monix
+                    stores it encrypted on the server, lists your zones, and
+                    pulls HTTP request series from Cloudflare&apos;s APIs. When a
+                    monitored site&apos;s hostname matches a zone, Overview,
+                    Sites, Analytics, and Issues show requests, cache ratio,
+                    threats, and country breakdowns alongside scan results.
+                  </p>
+                </div>
+                <div className="shrink-0 md:max-w-xs md:text-right">
+                  <p className="text-xs leading-relaxed text-white/40">
+                    Tokens are created in the Cloudflare dashboard; no worker
+                    deployment is required for this integration.
+                  </p>
+                  <Link
+                    href="/docs#cloudflare"
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-white/80 underline decoration-white/25 underline-offset-4 transition-colors hover:text-white hover:decoration-white/50"
+                  >
+                    Read the Cloudflare setup
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>
@@ -455,9 +506,10 @@ export default function Home() {
               Get into the workspace
             </h2>
             <p className="mt-4 max-w-xl text-white/50">
-              Sign in to run analyses and manage projects. Documentation covers
-              architecture, Google Search Console OAuth, environment variables,
-              and local development if you are integrating or self-hosting.
+              Sign in to run analyses and manage sites. Documentation covers
+              architecture, Supabase auth, Search Console and Cloudflare,
+              how reports are stored, environment variables, and local
+              development if you are integrating or self-hosting.
             </p>
           </motion.div>
           <div className="grid gap-6 md:grid-cols-2">
@@ -473,7 +525,7 @@ export default function Home() {
                 Sign in to the app
               </h3>
               <p className="mt-4 text-sm leading-relaxed text-white/45">
-                Dashboard, projects, targets, and scan history—everything gated
+                Dashboard, sites, integrations, and scan history—everything gated
                 behind authentication the way you run Monix today.
               </p>
               <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white">
@@ -490,8 +542,8 @@ export default function Home() {
                 Documentation
               </h3>
               <p className="mt-4 text-sm leading-relaxed text-white/45">
-                Flask API, Django reports, Next.js frontend, Search Console
-                integration, environment variables, and local
+                Django API, report persistence, Next.js frontend, Search Console
+                and Cloudflare, environment variables, and local
                 development—spelled out in one place.
               </p>
               <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white/80 group-hover:text-white">

@@ -9,7 +9,9 @@ const nav = [
   { id: "using-the-product", title: "Using the product" },
   { id: "google-oauth-console", title: "Google OAuth (Console)" },
   { id: "google-search-console", title: "Google Search Console" },
+  { id: "cloudflare", title: "Cloudflare" },
   { id: "architecture", title: "Architecture" },
+  { id: "reports-storage", title: "Reports & persistence" },
   { id: "scan-engine", title: "Scan engine" },
   { id: "django", title: "Django reports & auth" },
   { id: "nextjs", title: "Next.js web app" },
@@ -70,9 +72,10 @@ export default function DocsPage() {
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/50">
                 This guide matches the repo: Django runs the scan engine and
-                stores reports, serves authenticated APIs (including optional
-                Google Search Console OAuth), and the Next.js app is what you
-                sign into to manage projects and read results.
+                persists scan results in PostgreSQL, serves authenticated APIs
+                (Supabase JWT, optional Google Search Console OAuth, optional
+                Cloudflare API token), and the Next.js app is where you sign in
+                to manage sites, scans, and integrations.
               </p>
             </header>
 
@@ -83,13 +86,17 @@ export default function DocsPage() {
                 </h2>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
                   Monix analyzes a public URL and produces category scores
-                  (security, SEO, performance) plus an overall score. Scan
-                  output is persisted so you can reopen reports and share them.
-                  The product surface is the authenticated dashboard: you sign
-                  in, attach URLs to projects, run scans, and browse history—not
-                  a separate marketing scanner flow. You can optionally connect
-                  Google Search Console to pull verified-property search
-                  analytics into the dashboard.
+                  (security, SEO, performance) plus an overall score. Each run is
+                  stored as a{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    Scan
+                  </code>{" "}
+                  row (JSON payload, score, expiry) so you can reopen reports and
+                  list history. The product surface is the authenticated
+                  dashboard: you sign in with Supabase, add monitored sites
+                  (targets), run scans, and browse results. Optionally connect
+                  Google Search Console for search analytics and Cloudflare for
+                  edge HTTP metrics when hostnames match your zones.
                 </p>
               </section>
 
@@ -99,60 +106,62 @@ export default function DocsPage() {
                 </h2>
                 <ul className="mt-6 max-w-3xl space-y-4 text-base leading-relaxed text-white/60">
                   <li>
-                    <strong className="text-white/90">Sign in</strong> — Session
-                    cookies are issued by Django (
+                    <strong className="text-white/90">Sign in</strong> — The
+                    browser authenticates with{" "}
+                    <strong className="text-white/90">Supabase Auth</strong>.
+                    The Next.js app sends{" "}
                     <code className="font-mono text-[13px] text-white/70">
-                      /api/auth/login/
-                    </code>
-                    , etc.). The Next.js app calls these endpoints with
-                    credentials included.{" "}
-                    <strong className="text-white/90">
-                      Sign in with Google
-                    </strong>{" "}
-                    uses{" "}
+                      Authorization: Bearer &lt;JWT&gt;
+                    </code>{" "}
+                    to Django; the API verifies the JWT (JWKS) and maps the user
+                    to a Django account. Optional{" "}
+                    <strong className="text-white/90">Sign in with Google</strong>{" "}
+                    for the app uses social-auth (
                     <code className="font-mono text-[13px] text-white/70">
                       /api/auth/login/google-oauth2/
                     </code>
-                    ; Google redirects to{" "}
+                    ) and the shared callback{" "}
                     <code className="font-mono text-[13px] text-white/70">
                       /api/auth/google/callback/
-                    </code>{" "}
-                    (same URI as{" "}
+                    </code>
+                    . <strong className="text-white/90">Search Console</strong>{" "}
+                    OAuth uses the same client and typically the same{" "}
                     <code className="font-mono text-[13px] text-white/70">
                       GOOGLE_REDIRECT_URI
-                    </code>{" "}
-                    for Search Console — the handler branches on OAuth scope).
-                    Register the full URL under{" "}
-                    <em>Authorized redirect URIs</em>. Set{" "}
-                    <code className="font-mono text-[13px] text-white/70">
-                      DJANGO_PUBLIC_BASE_URL
-                    </code>{" "}
-                    so the origin matches (avoids{" "}
+                    </code>
+                    ; Django routes webmasters scope to the GSC token handler (
                     <code className="font-mono text-[12px] text-white/55">
-                      redirect_uri_mismatch
+                      api_auth_google_callback_compat
                     </code>
                     ).
                   </li>
                   <li>
                     <strong className="text-white/90">Overview</strong> — The
-                    dashboard home summarizes activity, average scores, and—when
-                    Search Console is connected—aggregated search metrics
-                    (clicks, impressions, CTR, position) and per-project
-                    breakdowns.
+                    dashboard home summarizes activity, average scores, Search
+                    Console rollups when connected, and Cloudflare edge totals
+                    when a monitored hostname matches a zone on your API token.
                   </li>
                   <li>
                     <strong className="text-white/90">Analytics</strong> —
-                    Deeper Search Console tables: per-target summaries, top
-                    queries, sync status, and a button to refresh metrics for
-                    all targets.
+                    Search Console tables (per-target summaries, top queries,
+                    sync) plus Cloudflare edge charts when connected.
                   </li>
                   <li>
-                    <strong className="text-white/90">Projects</strong> —
-                    Targets (URLs) live under projects. Create or open a
-                    project, then run analyses against a target. Connect Google
-                    Search Console here (OAuth); new targets sync search data
-                    when the domain matches a verified property in your GSC
-                    account.
+                    <strong className="text-white/90">Sites</strong> — Monitored
+                    URLs (targets). Add a site, run scans, and link Search
+                    Console properties when the URL matches a verified property.
+                    Cloudflare metrics appear automatically when the hostname
+                    matches a zone on your token—no per-site toggle.
+                  </li>
+                  <li>
+                    <strong className="text-white/90">Integrations</strong> —{" "}
+                    <Link
+                      href="/dashboard/integrations"
+                      className="text-white/80 underline decoration-white/25 underline-offset-2 hover:text-white"
+                    >
+                      Dashboard → Integrations
+                    </Link>{" "}
+                    for Google Search Console and Cloudflare connection status.
                   </li>
                   <li>
                     <strong className="text-white/90">Scan history</strong> —
@@ -160,19 +169,34 @@ export default function DocsPage() {
                     for that run.
                   </li>
                   <li>
-                    <strong className="text-white/90">Reports</strong> — Stored
-                    in PostgreSQL and fetched via Django (
+                    <strong className="text-white/90">Reports</strong> — Each
+                    scan is persisted as a{" "}
                     <code className="font-mono text-[13px] text-white/70">
-                      /api/reports/&lt;id&gt;/
+                      Scan
+                    </code>{" "}
+                    row (see{" "}
+                    <a
+                      href="#reports-storage"
+                      className="text-white/80 underline decoration-white/25 underline-offset-2 hover:text-white"
+                    >
+                      Reports &amp; persistence
+                    </a>
+                    ). JSON is served from{" "}
+                    <code className="font-mono text-[13px] text-white/70">
+                      GET /api/reports/&lt;uuid&gt;/
+                    </code>{" "}
+                    (shareable until expiry). The app also surfaces reports
+                    under{" "}
+                    <code className="font-mono text-[13px] text-white/70">
+                      /dashboard/report/&lt;id&gt;
                     </code>
-                    ). Public report routes in the app redirect into the
-                    dashboard report view when appropriate.
+                    .
                   </li>
                   <li>
                     <strong className="text-white/90">
                       Profile &amp; settings
                     </strong>{" "}
-                    — Account and workspace preferences from the sidebar.
+                    — Account and preferences from the sidebar.
                   </li>
                 </ul>
               </section>
@@ -310,16 +334,27 @@ export default function DocsPage() {
                 <ul className="mt-4 max-w-3xl space-y-2 font-mono text-[13px] leading-relaxed text-white/55">
                   <li>
                     <code className="text-white/75">GET /api/gsc/connect/</code>{" "}
-                    — Start OAuth; redirects to Google.
+                    — Returns JSON with a Google authorization URL (signed{" "}
+                    <code className="text-white/70">state</code>).
+                  </li>
+                  <li>
+                    <code className="text-white/75">
+                      GET /api/auth/google/callback/
+                    </code>{" "}
+                    — Recommended redirect URI for GSC OAuth (must match{" "}
+                    <code className="text-white/70">GOOGLE_REDIRECT_URI</code>
+                    ). With <code className="text-white/70">webmasters</code>{" "}
+                    scope, exchanges the code and stores tokens, then redirects
+                    to{" "}
+                    <code className="text-white/70">GSC_OAUTH_SUCCESS_URL</code>{" "}
+                    / error URL.
                   </li>
                   <li>
                     <code className="text-white/75">
                       GET /api/gsc/callback/
                     </code>{" "}
-                    — OAuth redirect target; exchanges code for tokens, then
-                    redirects to{" "}
-                    <code className="text-white/70">GSC_OAUTH_SUCCESS_URL</code>{" "}
-                    or error URL.
+                    — Alternate handler with the same logic if you register this
+                    path in Google Cloud instead.
                   </li>
                   <li>
                     <code className="text-white/75">GET /api/gsc/status/</code>{" "}
@@ -351,17 +386,19 @@ export default function DocsPage() {
                   </li>
                 </ul>
                 <p className="mt-6 max-w-3xl text-sm leading-relaxed text-white/50">
-                  Register the callback URL in Google Cloud Console (OAuth
-                  client) exactly as{" "}
+                  Register the redirect URI in Google Cloud exactly as{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     GOOGLE_REDIRECT_URI
                   </code>
-                  — typically{" "}
+                  . The default in{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    http://localhost:8000/api/gsc/callback/
+                    .env.example
                   </code>{" "}
-                  in development. Success and error browser redirects after
-                  OAuth are controlled by{" "}
+                  is{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    http://localhost:8000/api/auth/google/callback/
+                  </code>
+                  . Success and error browser redirects after OAuth use{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     GSC_OAUTH_SUCCESS_URL
                   </code>{" "}
@@ -369,9 +406,82 @@ export default function DocsPage() {
                   <code className="font-mono text-[13px] text-white/70">
                     GSC_OAUTH_ERROR_URL
                   </code>{" "}
-                  (defaults point at the Next.js Projects page with query
-                  flags).
+                  (defaults point at the Next.js app with query flags).
                 </p>
+              </section>
+
+              <section id="cloudflare" className="scroll-mt-28">
+                <h2 className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">
+                  Cloudflare
+                </h2>
+                <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
+                  Users paste a{" "}
+                  <a
+                    href="https://developers.cloudflare.com/fundamentals/api/get-started/create-token/"
+                    className="text-white/80 underline decoration-white/25 underline-offset-2 hover:text-white"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Cloudflare API token
+                  </a>{" "}
+                  in the app. Django verifies it, encrypts it with the same
+                  Fernet machinery as GSC tokens, and calls Cloudflare API v4
+                  (REST for zones and token verify;{" "}
+                  <strong className="text-white/90">GraphQL</strong> for zone HTTP
+                  request analytics). No Cloudflare secrets live in the
+                  browser.
+                </p>
+                <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
+                  Create a custom token with{" "}
+                  <strong className="text-white/90">Zone → Zone → Read</strong>{" "}
+                  and{" "}
+                  <strong className="text-white/90">
+                    Zone → Analytics → Read
+                  </strong>{" "}
+                  for the zones you need. The dashboard matches each monitored
+                  site hostname to a zone on that token and rolls up requests,
+                  cached bytes, threats, and country breakdowns on Overview,
+                  Sites, Analytics, and Issues.
+                </p>
+                <h3 className="mt-10 text-sm font-semibold text-white">
+                  Django API routes
+                </h3>
+                <ul className="mt-4 max-w-3xl space-y-2 font-mono text-[13px] leading-relaxed text-white/55">
+                  <li>
+                    <code className="text-white/75">
+                      GET /api/cloudflare/status/
+                    </code>{" "}
+                    — Connection status and account summary.
+                  </li>
+                  <li>
+                    <code className="text-white/75">
+                      POST /api/cloudflare/connect/
+                    </code>{" "}
+                    — JSON body{" "}
+                    <code className="text-white/70">{`{ "api_token": "…" }`}</code>
+                    ; verifies and stores the token.
+                  </li>
+                  <li>
+                    <code className="text-white/75">
+                      DELETE /api/cloudflare/disconnect/
+                    </code>{" "}
+                    — Remove stored credentials.
+                  </li>
+                  <li>
+                    <code className="text-white/75">
+                      GET /api/cloudflare/zones/
+                    </code>{" "}
+                    — List zones visible to the token.
+                  </li>
+                  <li>
+                    <code className="text-white/75">
+                      GET /api/cloudflare/analytics/
+                    </code>{" "}
+                    — Query params{" "}
+                    <code className="text-white/70">zone_id</code>, optional{" "}
+                    <code className="text-white/70">days</code> (default 7).
+                  </li>
+                </ul>
               </section>
 
               <section id="architecture" className="scroll-mt-28">
@@ -381,21 +491,75 @@ export default function DocsPage() {
                 <div className="mt-6 max-w-3xl space-y-4 border border-white/10 bg-white/[0.02] p-6 font-mono text-xs leading-relaxed text-white/55 md:text-sm">
                   <pre className="whitespace-pre-wrap">{`Browser (Next.js)
        │
-       └─► Django :8000  — session auth, scan engine, targets, scans, reports, GSC OAuth
+       └─► Django :8000  — Supabase JWT auth, scan engine, targets, scans,
+           reports API, GSC OAuth, Cloudflare token proxy
 
-PostgreSQL — DATABASE_URL for Django.
+PostgreSQL — DATABASE_URL; stores User, Target, Scan, integration credentials.
 
-Google APIs — Django calls Google Search Console (OAuth + Webmasters API)
-  using stored refresh tokens.`}</pre>
+Google APIs — Search Console via stored OAuth refresh tokens.
+
+Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API token.`}</pre>
                 </div>
                 <p className="mt-6 max-w-3xl text-base leading-relaxed text-white/60">
                   When you trigger a scan from the authenticated app, Django
-                  validates your session, associates the run with a target, and
-                  runs the scan engine in-process. Results are persisted as{" "}
+                  validates the bearer token, associates the run with a target
+                  when provided, and runs the scan engine in-process. Results are
+                  written through{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    Scan
+                    reports.persistence.save_scan_result
                   </code>{" "}
-                  rows for the UI to load.
+                  (see Reports &amp; persistence below).
+                </p>
+              </section>
+
+              <section id="reports-storage" className="scroll-mt-28">
+                <h2 className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">
+                  Reports &amp; persistence
+                </h2>
+                <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
+                  Scan outcomes are stored in the{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    reports.Scan
+                  </code>{" "}
+                  model: a unique{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    report_id
+                  </code>{" "}
+                  (UUID), the scanned URL, composite{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    score
+                  </code>
+                  , full{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    results
+                  </code>{" "}
+                  JSON from the engine, optional{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    target
+                  </code>{" "}
+                  FK, and{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    expires_at
+                  </code>{" "}
+                  / <code className="font-mono text-[13px] text-white/70">
+                    is_expired
+                  </code>{" "}
+                  for shareable report lifetime (default TTL 30 days from{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    persistence.save_scan_result
+                  </code>
+                  ).
+                </p>
+                <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
+                  <code className="font-mono text-[13px] text-white/70">
+                    GET /api/reports/&lt;uuid&gt;/
+                  </code>{" "}
+                  returns the JSON payload for non-expired scans (used for public
+                  sharing and the in-app report viewer). List endpoints under{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    /api/scans/
+                  </code>{" "}
+                  return metadata for the signed-in user&apos;s targets.
                 </p>
               </section>
 
@@ -436,10 +600,14 @@ Google APIs — Django calls Google Search Console (OAuth + Webmasters API)
                     /admin/
                   </code>
                   . CORS is configured so the browser can call Django directly
-                  from the Next.js origin. Google Search Console OAuth and sync
-                  endpoints live here (
+                  from the Next.js origin.                   Google Search Console and Cloudflare integration endpoints live
+                  here (
                   <code className="font-mono text-[13px] text-white/70">
                     /api/gsc/*
+                  </code>
+                  ,{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    /api/cloudflare/*
                   </code>
                   ). Admin login can be rate-limited via django-axes using{" "}
                   <code className="font-mono text-[13px] text-white/70">
@@ -506,6 +674,7 @@ Google APIs — Django calls Google Search Console (OAuth + Webmasters API)
                         "robots.txt and sitemap signals",
                         "Canonical and heading structure",
                         "Optional: GSC clicks, impressions, queries (OAuth)",
+                        "Optional: Cloudflare edge requests & threats (API token)",
                       ],
                     },
                     {
@@ -582,7 +751,7 @@ Google APIs — Django calls Google Search Console (OAuth + Webmasters API)
                     ],
                     [
                       "GOOGLE_REFRESH_TOKEN_FERNET_KEY",
-                      "Optional Fernet key for encrypting stored GSC refresh tokens; falls back to a key derived from DJANGO_SECRET_KEY if unset.",
+                      "Optional Fernet key for stored GSC refresh tokens and Cloudflare API tokens; if unset, a key is derived from DJANGO_SECRET_KEY.",
                     ],
                   ].map(([name, desc]) => (
                     <div

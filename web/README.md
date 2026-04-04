@@ -61,6 +61,21 @@ Google talks to **Supabase first**, not directly to your Next.js app. The `redir
 
 “Forgot password?” sends a Supabase recovery email. The link must open your app at `/auth/reset-password` (add that URL under Redirect URLs as above).
 
+## Google Search Console & Cloudflare
+
+Third-party metrics are fetched by **Django** (not directly from the browser). The Next.js app calls the Django API with the user’s Supabase JWT.
+
+### Google Search Console
+
+- **Backend:** Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` in the repo root `.env` (see root [`.env.example`](../.env.example)). After OAuth, Django stores and refreshes tokens and exposes `/api/gsc/*` for status, site list, analytics, sync, and disconnect.
+- **Frontend:** Connect or review status under **Dashboard → Integrations** and from **Sites** / site detail when linking Search Console to a monitored URL. Search metrics (clicks, impressions, queries, etc.) show on the main dashboard, **Analytics**, site detail, and related views when the property URL matches your monitored site.
+
+### Cloudflare
+
+- **Backend:** The user submits a **Cloudflare API token**; Django verifies it against the Cloudflare API, then stores it encrypted (same optional Fernet key as GSC: `GOOGLE_REFRESH_TOKEN_FERNET_KEY` in `.env`). Zone listing and HTTP analytics use **Cloudflare API v4** (including **GraphQL** for zone HTTP request series and aggregates).
+- **Token permissions:** Create a custom token at [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens) with **Zone → Zone → Read** and **Zone → Analytics → Read** for the zones you need (see also [Get started with API tokens](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)).
+- **Frontend:** **Dashboard → Integrations → Cloudflare** (`/dashboard/integrations/cloudflare`) to connect, pick a zone, and inspect edge charts. When Cloudflare is connected, **Overview**, **Sites**, **Analytics**, and **Issues** also roll up edge totals and signals for any monitored hostname that falls under a Cloudflare zone on that token (apex zones cover `www` and subdomains per the app’s matching rules).
+
 ## Testing and CI
 
 There is no Jest/Vitest suite in this package today; quality gates are **Biome** (`bun run lint`) and **production build** (`bun run build`). The monorepo CI job runs `bun install` and `next build` under `web/`. Backend pytest lives at repo root in `tests/`; see the root [README](../README.md#testing) and [tests/README.md](../tests/README.md).
