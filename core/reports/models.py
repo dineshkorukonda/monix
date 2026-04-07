@@ -93,6 +93,10 @@ class Scan(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["target", "-created_at"], name="scan_target_created_idx"),
+            models.Index(fields=["url", "-created_at"], name="scan_url_created_idx"),
+        ]
 
     def __str__(self) -> str:
         status = "expired" if self.is_expired else "active"

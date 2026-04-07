@@ -16,12 +16,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env_path = BASE_DIR.parent / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
 
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-#xu!9!outt7%1wp3(6*qje+l-7h!&e84=nzys=xu+vyfnj=xjg",
-)
+_secret_key = os.environ.get("DJANGO_SECRET_KEY", "").strip()
+if not _secret_key:
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY is required. Generate one with:\n"
+        '  python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"'
+    )
+SECRET_KEY = _secret_key
 
-DEBUG = os.environ.get("DEBUG", "True") == "True"
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 # Frontend origin (no trailing slash). Used for CORS and OAuth redirects.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000").strip().rstrip("/")
@@ -244,8 +247,21 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Engine endpoints (system stats, connections, processes, analyze-url) expose
+# sensitive server information. In production they require authentication;
+# set REQUIRE_ENGINE_AUTH=False only for local development.
+REQUIRE_ENGINE_AUTH = os.environ.get("REQUIRE_ENGINE_AUTH", str(not DEBUG)) == "True"
+
 # Session cookies for the Next.js dashboard (cross-origin to :8000 with credentials).
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+
+# Production HTTPS enforcement — all disabled in DEBUG for local dev.
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31_536_000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
