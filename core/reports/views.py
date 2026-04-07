@@ -5,7 +5,7 @@ import urllib.parse
 from datetime import datetime
 
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Count, Q, Subquery, OuterRef
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -110,30 +110,6 @@ def report_detail(request, report_id):
 def api_login(request):
     """Deprecated: Supabase Auth handles login."""
     return JsonResponse({"error": "Use Supabase Auth for login."}, status=410)
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON body."}, status=400)
-
-    password = data.get("password")
-    # Email-first login; accept legacy "username" key for older clients.
-    email = (data.get("email") or data.get("username") or "").strip()
-    if not email or not password:
-        return JsonResponse({"error": "Email and password are required."}, status=400)
-
-    if "@" in email:
-        account = User.objects.filter(email__iexact=email.lower()).first()
-    else:
-        account = User.objects.filter(username__iexact=email).first()
-
-    if account is None:
-        return JsonResponse({"error": "Invalid credentials"}, status=401)
-
-    user = authenticate(request, username=account.username, password=password)
-    if user is not None:
-        login(request, user)
-        return JsonResponse({"email": user.email})
-    return JsonResponse({"error": "Invalid credentials"}, status=401)
 
 
 @csrf_exempt
@@ -244,6 +220,8 @@ def api_profile(request):
 @require_POST
 def api_change_password(request):
     """Change the authenticated user's password."""
+    if not _ensure_auth(request):
+        return JsonResponse({"error": "Unauthorized"}, status=401)
 
     try:
         data = json.loads(request.body)
@@ -255,13 +233,12 @@ def api_change_password(request):
                 {"error": "New password must be at least 8 characters."}, status=400
             )
 
-        user = request.user
+        user = _authed_user(request)
         if not user.check_password(old_password):
             return JsonResponse({"error": "Current password is incorrect."}, status=400)
 
         user.set_password(new_password)
         user.save()
-        # Keep the user logged in after password change
         update_session_auth_hash(request, user)
         return JsonResponse({"ok": True})
     except Exception as e:
@@ -282,11 +259,43 @@ def api_targets(request):
     user = _authed_user(request)
 
     if request.method == "GET":
-        targets = Target.objects.filter(owner=user)
+        latest_scan_id = (
+            Scan.objects.filter(
+                Q(target_id=OuterRef("pk")) | Q(target__isnull=True, url=OuterRef("url"))
+            )
+            .order_by("-created_at")
+            .values("pk")[:1]
+        )
+        scan_count_sq = (
+            Scan.objects.filter(
+                Q(target_id=OuterRef("pk")) | Q(target__isnull=True, url=OuterRef("url"))
+            )
+            .order_by()
+            .values("target_id")
+            .annotate(cnt=Count("pk"))
+            .values("cnt")
+        )
+        targets = (
+            Target.objects.filter(owner=user)
+            .annotate(
+                _latest_scan_id=Subquery(latest_scan_id),
+                _scan_count=Subquery(scan_count_sq),
+            )
+        )
+
+        latest_scan_ids = [t._latest_scan_id for t in targets if t._latest_scan_id]
+        latest_scans_map = {
+            s.pk: s for s in Scan.objects.filter(pk__in=latest_scan_ids)
+        } if latest_scan_ids else {}
+
         data = []
         for t in targets:
-            scans_qs = _scans_for_target(t)
-            latest_scan = scans_qs.first()
+            latest_scan = latest_scans_map.get(t._latest_scan_id)
+            findings_count = (
+                len((latest_scan.results or {}).get("findings", []))
+                if latest_scan
+                else 0
+            )
             data.append(
                 {
                     "id": str(t.id),
@@ -296,9 +305,7 @@ def api_targets(request):
                     "ip": None,
                     "location": None,
                     "activity": (
-                        f"{len((latest_scan.results or {}).get('findings', []))} findings"
-                        if latest_scan
-                        else None
+                        f"{findings_count} findings" if latest_scan else None
                     ),
                     "status": (
                         "Healthy"
@@ -310,7 +317,7 @@ def api_targets(request):
                     ),
                     "score": latest_scan.score if latest_scan else None,
                     "created_at": t.created_at.isoformat(),
-                    "scan_count": scans_qs.count(),
+                    "scan_count": t._scan_count or 0,
                     "gsc_property_url": t.gsc_property_url or None,
                     "gsc_analytics": t.gsc_analytics,
                     "gsc_synced_at": (
@@ -481,6 +488,7 @@ def api_scans(request):
             Q(target_id__in=target_ids)
             | Q(target__isnull=True, url__in=owned_urls)
         )
+        .defer("results")
         .select_related("target")
         .distinct()
         .order_by("-created_at")[:100]

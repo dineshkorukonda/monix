@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+from functools import wraps
 
+from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
@@ -19,12 +21,29 @@ from .scan_service import (
     run_full_url_analysis,
     threat_info,
 )
+from .supabase_auth import authenticate_request
 
 logger = logging.getLogger(__name__)
 
 
 def _json_error(message: str, status: int = 400) -> JsonResponse:
     return JsonResponse({"status": "error", "error": message}, status=status)
+
+
+def _require_engine_auth(view_fn):
+    """Reject unauthenticated requests when REQUIRE_ENGINE_AUTH is True."""
+
+    @wraps(view_fn)
+    def wrapper(request, *args, **kwargs):
+        if not getattr(settings, "REQUIRE_ENGINE_AUTH", True):
+            return view_fn(request, *args, **kwargs)
+        if getattr(request, "user", None) is not None and request.user.is_authenticated:
+            return view_fn(request, *args, **kwargs)
+        if authenticate_request(request) is not None:
+            return view_fn(request, *args, **kwargs)
+        return JsonResponse({"status": "error", "error": "Unauthorized"}, status=401)
+
+    return wrapper
 
 
 @require_GET
@@ -34,6 +53,7 @@ def health(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@_require_engine_auth
 def analyze_url_view(request):
     try:
         data = json.loads(request.body) if request.body else {}
@@ -77,6 +97,7 @@ def analyze_url_view(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@_require_engine_auth
 def analyze_ip_view(request):
     try:
         data = json.loads(request.body) if request.body else {}
@@ -90,11 +111,13 @@ def analyze_ip_view(request):
 
 
 @require_GET
+@_require_engine_auth
 def threat_info_view(request):
     return JsonResponse(threat_info())
 
 
 @require_GET
+@_require_engine_auth
 def connections_view(request):
     try:
         connections = collect_connections()
@@ -106,6 +129,7 @@ def connections_view(request):
 
 
 @require_GET
+@_require_engine_auth
 def alerts_view(request):
     try:
         _, alerts = state.snapshot()
@@ -115,6 +139,7 @@ def alerts_view(request):
 
 
 @require_GET
+@_require_engine_auth
 def system_stats_view(request):
     try:
         stats = get_system_stats()
@@ -124,6 +149,7 @@ def system_stats_view(request):
 
 
 @require_GET
+@_require_engine_auth
 def processes_view(request):
     try:
         limit = int(request.GET.get("limit", 10))
@@ -136,6 +162,7 @@ def processes_view(request):
 
 
 @require_GET
+@_require_engine_auth
 def dashboard_view(request):
     try:
         return JsonResponse(

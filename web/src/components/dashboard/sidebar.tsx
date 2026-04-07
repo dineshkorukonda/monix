@@ -7,10 +7,12 @@
 import {
   AlertTriangle,
   BarChart3,
+  ClipboardList,
   Globe,
   LayoutDashboard,
   Plug,
   Settings,
+  User,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -40,6 +42,12 @@ const PRIMARY_NAV: NavItem[] = [
     matchMode: "prefix",
   },
   {
+    label: "Scans",
+    href: "/dashboard/scans",
+    icon: ClipboardList,
+    matchMode: "exact",
+  },
+  {
     label: "Issues",
     href: "/dashboard/issues",
     icon: AlertTriangle,
@@ -60,6 +68,12 @@ const PRIMARY_NAV: NavItem[] = [
 ];
 
 const BOTTOM_NAV: NavItem[] = [
+  {
+    label: "Profile",
+    href: "/dashboard/profile",
+    icon: User,
+    matchMode: "exact",
+  },
   {
     label: "Settings",
     href: "/dashboard/settings",

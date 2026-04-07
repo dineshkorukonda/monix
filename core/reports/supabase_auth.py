@@ -76,9 +76,7 @@ def _decode(token: str) -> dict[str, Any]:
     """
     issuer = _issuer()
     audiences = _audiences()
-    test_secret = (
-        os.environ.get("SUPABASE_JWT_SECRET") or "test-supabase-jwt-secret"
-    ).strip()
+    hs256_secret = (os.environ.get("SUPABASE_JWT_SECRET") or "").strip()
     header = jwt.get_unverified_header(token)
     alg = (header.get("alg") or "HS256").upper()
     unverified_claims = jwt.decode(
@@ -100,11 +98,11 @@ def _decode(token: str) -> dict[str, Any]:
         decode_kw["issuer"] = issuer
 
     if alg == "HS256":
-        if not test_secret:
+        if not hs256_secret:
             raise jwt.InvalidKeyError(
                 "HS256 token requires SUPABASE_JWT_SECRET (Supabase Settings → API → JWT Secret)"
             )
-        return jwt.decode(token, test_secret, algorithms=["HS256"], **decode_kw)
+        return jwt.decode(token, hs256_secret, algorithms=["HS256"], **decode_kw)
 
     jwks_url = _jwks_url()
     if not jwks_url:
