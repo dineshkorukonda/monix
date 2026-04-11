@@ -8,13 +8,57 @@
 
 import { supabase } from "@/lib/supabase";
 
+/** RFC1918-style hosts (not localhost / loopback). */
+function isLanHostname(hostname: string): boolean {
+  if (hostname === "localhost" || hostname === "127.0.0.1") return false;
+  return (
+    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  );
+}
+
+/** In dev, API origin that matches this page (avoids LAN→127.0.0.1 fetch blocks). */
+function devDjangoOriginFromPage(): string {
+  if (typeof window === "undefined") return "http://127.0.0.1:8000";
+  const h = window.location.hostname;
+  if (h === "localhost" || h === "127.0.0.1") {
+    return `http://${h}:8000`;
+  }
+  if (isLanHostname(h)) {
+    return `http://${h}:8000`;
+  }
+  return "http://127.0.0.1:8000";
+}
+
+/** If page is on LAN but env points at loopback, rewrite so fetches are not blocked. */
+function devAlignEnvApiBaseWithPage(baseNoSlash: string): string {
+  if (typeof window === "undefined" || process.env.NODE_ENV !== "development") {
+    return baseNoSlash;
+  }
+  const page = window.location.hostname;
+  if (!isLanHostname(page)) {
+    return baseNoSlash;
+  }
+  try {
+    const u = new URL(baseNoSlash);
+    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") {
+      u.hostname = page;
+      return u.origin;
+    }
+  } catch {
+    /* ignore */
+  }
+  return baseNoSlash;
+}
+
 /**
  * Base URL for Django API requests.
  *
- * **Browser (development):** Prefer `NEXT_PUBLIC_DJANGO_URL` if set; otherwise call
- * Django directly at `http://127.0.0.1:8000`. That avoids Turbopack/rewrite quirks
- * and works with Bearer auth once CORS allows your Next origin (including LAN URLs
- * like `http://10.x.x.x:3000` — see Django `CORS_ALLOWED_ORIGIN_REGEXES` in DEBUG).
+ * **Browser (development):** Prefer `NEXT_PUBLIC_DJANGO_URL` if set. If you open the
+ * app at a LAN URL (e.g. `http://10.x.x.x:3000`), the API base must use that same
+ * host (e.g. `http://10.x.x.x:8000`) and Django must listen on `0.0.0.0:8000` —
+ * otherwise the browser blocks `fetch` to `127.0.0.1` (Private Network Access).
  *
  * **Browser (production):** Use `NEXT_PUBLIC_DJANGO_URL` (your deployed API) or same-origin
  * `""` when the app and API share one host.
@@ -29,10 +73,10 @@ export function djangoApiBase(): string {
       ""
     ).trim();
     if (fromEnv) {
-      return fromEnv.replace(/\/$/, "");
+      return devAlignEnvApiBaseWithPage(fromEnv.replace(/\/$/, ""));
     }
     if (process.env.NODE_ENV === "development") {
-      return "http://127.0.0.1:8000";
+      return devDjangoOriginFromPage();
     }
     return "";
   }
