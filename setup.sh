@@ -107,7 +107,9 @@ run_django() {
   python manage.py migrate
   echo "Ensuring Monix backend admin account is uniquely initialized for frontend React context..."
   echo "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.create_superuser('admin', 'admin@monix.com', 'admin') if not User.objects.exists() else None" | python manage.py shell
-  python manage.py runserver
+  # 0.0.0.0 so the API is reachable at http://<LAN-IP>:8000 when the Next dev
+  # server is opened via the Network URL (browser cannot fetch 127.0.0.1 from a LAN page).
+  python manage.py runserver 0.0.0.0:8000
 }
 
 run_web() {
