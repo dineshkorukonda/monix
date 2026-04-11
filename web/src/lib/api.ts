@@ -957,7 +957,7 @@ export async function login(
   return { email: data.user?.email || email };
 }
 
-/** Register via Supabase; confirm email if required by your Supabase project settings. */
+/** Register via Supabase (project should have “Confirm email” off for immediate session). */
 export async function signup(data: {
   full_name: string;
   email: string;
@@ -969,7 +969,13 @@ export async function signup(data: {
     password: data.password,
     options: { data: { full_name: data.full_name.trim() } },
   });
-  if (error) throw new ApiError(error.message, 400);
+  if (error) {
+    const status =
+      typeof (error as { status?: number }).status === "number"
+        ? (error as { status: number }).status
+        : 400;
+    throw new ApiError(error.message, status);
+  }
   return { email: out.user?.email || data.email };
 }
 
