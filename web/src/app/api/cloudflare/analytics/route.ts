@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "zone_id is required." }, { status: 400 });
     }
     const daysRaw = request.nextUrl.searchParams.get("days") || "7";
-    const days = Number.parseInt(daysRaw, 10);
-    if (!Number.isFinite(days) || days <= 0) {
+    const days = Number(daysRaw);
+    if (!Number.isInteger(days) || days <= 0) {
       return NextResponse.json({ error: "Invalid days." }, { status: 400 });
     }
     const payload = await buildIntegrationServices().cloudflare.getAnalytics(token, zoneId, days);
