@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     }
     const daysRaw = request.nextUrl.searchParams.get("days") || "7";
     const days = Number.parseInt(daysRaw, 10);
-    if (!Number.isFinite(days)) {
+    if (!Number.isFinite(days) || days <= 0) {
       return NextResponse.json({ error: "Invalid days." }, { status: 400 });
     }
     const payload = await buildIntegrationServices().cloudflare.getAnalytics(token, zoneId, days);

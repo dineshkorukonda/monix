@@ -735,9 +735,8 @@ export interface ScanSummary {
 /** Fetch whether the user has connected Google Search Console (server-side tokens). */
 export async function getGscStatus(): Promise<{ connected: boolean }> {
   const integrationBase = integrationApiBase();
-  const res = await fetch(`${integrationBase}/api/gsc/status/`, {
-    headers: await authHeaders(),
-  });
+  const headers = await authHeaders();
+  const res = await fetch(`${integrationBase}/api/gsc/status/`, { headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new ApiError(
@@ -751,7 +750,7 @@ export async function getGscStatus(): Promise<{ connected: boolean }> {
     void (async () => {
       try {
         const baseline = await fetch(`${djangoApiBase()}/api/gsc/status/`, {
-          headers: await authHeaders(),
+          headers,
         });
         if (!baseline.ok) return;
         const b = (await baseline.json()) as { connected: boolean };
@@ -1110,9 +1109,8 @@ export async function getCloudflareStatus(
   return cachedRequest(
     "cloudflare:status",
     async () => {
-      const res = await fetch(`${integrationBase}/api/cloudflare/status/`, {
-        headers: await authHeaders(),
-      });
+      const headers = await authHeaders();
+      const res = await fetch(`${integrationBase}/api/cloudflare/status/`, { headers });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new ApiError(
@@ -1125,7 +1123,7 @@ export async function getCloudflareStatus(
         void (async () => {
           try {
             const baseline = await fetch(`${djangoApiBase()}/api/cloudflare/status/`, {
-              headers: await authHeaders(),
+              headers,
             });
             if (!baseline.ok) return;
             const b = (await baseline.json()) as CloudflareStatus;
