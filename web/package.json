@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "bun --bun next start",
     "lint": "biome check",
+    "test": "bun test",
     "format": "biome format --write"
   },
   "engines": {
