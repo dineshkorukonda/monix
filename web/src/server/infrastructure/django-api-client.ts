@@ -59,6 +59,8 @@ export class DjangoApiClient {
     return fetch(`${this.origin}${path}`, {
       ...init,
       headers,
+      // Route handlers already apply client-side caching where needed; keep server
+      // upstream reads fresh to avoid stale migration comparisons and auth state drift.
       cache: "no-store",
       redirect: "manual",
     });
