@@ -65,6 +65,13 @@ Google talks to **Supabase first**, not directly to your Next.js app. The `redir
 
 Third-party metrics are fetched by **Django** (not directly from the browser). The Next.js app calls the Django API with the user’s Supabase JWT.
 
+### Serverless migration flags (phased cutover)
+
+- `NEXT_PUBLIC_USE_NEXT_INTEGRATION_API=true` enables Next.js route handlers for `/api/gsc/*` and `/api/cloudflare/*`.
+- `NEXT_SERVERLESS_INTEGRATIONS=true` scopes `/api/*` rewrites so GSC/Cloudflare stay in Next.js while other APIs still proxy to Django.
+- `NEXT_PUBLIC_ENABLE_DUAL_READ_VERIFICATION=true` keeps client-side drift checks (Next response vs Django response) for status endpoints during migration.
+- `NEXT_PUBLIC_ANALYTICS_INTEGRATION_FIRST=true` enables integration-first analytics messaging in the UI.
+
 ### Google Search Console
 
 - **Backend:** Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` in the repo root `.env` (see root [`.env.example`](../.env.example)). After OAuth, Django stores and refreshes tokens and exposes `/api/gsc/*` for status, site list, analytics, sync, and disconnect.

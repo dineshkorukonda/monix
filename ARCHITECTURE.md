@@ -60,6 +60,7 @@ flowchart TB
   Perf --> Google
   Reports --> Google
   Reports --> CFAPI
+  Next -->|"serverless API routes (phased)"| Reports
   Scanners --> Score
   SEO --> Score
   Perf --> Score
@@ -184,6 +185,7 @@ Declared in **`requirements.txt`** and **`pyproject.toml`** `[project.dependenci
 - **Engine vs product API** split: `scan_engine` stays importable without HTTP; `scan_service` composes engine + persistence.
 - **JSONField** for large scan payloads and GSC cache blobs; normalized columns for queryable metadata.
 - **Linux-only monitoring** path (`/proc`) optional for dashboard telemetry; not required for core URL scanning.
+- **Phased Next.js serverless migration** for integration endpoints: `web/src/app/api/gsc/*` and `web/src/app/api/cloudflare/*` use layered transport/service/repository/adapters and can be enabled with `NEXT_PUBLIC_USE_NEXT_INTEGRATION_API=true`.
 
 ---
 
