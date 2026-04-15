@@ -9,9 +9,21 @@ const backendOrigin = (
   .trim()
   .replace(/\/$/, "");
 
+const serverlessIntegrations =
+  process.env.NEXT_SERVERLESS_INTEGRATIONS === "true" ||
+  process.env.NEXT_PUBLIC_USE_NEXT_INTEGRATION_API === "true";
+
 const nextConfig: NextConfig = {
   turbopack: {},
   async rewrites() {
+    if (serverlessIntegrations) {
+      return [
+        {
+          source: "/api/:path((?!gsc/|cloudflare/).*)",
+          destination: `${backendOrigin}/api/:path`,
+        },
+      ];
+    }
     return [
       {
         source: "/api/:path*",

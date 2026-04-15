@@ -7,6 +7,10 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import {
+  enableDualReadVerificationClient,
+  useNextIntegrationApiClient,
+} from "@/lib/feature-flags";
 
 /** RFC1918-style hosts (not localhost / loopback). */
 function isLanHostname(hostname: string): boolean {
@@ -94,6 +98,44 @@ function djangoApiDisplayUrl(): string {
     process.env.NEXT_PUBLIC_API_URL ||
     "http://127.0.0.1:8000"
   );
+}
+
+function integrationApiBase(): string {
+  if (useNextIntegrationApiClient()) {
+    return "";
+  }
+  return djangoApiBase();
+}
+
+async function verifyDualReadStatus<T>({
+  path,
+  headers,
+  nextPayload,
+  isDifferent,
+  label,
+}: {
+  path: string;
+  headers: Record<string, string>;
+  nextPayload: T;
+  isDifferent: (baseline: T, next: T) => boolean;
+  label: string;
+}): Promise<void> {
+  // Intentionally fire-and-forget in migration mode so primary UX latency is not
+  // impacted by baseline comparison requests.
+  if (!useNextIntegrationApiClient() || !enableDualReadVerificationClient()) {
+    return;
+  }
+  try {
+    const baselineRes = await fetch(`${djangoApiBase()}${path}`, { headers });
+    if (!baselineRes.ok) return;
+    const baseline = (await baselineRes.json()) as T;
+    if (isDifferent(baseline, nextPayload)) {
+      // biome-ignore lint/suspicious/noConsole: phased migration drift check
+      console.warn(`Dual-read mismatch: ${label}`, { next: nextPayload, django: baseline });
+    }
+  } catch {
+    // no-op
+  }
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -723,9 +765,9 @@ export interface ScanSummary {
 
 /** Fetch whether the user has connected Google Search Console (server-side tokens). */
 export async function getGscStatus(): Promise<{ connected: boolean }> {
-  const res = await fetch(`${djangoApiBase()}/api/gsc/status/`, {
-    headers: await authHeaders(),
-  });
+  const integrationBase = integrationApiBase();
+  const headers = await authHeaders();
+  const res = await fetch(`${integrationBase}/api/gsc/status/`, { headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new ApiError(
@@ -733,7 +775,17 @@ export async function getGscStatus(): Promise<{ connected: boolean }> {
       res.status,
     );
   }
-  return res.json();
+  const payload = (await res.json()) as { connected: boolean };
+
+  void verifyDualReadStatus({
+    path: "/api/gsc/status/",
+    headers,
+    nextPayload: payload,
+    isDifferent: (baseline, next) => baseline.connected !== next.connected,
+    label: "gsc status",
+  });
+
+  return payload;
 }
 
 /**
@@ -743,7 +795,7 @@ export async function getGscStatus(): Promise<{ connected: boolean }> {
 export async function getGscConnectAuthorizationUrl(): Promise<{
   authorization_url: string;
 }> {
-  const res = await fetch(`${djangoApiBase()}/api/gsc/connect/`, {
+  const res = await fetch(`${integrationApiBase()}/api/gsc/connect/`, {
     headers: await authHeaders(),
   });
   if (!res.ok) {
@@ -762,7 +814,7 @@ export async function syncGscTargets(): Promise<{
   targets: number;
   errors: number;
 }> {
-  const res = await fetch(`${djangoApiBase()}/api/gsc/sync-targets/`, {
+  const res = await fetch(`${integrationApiBase()}/api/gsc/sync-targets/`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: "{}",
@@ -1074,12 +1126,12 @@ export interface CloudflareAnalytics {
 export async function getCloudflareStatus(
   options?: CachedRequestOptions,
 ): Promise<CloudflareStatus> {
+  const integrationBase = integrationApiBase();
   return cachedRequest(
     "cloudflare:status",
     async () => {
-      const res = await fetch(`${djangoApiBase()}/api/cloudflare/status/`, {
-        headers: await authHeaders(),
-      });
+      const headers = await authHeaders();
+      const res = await fetch(`${integrationBase}/api/cloudflare/status/`, { headers });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new ApiError(
@@ -1087,7 +1139,17 @@ export async function getCloudflareStatus(
           res.status,
         );
       }
-      return res.json();
+      const payload = (await res.json()) as CloudflareStatus;
+      void verifyDualReadStatus<CloudflareStatus>({
+        path: "/api/cloudflare/status/",
+        headers,
+        nextPayload: payload,
+        isDifferent: (baseline, next) =>
+          baseline.connected !== next.connected ||
+          (baseline.account_id || null) !== (next.account_id || null),
+        label: "cloudflare status",
+      });
+      return payload;
     },
     { ttlMs: 30_000, ...options },
   );
@@ -1097,7 +1159,7 @@ export async function getCloudflareStatus(
 export async function connectCloudflare(
   apiToken: string,
 ): Promise<{ success: boolean; account_name: string; zones_count: number }> {
-  const res = await fetch(`${djangoApiBase()}/api/cloudflare/connect/`, {
+  const res = await fetch(`${integrationApiBase()}/api/cloudflare/connect/`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ api_token: apiToken }),
@@ -1115,7 +1177,7 @@ export async function connectCloudflare(
 
 /** Remove the stored Cloudflare API token. */
 export async function disconnectCloudflare(): Promise<void> {
-  const res = await fetch(`${djangoApiBase()}/api/cloudflare/disconnect/`, {
+  const res = await fetch(`${integrationApiBase()}/api/cloudflare/disconnect/`, {
     method: "DELETE",
     headers: await authHeaders(),
   });
@@ -1125,7 +1187,7 @@ export async function disconnectCloudflare(): Promise<void> {
 
 /** List all zones accessible via the stored Cloudflare token. */
 export async function getCloudflareZones(): Promise<CloudflareZone[]> {
-  const res = await fetch(`${djangoApiBase()}/api/cloudflare/zones/`, {
+  const res = await fetch(`${integrationApiBase()}/api/cloudflare/zones/`, {
     headers: await authHeaders(),
   });
   if (!res.ok) {
@@ -1145,7 +1207,7 @@ export async function getCloudflareAnalytics(
 ): Promise<CloudflareAnalytics> {
   const params = new URLSearchParams({ zone_id: zoneId, days: String(days) });
   const res = await fetch(
-    `${djangoApiBase()}/api/cloudflare/analytics/?${params}`,
+    `${integrationApiBase()}/api/cloudflare/analytics/?${params}`,
     { headers: await authHeaders() },
   );
   if (!res.ok) {

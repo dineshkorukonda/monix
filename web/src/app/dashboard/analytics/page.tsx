@@ -58,6 +58,7 @@ import {
   type CloudflareAnalytics,
   type Target,
 } from "@/lib/api";
+import { useIntegrationFirstAnalyticsClient } from "@/lib/feature-flags";
 
 // ── Chart theme ──────────────────────────────────────────────────────────────
 
@@ -580,6 +581,7 @@ function ImprVsPositionScatter({
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
+  const integrationFirst = useIntegrationFirstAnalyticsClient();
   const [targets, setTargets] = useState<Target[]>([]);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [cfWorkspace, setCfWorkspace] = useState<CfWorkspaceResult | null>(null);
@@ -747,7 +749,9 @@ export default function AnalyticsPage() {
             Analytics
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Search Console metrics and Cloudflare edge traffic for your monitored sites.
+            {integrationFirst
+              ? "Cloudflare edge and Search Console metrics first, with scan data as optional enrichment."
+              : "Search Console metrics and Cloudflare edge traffic for your monitored sites."}
           </p>
           {!loading && targets.length > 0 && (
             <div className="mt-4 max-w-md">
