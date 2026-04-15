@@ -5,11 +5,10 @@ import { CloudflareService } from "@/server/services/cloudflare-service";
 import { GscService } from "@/server/services/gsc-service";
 
 const client = new DjangoApiClient();
-const services = {
-  gsc: new GscService(new DjangoGscRepository(client)),
-  cloudflare: new CloudflareService(new DjangoCloudflareRepository(client)),
-};
 
 export function buildIntegrationServices() {
-  return services;
+  return {
+    gsc: new GscService(new DjangoGscRepository(client)),
+    cloudflare: new CloudflareService(new DjangoCloudflareRepository(client)),
+  };
 }

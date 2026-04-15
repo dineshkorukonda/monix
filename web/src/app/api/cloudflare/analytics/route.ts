@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
     const daysRaw = request.nextUrl.searchParams.get("days") || "7";
     const days = Number(daysRaw);
     if (!Number.isInteger(days) || days <= 0) {
-      return NextResponse.json({ error: "Invalid days." }, { status: 400 });
+      return NextResponse.json(
+        { error: "days must be a positive integer." },
+        { status: 400 },
+      );
     }
     const payload = await buildIntegrationServices().cloudflare.getAnalytics(token, zoneId, days);
     return NextResponse.json(asJson(payload));
