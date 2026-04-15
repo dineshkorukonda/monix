@@ -107,6 +107,35 @@ function integrationApiBase(): string {
   return djangoApiBase();
 }
 
+async function verifyDualReadStatus<T>({
+  path,
+  headers,
+  nextPayload,
+  isDifferent,
+  label,
+}: {
+  path: string;
+  headers: Record<string, string>;
+  nextPayload: T;
+  isDifferent: (baseline: T, next: T) => boolean;
+  label: string;
+}): Promise<void> {
+  if (!useNextIntegrationApiClient() || !enableDualReadVerificationClient()) {
+    return;
+  }
+  try {
+    const baselineRes = await fetch(`${djangoApiBase()}${path}`, { headers });
+    if (!baselineRes.ok) return;
+    const baseline = (await baselineRes.json()) as T;
+    if (isDifferent(baseline, nextPayload)) {
+      // biome-ignore lint/suspicious/noConsole: phased migration drift check
+      console.warn(`Dual-read mismatch: ${label}`, { next: nextPayload, django: baseline });
+    }
+  } catch {
+    // no-op
+  }
+}
+
 async function authHeaders(): Promise<Record<string, string>> {
   if (!supabase) return {};
   const { data } = await supabase.auth.getSession();
@@ -746,23 +775,13 @@ export async function getGscStatus(): Promise<{ connected: boolean }> {
   }
   const payload = (await res.json()) as { connected: boolean };
 
-  if (useNextIntegrationApiClient() && enableDualReadVerificationClient()) {
-    void (async () => {
-      try {
-        const baseline = await fetch(`${djangoApiBase()}/api/gsc/status/`, {
-          headers,
-        });
-        if (!baseline.ok) return;
-        const b = (await baseline.json()) as { connected: boolean };
-        if (b.connected !== payload.connected) {
-          // biome-ignore lint/suspicious/noConsole: phased migration drift check
-          console.warn("Dual-read mismatch: gsc status", { next: payload, django: b });
-        }
-      } catch {
-        // no-op
-      }
-    })();
-  }
+  void verifyDualReadStatus({
+    path: "/api/gsc/status/",
+    headers,
+    nextPayload: payload,
+    isDifferent: (baseline, next) => baseline.connected !== next.connected,
+    label: "gsc status",
+  });
 
   return payload;
 }
@@ -1119,29 +1138,15 @@ export async function getCloudflareStatus(
         );
       }
       const payload = (await res.json()) as CloudflareStatus;
-      if (useNextIntegrationApiClient() && enableDualReadVerificationClient()) {
-        void (async () => {
-          try {
-            const baseline = await fetch(`${djangoApiBase()}/api/cloudflare/status/`, {
-              headers,
-            });
-            if (!baseline.ok) return;
-            const b = (await baseline.json()) as CloudflareStatus;
-            if (
-              b.connected !== payload.connected ||
-              (b.account_id || null) !== (payload.account_id || null)
-            ) {
-              // biome-ignore lint/suspicious/noConsole: phased migration drift check
-              console.warn("Dual-read mismatch: cloudflare status", {
-                next: payload,
-                django: b,
-              });
-            }
-          } catch {
-            // no-op
-          }
-        })();
-      }
+      void verifyDualReadStatus<CloudflareStatus>({
+        path: "/api/cloudflare/status/",
+        headers,
+        nextPayload: payload,
+        isDifferent: (baseline, next) =>
+          baseline.connected !== next.connected ||
+          (baseline.account_id || null) !== (next.account_id || null),
+        label: "cloudflare status",
+      });
       return payload;
     },
     { ttlMs: 30_000, ...options },
