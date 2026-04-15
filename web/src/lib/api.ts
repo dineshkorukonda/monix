@@ -120,6 +120,8 @@ async function verifyDualReadStatus<T>({
   isDifferent: (baseline: T, next: T) => boolean;
   label: string;
 }): Promise<void> {
+  // Intentionally fire-and-forget in migration mode so primary UX latency is not
+  // impacted by baseline comparison requests.
   if (!useNextIntegrationApiClient() || !enableDualReadVerificationClient()) {
     return;
   }
