@@ -1,91 +1,16 @@
 # Monix
 
-Monix is a web security, SEO, and performance analysis platform. It scans a
-public URL, calculates category scores plus an overall score, and stores a
-shareable report for later retrieval.
+Monix is now a **Next.js-only** web security, SEO, and performance analysis application.
 
 ## Project Layout
 
-
-| Path                | Role                                                               |
-| ------------------- | ------------------------------------------------------------------ |
-| `core/scan_engine/` | Analyzers, collectors, monitoring, SEO/PageSpeed scoring           |
-| `core/reports/`     | Django app (REST API, auth, GSC, Cloudflare, persistence)          |
-| `core/config/`      | Django project settings (`DJANGO_SETTINGS_MODULE=config.settings`) |
-| `web/`              | Next.js frontend (Bun + Next 16)                                   |
-| `tests/`            | Backend pytest suite (Django + scan engine); see `tests/README.md` |
-
-
-## What Monix Checks
-
-### Security
-
-- SSL/TLS certificate validity
-- Security header coverage
-- DNS and host intelligence
-- Port exposure checks
-- Technology fingerprinting
-- Geo and IP enrichment
-
-### SEO
-
-- Meta title and description quality
-- Open Graph tags
-- `robots.txt` and `sitemap.xml`
-- Canonical and H1 validation
-
-### Performance
-
-- Google PageSpeed Insights results
-- Core Web Vitals
-- Accessibility and best-practices scores
-
-## Integrations
-
-- **Google Search Console** — After the user completes Google OAuth (see `.env.example`), Django stores a refresh token and syncs search analytics per monitored site. Metrics appear in the dashboard, site detail, and analytics views.
-- **Cloudflare** — Users paste a [Cloudflare API token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/) in the app. Django verifies it, stores it encrypted, and proxies **zone list** and **zone HTTP analytics** (Cloudflare API v4, including GraphQL for dashboard-style HTTP metrics). The UI rolls up edge requests, cache ratio, threats, and related signals when a monitored hostname matches a zone on that token (overview, sites table, analytics, and issues).
-
-Cloudflare HTTP API (authenticated): `GET /api/cloudflare/status/`, `GET /api/cloudflare/zones/`, `GET /api/cloudflare/analytics/`, `POST /api/cloudflare/connect/`, `DELETE /api/cloudflare/disconnect/`. Search Console endpoints live under `/api/gsc/`.
-
-## Architecture
-
-```text
-Next.js frontend
-      |
-      v
-Django (`core/` — REST API + scan engine)
-      |     \
-      |      +--> Google APIs (OAuth, Search Console)
-      |      +--> Cloudflare API (token — zones + analytics)
-      v
-PostgreSQL
-```
+| Path     | Role                                              |
+| -------- | ------------------------------------------------- |
+| `web/`   | Next.js 16 app (React 19, TypeScript, Bun)        |
+| `.github/workflows/ci.yml` | CI for lint, JS/TS tests, and production build |
+| `ARCHITECTURE.md` | High-level system design for the Next.js stack |
 
 ## Local Setup
-
-### Backend
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e ".[dev]"
-cp .env.example .env
-cd core && python manage.py migrate && python manage.py runserver
-```
-
-### Django Admin
-
-```bash
-cd core
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
-```
-
-The admin panel is available at `http://localhost:8000/admin/`.
-
-### Frontend
 
 ```bash
 cd web
@@ -93,46 +18,34 @@ bun install
 bun run dev
 ```
 
-Dependency lockfile for the frontend is `web/bun.lock` (Bun). Do not add `package-lock.json`.
+The app starts on `http://localhost:3000`.
 
-Point the web app at Django (default `http://localhost:8000`) via `NEXT_PUBLIC_DJANGO_URL`.
-Supabase Auth requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `web/.env.local`.
+## Environment Variables
 
-## Environment Notes
+Create `web/.env.local` and configure:
 
-- `DATABASE_URL` is **required** and connects Django to PostgreSQL (local or Supabase).
-- `DJANGO_SECRET_KEY` should be set for local and production Django usage.
-- `PAGESPEED_API_KEY` enables live PageSpeed Insights data.
-- `GOOGLE_*` variables in `.env.example` configure Google OAuth (sign-in and Search Console). Optional `GOOGLE_REFRESH_TOKEN_FERNET_KEY` sets the Fernet key used for stored Google refresh tokens and Cloudflare API tokens; if omitted, encryption uses a key derived from `DJANGO_SECRET_KEY`.
-
-Generate a Django secret key with:
-
-```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-```
-
-## Admin Security
-
-The Django admin login is rate-limited with
-[django-axes](https://django-axes.readthedocs.io/).
-
-
-| Variable             | Default | Description                    |
-| -------------------- | ------- | ------------------------------ |
-| `AXES_FAILURE_LIMIT` | `5`     | Failed attempts before lockout |
-| `AXES_COOLOFF_TIME`  | `1`     | Lockout duration in hours      |
-
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_DJANGO_URL` (optional while transitioning legacy API dependencies)
+- `NEXT_PUBLIC_USE_NEXT_INTEGRATION_API`
+- `NEXT_PUBLIC_ENABLE_DUAL_READ_VERIFICATION`
+- `NEXT_PUBLIC_ANALYTICS_INTEGRATION_FIRST`
 
 ## Testing
 
-Backend tests live under `tests/` and target `scan_engine` and `reports` (pytest-django, PostgreSQL not required for most tests). From the repo root with the venv active:
+All tests are JavaScript/TypeScript tests in the Next.js app:
 
 ```bash
-# Fast feedback (default; no coverage)
-pytest
-
-# Same as CI: coverage for scan_engine + reports
-pytest --cov=scan_engine --cov=reports --cov-report=term-missing
+cd web
+bun run test
 ```
 
-CI (GitHub Actions): **Frontend** — `bun install` and `next build` in `web/`. **Backend** — Python 3.11, Postgres 16 service, pytest with coverage. Pushes and pull requests to `main` share one concurrent run per branch (new commits cancel superseded runs).
+## Quality Checks
+
+```bash
+cd web
+bun run lint
+bun run build
+```
+
+CI runs lint + JS/TS tests + production build on pushes and pull requests to `main`.
