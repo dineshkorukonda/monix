@@ -4,10 +4,16 @@ import { AlertTriangle, Filter, Info, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { SectionHeader } from "@/components/dashboard/section-header";
 import {
+  getReport,
+  getScans,
+  getTargets,
+  type ScanReport,
+  type Target,
+} from "@/lib/api";
+import {
   buildCfEdgeIssues,
   loadCloudflareWorkspaceMetrics,
 } from "@/lib/cf-workspace";
-import { getReport, getScans, getTargets, type ScanReport, type Target } from "@/lib/api";
 
 type Severity = "critical" | "warning" | "info";
 
@@ -23,8 +29,10 @@ interface Issue {
 }
 
 function severityTone(sev: Severity) {
-  if (sev === "critical") return "bg-rose-500/10 text-rose-500 border-rose-500/20";
-  if (sev === "warning") return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+  if (sev === "critical")
+    return "bg-rose-500/10 text-rose-500 border-rose-500/20";
+  if (sev === "warning")
+    return "bg-amber-500/10 text-amber-500 border-amber-500/20";
   return "bg-blue-500/10 text-blue-500 border-blue-500/20";
 }
 
@@ -40,7 +48,10 @@ export default function IssuesPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [targetRows, scans] = await Promise.all([getTargets(), getScans()]);
+        const [targetRows, scans] = await Promise.all([
+          getTargets(),
+          getScans(),
+        ]);
         setSites(targetRows);
         try {
           const cfWs = await loadCloudflareWorkspaceMetrics(targetRows);
@@ -60,7 +71,9 @@ export default function IssuesPage() {
           setCfEdgeIssues([]);
         }
         const reportRows = await Promise.all(
-          scans.slice(0, 40).map((scan) => getReport(scan.report_id).catch(() => null)),
+          scans
+            .slice(0, 40)
+            .map((scan) => getReport(scan.report_id).catch(() => null)),
         );
         setReports(reportRows.filter((r): r is ScanReport => r !== null));
       } catch (e) {
@@ -126,9 +139,18 @@ export default function IssuesPage() {
 
   const filtered = issues.filter((i) => {
     if (severityFilter !== "all" && i.severity !== severityFilter) return false;
-    if (categoryFilter !== "all" && i.category.toLowerCase() !== categoryFilter.toLowerCase()) return false;
+    if (
+      categoryFilter !== "all" &&
+      i.category.toLowerCase() !== categoryFilter.toLowerCase()
+    )
+      return false;
     const q = search.toLowerCase();
-    if (q && !i.title.toLowerCase().includes(q) && !i.site.toLowerCase().includes(q)) return false;
+    if (
+      q &&
+      !i.title.toLowerCase().includes(q) &&
+      !i.site.toLowerCase().includes(q)
+    )
+      return false;
     return true;
   });
 
@@ -195,17 +217,30 @@ export default function IssuesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/20">
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground">Severity</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground w-1/4">Issue Title</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground">Site</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground">Affected Page</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground w-1/3">Recommendation</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground">
+                  Severity
+                </th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground w-1/4">
+                  Issue Title
+                </th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground">
+                  Site
+                </th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground">
+                  Affected Page
+                </th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground w-1/3">
+                  Recommendation
+                </th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground text-sm">
+                  <td
+                    colSpan={5}
+                    className="px-5 py-10 text-center text-muted-foreground text-sm"
+                  >
                     <div className="flex flex-col items-center gap-2">
                       <Filter className="h-6 w-6 opacity-40" />
                       <p>No issues found matching your filters.</p>
@@ -214,29 +249,46 @@ export default function IssuesPage() {
                 </tr>
               ) : (
                 filtered.map((issue) => (
-                  <tr key={issue.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <tr
+                    key={issue.id}
+                    className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors"
+                  >
                     <td className="px-5 py-4 align-top">
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${severityTone(
-                          issue.severity
+                          issue.severity,
                         )}`}
                       >
-                        {issue.severity === "info" ? <Info className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                        {issue.severity === "info" ? (
+                          <Info className="h-3 w-3" />
+                        ) : (
+                          <AlertTriangle className="h-3 w-3" />
+                        )}
                         {issue.severity}
                       </span>
                     </td>
                     <td className="px-5 py-4 align-top">
-                      <p className="font-medium text-foreground">{issue.title}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1.5">{issue.category}</p>
+                      <p className="font-medium text-foreground">
+                        {issue.title}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1.5">
+                        {issue.category}
+                      </p>
                     </td>
                     <td className="px-5 py-4 align-top">
-                      <span className="font-medium text-foreground">{issue.site}</span>
+                      <span className="font-medium text-foreground">
+                        {issue.site}
+                      </span>
                     </td>
                     <td className="px-5 py-4 align-top">
-                      <span className="font-mono text-xs text-muted-foreground break-all">{issue.page}</span>
+                      <span className="font-mono text-xs text-muted-foreground break-all">
+                        {issue.page}
+                      </span>
                     </td>
                     <td className="px-5 py-4 align-top">
-                      <p className="text-muted-foreground leading-relaxed text-[13px]">{issue.recommendation}</p>
+                      <p className="text-muted-foreground leading-relaxed text-[13px]">
+                        {issue.recommendation}
+                      </p>
                     </td>
                   </tr>
                 ))

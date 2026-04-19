@@ -1,4 +1,3 @@
-import { DjangoApiClient } from "@/server/infrastructure/django-api-client";
 import type {
   CredentialRepository,
   ScanRecord,
@@ -6,12 +5,17 @@ import type {
   TargetRecord,
   TargetRepository,
 } from "@/server/domain/repositories";
+import type { DjangoApiClient } from "@/server/infrastructure/django-api-client";
 
 export class DjangoTargetRepository implements TargetRepository {
   constructor(private readonly client: DjangoApiClient) {}
 
   list(token: string): Promise<TargetRecord[]> {
-    return this.client.requestJson<TargetRecord[]>("/api/targets/", { method: "GET" }, token);
+    return this.client.requestJson<TargetRecord[]>(
+      "/api/targets/",
+      { method: "GET" },
+      token,
+    );
   }
 
   get(token: string, targetId: string): Promise<TargetRecord> {
@@ -27,7 +31,11 @@ export class DjangoScanRepository implements ScanRepository {
   constructor(private readonly client: DjangoApiClient) {}
 
   list(token: string): Promise<ScanRecord[]> {
-    return this.client.requestJson<ScanRecord[]>("/api/scans/", { method: "GET" }, token);
+    return this.client.requestJson<ScanRecord[]>(
+      "/api/scans/",
+      { method: "GET" },
+      token,
+    );
   }
 
   getReport(token: string, reportId: string): Promise<unknown> {

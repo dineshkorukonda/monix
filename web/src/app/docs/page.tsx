@@ -86,13 +86,13 @@ export default function DocsPage() {
                 </h2>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
                   Monix analyzes a public URL and produces category scores
-                  (security, SEO, performance) plus an overall score. Each run is
-                  stored as a{" "}
+                  (security, SEO, performance) plus an overall score. Each run
+                  is stored as a{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     Scan
                   </code>{" "}
-                  row (JSON payload, score, expiry) so you can reopen reports and
-                  list history. The product surface is the authenticated
+                  row (JSON payload, score, expiry) so you can reopen reports
+                  and list history. The product surface is the authenticated
                   dashboard: you sign in with Supabase, add monitored sites
                   (targets), run scans, and browse results. Optionally connect
                   Google Search Console for search analytics and Cloudflare for
@@ -115,7 +115,9 @@ export default function DocsPage() {
                     </code>{" "}
                     to Django; the API verifies the JWT (JWKS) and maps the user
                     to a Django account. Optional{" "}
-                    <strong className="text-white/90">Sign in with Google</strong>{" "}
+                    <strong className="text-white/90">
+                      Sign in with Google
+                    </strong>{" "}
                     for the app uses social-auth (
                     <code className="font-mono text-[13px] text-white/70">
                       /api/auth/login/google-oauth2/
@@ -427,8 +429,8 @@ export default function DocsPage() {
                   in the app. Django verifies it, encrypts it with the same
                   Fernet machinery as GSC tokens, and calls Cloudflare API v4
                   (REST for zones and token verify;{" "}
-                  <strong className="text-white/90">GraphQL</strong> for zone HTTP
-                  request analytics). No Cloudflare secrets live in the
+                  <strong className="text-white/90">GraphQL</strong> for zone
+                  HTTP request analytics). No Cloudflare secrets live in the
                   browser.
                 </p>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
@@ -503,8 +505,8 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                 <p className="mt-6 max-w-3xl text-base leading-relaxed text-white/60">
                   When you trigger a scan from the authenticated app, Django
                   validates the bearer token, associates the run with a target
-                  when provided, and runs the scan engine in-process. Results are
-                  written through{" "}
+                  when provided, and runs the scan engine in-process. Results
+                  are written through{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     reports.persistence.save_scan_result
                   </code>{" "}
@@ -541,7 +543,8 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                   <code className="font-mono text-[13px] text-white/70">
                     expires_at
                   </code>{" "}
-                  / <code className="font-mono text-[13px] text-white/70">
+                  /{" "}
+                  <code className="font-mono text-[13px] text-white/70">
                     is_expired
                   </code>{" "}
                   for shareable report lifetime (default TTL 30 days from{" "}
@@ -554,8 +557,9 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                   <code className="font-mono text-[13px] text-white/70">
                     GET /api/reports/&lt;uuid&gt;/
                   </code>{" "}
-                  returns the JSON payload for non-expired scans (used for public
-                  sharing and the in-app report viewer). List endpoints under{" "}
+                  returns the JSON payload for non-expired scans (used for
+                  public sharing and the in-app report viewer). List endpoints
+                  under{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     /api/scans/
                   </code>{" "}
@@ -600,8 +604,8 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                     /admin/
                   </code>
                   . CORS is configured so the browser can call Django directly
-                  from the Next.js origin.                   Google Search Console and Cloudflare integration endpoints live
-                  here (
+                  from the Next.js origin. Google Search Console and Cloudflare
+                  integration endpoints live here (
                   <code className="font-mono text-[13px] text-white/70">
                     /api/gsc/*
                   </code>
@@ -717,10 +721,7 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                 </p>
                 <dl className="mt-6 max-w-3xl space-y-4 border border-white/10 divide-y divide-white/10">
                   {[
-                    [
-                      "DATABASE_URL",
-                      "PostgreSQL URL for Django.",
-                    ],
+                    ["DATABASE_URL", "PostgreSQL URL for Django."],
                     [
                       "DJANGO_SECRET_KEY",
                       "Required for Django sessions and signing.",

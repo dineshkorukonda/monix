@@ -1,5 +1,5 @@
-import { DjangoApiClient } from "@/server/infrastructure/django-api-client";
 import type { CloudflareRepository } from "@/server/domain/integrations";
+import type { DjangoApiClient } from "@/server/infrastructure/django-api-client";
 
 export class DjangoCloudflareRepository implements CloudflareRepository {
   constructor(private readonly client: DjangoApiClient) {}
@@ -14,7 +14,11 @@ export class DjangoCloudflareRepository implements CloudflareRepository {
   }
 
   connect(token: string, payload: { api_token: string }) {
-    return this.client.requestJson<{ success: boolean; account_name: string; zones_count: number }>(
+    return this.client.requestJson<{
+      success: boolean;
+      account_name: string;
+      zones_count: number;
+    }>(
       "/api/cloudflare/connect/",
       { method: "POST", body: JSON.stringify(payload) },
       token,

@@ -3,7 +3,13 @@
 // StatusBadge — severity and status indicator pills.
 // Single Responsibility: renders a coloured label pill.
 
-import { AlertTriangle, CheckCircle2, Info, ShieldAlert, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  ShieldAlert,
+  XCircle,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 export type Severity = "critical" | "warning" | "info" | "success";
@@ -46,7 +52,11 @@ interface StatusBadgeProps {
   noIcon?: boolean;
 }
 
-export function StatusBadge({ severity, label, noIcon = false }: StatusBadgeProps) {
+export function StatusBadge({
+  severity,
+  label,
+  noIcon = false,
+}: StatusBadgeProps) {
   const cfg = SEVERITY_CONFIG[severity];
   return (
     <span

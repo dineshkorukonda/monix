@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { buildIntegrationServices } from "@/server/bootstrap/integrations";
 import { handleRouteError } from "@/server/transport/http";
 
@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
 
     const location = upstream.headers.get("location");
     if (location) {
-      return NextResponse.redirect(location, { status: upstream.status || 302 });
+      return NextResponse.redirect(location, {
+        status: upstream.status || 302,
+      });
     }
 
     const text = await upstream.text();
