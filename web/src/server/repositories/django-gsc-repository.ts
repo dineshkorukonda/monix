@@ -1,5 +1,8 @@
-import { DjangoApiClient } from "@/server/infrastructure/django-api-client";
-import type { GscAnalyticsRequest, GscRepository } from "@/server/domain/integrations";
+import type {
+  GscAnalyticsRequest,
+  GscRepository,
+} from "@/server/domain/integrations";
+import type { DjangoApiClient } from "@/server/infrastructure/django-api-client";
 
 export class DjangoGscRepository implements GscRepository {
   constructor(private readonly client: DjangoApiClient) {}
@@ -13,7 +16,9 @@ export class DjangoGscRepository implements GscRepository {
   }
 
   callback(query: string) {
-    return this.client.requestRaw(`/api/gsc/callback/?${query}`, { method: "GET" });
+    return this.client.requestRaw(`/api/gsc/callback/?${query}`, {
+      method: "GET",
+    });
   }
 
   status(token: string) {
@@ -49,10 +54,10 @@ export class DjangoGscRepository implements GscRepository {
   }
 
   syncTargets(token: string) {
-    return this.client.requestJson<{ ok: boolean; targets: number; errors: number }>(
-      "/api/gsc/sync-targets/",
-      { method: "POST", body: "{}" },
-      token,
-    );
+    return this.client.requestJson<{
+      ok: boolean;
+      targets: number;
+      errors: number;
+    }>("/api/gsc/sync-targets/", { method: "POST", body: "{}" }, token);
   }
 }

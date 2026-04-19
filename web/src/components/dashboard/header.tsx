@@ -8,7 +8,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getMe, getTargets, logout, type Target, type UserProfile } from "@/lib/api";
+import {
+  getMe,
+  getTargets,
+  logout,
+  type Target,
+  type UserProfile,
+} from "@/lib/api";
 
 // ── Site selector ─────────────────────────────────────────────────────────────
 
@@ -41,7 +47,12 @@ function SiteSelector() {
         </option>
         {sites.map((s) => (
           <option key={s.id} value={s.id}>
-            {s.url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]}
+            {
+              s.url
+                .replace(/^https?:\/\//, "")
+                .replace(/^www\./, "")
+                .split("/")[0]
+            }
           </option>
         ))}
       </select>
@@ -52,7 +63,10 @@ function SiteSelector() {
 // ── User avatar button ────────────────────────────────────────────────────────
 
 function UserMenu() {
-  const [user, setUser] = useState<Pick<UserProfile, "name" | "initials" | "avatar_url"> | null>(null);
+  const [user, setUser] = useState<Pick<
+    UserProfile,
+    "name" | "initials" | "avatar_url"
+  > | null>(null);
 
   useEffect(() => {
     getMe()
@@ -81,7 +95,7 @@ function UserMenu() {
           referrerPolicy="no-referrer"
         />
       ) : (
-        user?.initials ?? ".."
+        (user?.initials ?? "..")
       )}
     </Link>
   );

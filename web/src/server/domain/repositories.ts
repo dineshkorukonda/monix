@@ -26,5 +26,10 @@ export interface ScanRepository {
 
 export interface CredentialRepository {
   gscStatus(token: string): Promise<{ connected: boolean }>;
-  cloudflareStatus(token: string): Promise<{ connected: boolean; account_name?: string; account_id?: string; zones_count?: number }>;
+  cloudflareStatus(token: string): Promise<{
+    connected: boolean;
+    account_name?: string;
+    account_id?: string;
+    zones_count?: number;
+  }>;
 }

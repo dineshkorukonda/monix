@@ -1,5 +1,5 @@
-import type { CfTargetEdge } from "@/lib/cf-workspace";
 import { formatCompactNumber } from "@/components/gsc-metrics";
+import type { CfTargetEdge } from "@/lib/cf-workspace";
 
 export function formatCfBytes(n: number): string {
   if (n >= 1e12) return `${(n / 1e12).toFixed(1)} TB`;
@@ -21,7 +21,9 @@ export function CfEdgeProjectCardSnippet({
   const a = edge.analytics.totals;
   const days = edge.analytics.period_days;
   const cachePct =
-    a.requests > 0 ? Math.round((a.cached_requests / a.requests) * 1000) / 10 : null;
+    a.requests > 0
+      ? Math.round((a.cached_requests / a.requests) * 1000) / 10
+      : null;
   return (
     <div className="rounded-lg border border-amber-500/15 bg-amber-500/[0.06] px-2.5 py-2">
       <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-400/70 mb-1.5">
