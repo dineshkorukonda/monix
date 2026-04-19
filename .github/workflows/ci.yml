@@ -42,15 +42,17 @@ jobs:
         working-directory: web
         env:
           SUPABASE_URL: https://ci-placeholder.supabase.co
-          SUPABASE_JWT_SECRET: ci-placeholder-jwt-secret-for-hs256-tests
           SUPABASE_JWT_AUD: authenticated
-        run: bun run test
+        run: |
+          export SUPABASE_JWT_SECRET="$(openssl rand -hex 32)"
+          bun run test
 
       - name: Build production bundle
         working-directory: web
-        run: bun run build
         env:
           NEXT_PUBLIC_DJANGO_URL: ${{ secrets.NEXT_PUBLIC_DJANGO_URL || 'http://localhost:8000' }}
           SUPABASE_URL: https://ci-placeholder.supabase.co
-          SUPABASE_JWT_SECRET: ci-placeholder-jwt-secret-for-hs256-build
           SUPABASE_JWT_AUD: authenticated
+        run: |
+          export SUPABASE_JWT_SECRET="$(openssl rand -hex 32)"
+          bun run build

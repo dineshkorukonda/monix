@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { SignJWT } from "jose";
 import { NextRequest } from "next/server";
 import { requireSupabaseAuth } from "./policy";
 
+function ephemeralHs256Key(): string {
+  return randomBytes(32).toString("hex");
+}
+
 describe("requireSupabaseAuth", () => {
   beforeEach(() => {
     process.env.SUPABASE_URL = "https://proj.supabase.co";
-    process.env.SUPABASE_JWT_SECRET = "unit-test-jwt-secret-for-hs256-tokens";
+    process.env.SUPABASE_JWT_SECRET = ephemeralHs256Key();
     process.env.SUPABASE_JWT_AUD = "authenticated";
     process.env.MONIX_VERIFY_SUPABASE_JWT = "true";
   });
