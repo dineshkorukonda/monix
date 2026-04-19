@@ -7,7 +7,11 @@ function extractMessage(raw: string): string {
   const t = raw.trim();
   if (!t.startsWith("{")) return t;
   try {
-    const j = JSON.parse(t) as { msg?: string; message?: string; error_description?: string };
+    const j = JSON.parse(t) as {
+      msg?: string;
+      message?: string;
+      error_description?: string;
+    };
     return j.msg || j.message || j.error_description || t;
   } catch {
     return t;
@@ -38,7 +42,10 @@ export function describeAuthError(input: unknown): string {
     );
   }
 
-  if (lower.includes("invalid login credentials") || lower.includes("invalid credentials")) {
+  if (
+    lower.includes("invalid login credentials") ||
+    lower.includes("invalid credentials")
+  ) {
     return "Invalid email or password.";
   }
 

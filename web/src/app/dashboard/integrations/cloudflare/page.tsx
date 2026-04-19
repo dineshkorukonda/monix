@@ -11,6 +11,7 @@ import {
   Unlink,
   Zap,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Area,
@@ -24,20 +25,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   ApiError,
+  type CloudflareAnalytics,
+  type CloudflareStatus,
+  type CloudflareZone,
   connectCloudflare,
   disconnectCloudflare,
   getCloudflareAnalytics,
   getCloudflareStatus,
   getCloudflareZones,
-  type CloudflareAnalytics,
-  type CloudflareStatus,
-  type CloudflareZone,
 } from "@/lib/api";
 
 function useChartColors() {
@@ -90,18 +90,12 @@ function StatCard({
         <Icon className={`h-4 w-4 ${iconColor}`} />
       </div>
       <p className="text-2xl font-bold text-foreground tabular-nums">{value}</p>
-      {sub && (
-        <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
-      )}
+      {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
 }
 
-function RequestsChart({
-  series,
-}: {
-  series: CloudflareAnalytics["series"];
-}) {
+function RequestsChart({ series }: { series: CloudflareAnalytics["series"] }) {
   const c = useChartColors();
   const data = series.map((s) => ({
     date: s.date.slice(5), // MM-DD
@@ -113,7 +107,10 @@ function RequestsChart({
   return (
     <div className="h-[220px] w-full">
       <ResponsiveContainer width="100%" height="100%" debounce={1}>
-        <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+        <AreaChart
+          data={data}
+          margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+        >
           <defs>
             <linearGradient id="cfReqGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor={c.orange} stopOpacity={0.3} />
@@ -124,7 +121,11 @@ function RequestsChart({
               <stop offset="95%" stopColor={c.rose} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke={c.grid}
+            vertical={false}
+          />
           <XAxis
             dataKey="date"
             tick={{ fontSize: 10, fill: c.axis }}
@@ -192,7 +193,11 @@ function CountriesChart({
           margin={{ top: 0, right: 12, bottom: 0, left: 4 }}
           barSize={10}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke={c.grid} horizontal={false} />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke={c.grid}
+            horizontal={false}
+          />
           <XAxis
             type="number"
             tick={{ fontSize: 10, fill: c.axis }}
@@ -289,9 +294,13 @@ function ConnectSection({
           />
           <p className="text-[11px] text-muted-foreground">
             Create a token at{" "}
-            <span className="font-mono">dash.cloudflare.com → Profile → API Tokens</span>{" "}
+            <span className="font-mono">
+              dash.cloudflare.com → Profile → API Tokens
+            </span>{" "}
             with the{" "}
-            <span className="font-medium">Zone:Zone:Read + Zone:Analytics:Read</span>{" "}
+            <span className="font-medium">
+              Zone:Zone:Read + Zone:Analytics:Read
+            </span>{" "}
             permissions.
           </p>
         </div>
@@ -343,22 +352,19 @@ function AnalyticsSection({
   const [error, setError] = useState("");
   const [disconnecting, setDisconnecting] = useState(false);
 
-  const load = useCallback(
-    async (zoneId: string, d: number) => {
-      if (!zoneId) return;
-      setLoading(true);
-      setError("");
-      try {
-        const data = await getCloudflareAnalytics(zoneId, d);
-        setAnalytics(data);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load analytics");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+  const load = useCallback(async (zoneId: string, d: number) => {
+    if (!zoneId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getCloudflareAnalytics(zoneId, d);
+      setAnalytics(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load analytics");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (selectedZone) void load(selectedZone, days);
@@ -429,7 +435,9 @@ function AnalyticsSection({
           </select>
         </div>
         <div className="flex items-center gap-2">
-          <Label className="text-xs text-muted-foreground shrink-0">Period</Label>
+          <Label className="text-xs text-muted-foreground shrink-0">
+            Period
+          </Label>
           <div className="flex rounded-md border border-border overflow-hidden">
             {[7, 14, 30].map((d) => (
               <button
@@ -581,14 +589,13 @@ function AnalyticsSection({
                   const pct = total
                     ? ((s.requests / total) * 100).toFixed(1)
                     : "0";
-                  const color =
-                    s.status.startsWith("2")
-                      ? "bg-emerald-500"
-                      : s.status.startsWith("3")
-                        ? "bg-blue-400"
-                        : s.status.startsWith("4")
-                          ? "bg-amber-400"
-                          : "bg-rose-500";
+                  const color = s.status.startsWith("2")
+                    ? "bg-emerald-500"
+                    : s.status.startsWith("3")
+                      ? "bg-blue-400"
+                      : s.status.startsWith("4")
+                        ? "bg-amber-400"
+                        : "bg-rose-500";
                   return (
                     <div
                       key={s.status}

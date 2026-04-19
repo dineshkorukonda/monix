@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { deleteAccount } from "@/lib/api";
@@ -70,7 +70,7 @@ export default function SettingsPage() {
                     Select how Monix strictly renders across the HUD.
                   </p>
                 </div>
-                <select 
+                <select
                   value={mounted ? theme : "system"}
                   onChange={(e) => setTheme(e.target.value)}
                   className="h-9 w-full md:w-48 rounded-md border border-input bg-background/50 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"

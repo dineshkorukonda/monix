@@ -100,7 +100,9 @@ function NavItem({
       <item.icon
         className={cn(
           "h-4 w-4 shrink-0",
-          isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
+          isActive
+            ? "text-foreground"
+            : "text-muted-foreground group-hover:text-foreground",
         )}
       />
       <span>{item.label}</span>
