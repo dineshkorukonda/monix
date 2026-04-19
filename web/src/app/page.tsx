@@ -335,7 +335,8 @@ export default function Home() {
                     target URL to a verified property, and syncs summary metrics
                     plus top queries. Overview and Analytics show clicks,
                     impressions, CTR, and average position when data is
-                    available—without replacing on-page SEO checks from the scan.
+                    available—without replacing on-page SEO checks from the
+                    scan.
                   </p>
                 </div>
                 <div className="shrink-0 md:max-w-xs md:text-right">
@@ -380,8 +381,8 @@ export default function Home() {
                   <p className="mt-4 text-sm leading-relaxed text-white/50 md:text-base">
                     Add an API token with zone read and analytics read. Monix
                     stores it encrypted on the server, lists your zones, and
-                    pulls HTTP request series from Cloudflare&apos;s APIs. When a
-                    monitored site&apos;s hostname matches a zone, Overview,
+                    pulls HTTP request series from Cloudflare&apos;s APIs. When
+                    a monitored site&apos;s hostname matches a zone, Overview,
                     Sites, Analytics, and Issues show requests, cache ratio,
                     threats, and country breakdowns alongside scan results.
                   </p>
@@ -507,9 +508,9 @@ export default function Home() {
             </h2>
             <p className="mt-4 max-w-xl text-white/50">
               Sign in to run analyses and manage sites. Documentation covers
-              architecture, Supabase auth, Search Console and Cloudflare,
-              how reports are stored, environment variables, and local
-              development if you are integrating or self-hosting.
+              architecture, Supabase auth, Search Console and Cloudflare, how
+              reports are stored, environment variables, and local development
+              if you are integrating or self-hosting.
             </p>
           </motion.div>
           <div className="grid gap-6 md:grid-cols-2">
@@ -525,8 +526,8 @@ export default function Home() {
                 Sign in to the app
               </h3>
               <p className="mt-4 text-sm leading-relaxed text-white/45">
-                Dashboard, sites, integrations, and scan history—everything gated
-                behind authentication the way you run Monix today.
+                Dashboard, sites, integrations, and scan history—everything
+                gated behind authentication the way you run Monix today.
               </p>
               <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white">
                 Continue to login

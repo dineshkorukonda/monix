@@ -8,7 +8,9 @@ const supabaseAnonKey =
   "";
 
 const canInit =
-  typeof window !== "undefined" && Boolean(supabaseUrl) && Boolean(supabaseAnonKey);
+  typeof window !== "undefined" &&
+  Boolean(supabaseUrl) &&
+  Boolean(supabaseAnonKey);
 
 if (!canInit && typeof window !== "undefined") {
   // eslint-disable-next-line no-console
@@ -21,4 +23,3 @@ if (!canInit && typeof window !== "undefined") {
 export const supabase = canInit
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
-

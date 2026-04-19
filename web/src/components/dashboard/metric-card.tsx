@@ -29,10 +29,10 @@ const VARIANT_CLASSES: Record<
   string
 > = {
   default: "bg-muted/60 text-muted-foreground",
-  indigo:  "bg-indigo-500/10 text-indigo-500",
+  indigo: "bg-indigo-500/10 text-indigo-500",
   emerald: "bg-emerald-500/10 text-emerald-500",
-  amber:   "bg-amber-500/10 text-amber-500",
-  rose:    "bg-rose-500/10 text-rose-500",
+  amber: "bg-amber-500/10 text-amber-500",
+  rose: "bg-rose-500/10 text-rose-500",
 };
 
 export function MetricCard({
@@ -51,7 +51,9 @@ export function MetricCard({
         <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
           {label}
         </span>
-        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${VARIANT_CLASSES[variant]}`}>
+        <div
+          className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${VARIANT_CLASSES[variant]}`}
+        >
           <Icon className="h-4 w-4" />
         </div>
       </div>
@@ -77,9 +79,7 @@ export function MetricCard({
         )}
       </div>
 
-      {sub && (
-        <p className="text-[11px] text-muted-foreground -mt-2">{sub}</p>
-      )}
+      {sub && <p className="text-[11px] text-muted-foreground -mt-2">{sub}</p>}
     </div>
   );
 }

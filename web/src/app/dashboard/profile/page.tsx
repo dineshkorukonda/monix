@@ -81,7 +81,12 @@ export default function ProfilePage() {
       });
       setProfile((prev) =>
         prev
-          ? { ...prev, name: result.name, initials: result.initials, avatar_url: result.avatar_url ?? null }
+          ? {
+              ...prev,
+              name: result.name,
+              initials: result.initials,
+              avatar_url: result.avatar_url ?? null,
+            }
           : prev,
       );
       setNameStatus({
@@ -216,7 +221,8 @@ export default function ProfilePage() {
                     className="h-12 w-12 rounded-full object-cover border border-border"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                      (e.currentTarget as HTMLImageElement).style.display =
+                        "none";
                     }}
                   />
                 ) : null}

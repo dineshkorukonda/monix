@@ -15,18 +15,18 @@ export function getScoreLevel(score: number | null | undefined): ScoreLevel {
 
 const LEVEL_COLORS: Record<ScoreLevel, string> = {
   excellent: "#10b981",
-  good:      "#6366f1",
-  warn:      "#f59e0b",
-  critical:  "#ef4444",
-  empty:     "currentColor",
+  good: "#6366f1",
+  warn: "#f59e0b",
+  critical: "#ef4444",
+  empty: "currentColor",
 };
 
 const LEVEL_LABELS: Record<ScoreLevel, string> = {
   excellent: "Excellent",
-  good:      "Good",
-  warn:      "Needs work",
-  critical:  "Critical",
-  empty:     "No data",
+  good: "Good",
+  warn: "Needs work",
+  critical: "Critical",
+  empty: "No data",
 };
 
 interface ScoreRingProps {
@@ -54,7 +54,10 @@ export function ScoreRing({
   const filled = score != null ? (score / 100) * circumference : 0;
 
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+    <div
+      className="relative inline-flex items-center justify-center"
+      style={{ width: size, height: size }}
+    >
       <svg
         width={size}
         height={size}
@@ -98,17 +101,25 @@ export function ScoreRing({
   );
 }
 
-export function ScoreLevelBadge({ score }: { score: number | null | undefined }) {
+export function ScoreLevelBadge({
+  score,
+}: {
+  score: number | null | undefined;
+}) {
   const level = getScoreLevel(score);
   const styles: Record<ScoreLevel, string> = {
-    excellent: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-    good:      "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
-    warn:      "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-    critical:  "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
-    empty:     "bg-muted text-muted-foreground border-border",
+    excellent:
+      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+    good: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+    warn: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    critical:
+      "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+    empty: "bg-muted text-muted-foreground border-border",
   };
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wide ${styles[level]}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border uppercase tracking-wide ${styles[level]}`}
+    >
       {LEVEL_LABELS[level]}
     </span>
   );

@@ -6,11 +6,11 @@
  * - Django APIs accept `Authorization: Bearer <token>` for authenticated routes.
  */
 
-import { supabase } from "@/lib/supabase";
 import {
   enableDualReadVerificationClient,
   useNextIntegrationApiClient,
 } from "@/lib/feature-flags";
+import { supabase } from "@/lib/supabase";
 
 /** RFC1918-style hosts (not localhost / loopback). */
 function isLanHostname(hostname: string): boolean {
@@ -130,8 +130,10 @@ async function verifyDualReadStatus<T>({
     if (!baselineRes.ok) return;
     const baseline = (await baselineRes.json()) as T;
     if (isDifferent(baseline, nextPayload)) {
-      // biome-ignore lint/suspicious/noConsole: phased migration drift check
-      console.warn(`Dual-read mismatch: ${label}`, { next: nextPayload, django: baseline });
+      console.warn(`Dual-read mismatch: ${label}`, {
+        next: nextPayload,
+        django: baseline,
+      });
     }
   } catch {
     // no-op
@@ -1036,7 +1038,12 @@ export async function updateProfile(data: {
   first_name?: string;
   last_name?: string;
   avatar_url?: string;
-}): Promise<{ ok: boolean; name: string; initials: string; avatar_url?: string | null }> {
+}): Promise<{
+  ok: boolean;
+  name: string;
+  initials: string;
+  avatar_url?: string | null;
+}> {
   if (!supabase) throw new Error("Supabase is not configured");
   const { error } = await supabase.auth.updateUser({
     data: {
@@ -1048,7 +1055,12 @@ export async function updateProfile(data: {
   if (error) throw new Error(error.message);
   invalidateApiCache("me");
   const u = await getMe();
-  return { ok: true, name: u.name, initials: u.initials, avatar_url: u.avatar_url ?? null };
+  return {
+    ok: true,
+    name: u.name,
+    initials: u.initials,
+    avatar_url: u.avatar_url ?? null,
+  };
 }
 
 /** Change the authenticated user's password. */
@@ -1131,11 +1143,14 @@ export async function getCloudflareStatus(
     "cloudflare:status",
     async () => {
       const headers = await authHeaders();
-      const res = await fetch(`${integrationBase}/api/cloudflare/status/`, { headers });
+      const res = await fetch(`${integrationBase}/api/cloudflare/status/`, {
+        headers,
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new ApiError(
-          (err as { error?: string }).error || "Failed to fetch Cloudflare status",
+          (err as { error?: string }).error ||
+            "Failed to fetch Cloudflare status",
           res.status,
         );
       }
@@ -1177,10 +1192,13 @@ export async function connectCloudflare(
 
 /** Remove the stored Cloudflare API token. */
 export async function disconnectCloudflare(): Promise<void> {
-  const res = await fetch(`${integrationApiBase()}/api/cloudflare/disconnect/`, {
-    method: "DELETE",
-    headers: await authHeaders(),
-  });
+  const res = await fetch(
+    `${integrationApiBase()}/api/cloudflare/disconnect/`,
+    {
+      method: "DELETE",
+      headers: await authHeaders(),
+    },
+  );
   if (!res.ok) throw new Error("Failed to disconnect Cloudflare");
   invalidateApiCache("cloudflare:");
 }

@@ -19,7 +19,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Area,
   AreaChart,
@@ -32,29 +39,44 @@ import {
   YAxis,
 } from "recharts";
 import { ChartCard } from "@/components/dashboard/chart-card";
-import { ScoreLevelBadge, ScoreRing } from "@/components/dashboard/score-ring";
 import { MetricCard } from "@/components/dashboard/metric-card";
-import { Button } from "@/components/ui/button";
+import { ScoreLevelBadge, ScoreRing } from "@/components/dashboard/score-ring";
 import { GscProjectWorkspaceSection } from "@/components/gsc-metrics";
+import { Button } from "@/components/ui/button";
 import {
   analyzeUrl,
+  getReport,
   getScans,
   getTarget,
-  getReport,
+  type ScanReport,
+  type ScanSummary,
   type StoredReportResults,
   type Target,
-  type ScanSummary,
-  type ScanReport,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const PORT_SERVICES: Record<number, string> = {
-  21: "FTP", 22: "SSH", 25: "SMTP", 53: "DNS", 80: "HTTP", 110: "POP3",
-  143: "IMAP", 443: "HTTPS", 465: "SMTPS", 587: "SMTP/TLS", 993: "IMAPS",
-  995: "POP3S", 3306: "MySQL", 5432: "PostgreSQL", 6379: "Redis",
-  8080: "HTTP-Alt", 8443: "HTTPS-Alt", 8888: "HTTP-Dev", 9200: "Elasticsearch",
+  21: "FTP",
+  22: "SSH",
+  25: "SMTP",
+  53: "DNS",
+  80: "HTTP",
+  110: "POP3",
+  143: "IMAP",
+  443: "HTTPS",
+  465: "SMTPS",
+  587: "SMTP/TLS",
+  993: "IMAPS",
+  995: "POP3S",
+  3306: "MySQL",
+  5432: "PostgreSQL",
+  6379: "Redis",
+  8080: "HTTP-Alt",
+  8443: "HTTPS-Alt",
+  8888: "HTTP-Dev",
+  9200: "Elasticsearch",
   27017: "MongoDB",
 };
 
@@ -126,7 +148,8 @@ function ScanSection({
 
 function PortsSection({ r }: { r: StoredReportResults }) {
   const scan = r.port_scan;
-  if (!scan || ("error" in scan && scan.error === "No IP address resolved")) return null;
+  if (!scan || ("error" in scan && scan.error === "No IP address resolved"))
+    return null;
 
   const openPorts = [...(scan.open_ports ?? [])].sort((a, b) => a - b);
   const filteredPorts = [...(scan.filtered_ports ?? [])].sort((a, b) => a - b);
@@ -152,16 +175,24 @@ function PortsSection({ r }: { r: StoredReportResults }) {
         <table className="w-full text-sm">
           <thead className="bg-muted/30 border-b border-border">
             <tr>
-              <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">Port</th>
-              <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">Service</th>
-              <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
+              <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">
+                Port
+              </th>
+              <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">
+                Service
+              </th>
+              <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">
+                Status
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {openPorts.map((port) => (
               <tr key={port} className="hover:bg-muted/20 transition-colors">
                 <td className="px-5 py-3 font-mono text-foreground">{port}</td>
-                <td className="px-5 py-3 text-muted-foreground">{PORT_SERVICES[port] ?? "Unknown"}</td>
+                <td className="px-5 py-3 text-muted-foreground">
+                  {PORT_SERVICES[port] ?? "Unknown"}
+                </td>
                 <td className="px-5 py-3">
                   <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-600 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
                     <CheckCircle2 className="h-3 w-3" /> Open
@@ -171,8 +202,12 @@ function PortsSection({ r }: { r: StoredReportResults }) {
             ))}
             {filteredPorts.map((port) => (
               <tr key={port} className="hover:bg-muted/20 transition-colors">
-                <td className="px-5 py-3 font-mono text-muted-foreground/60">{port}</td>
-                <td className="px-5 py-3 text-muted-foreground/60">{PORT_SERVICES[port] ?? "Unknown"}</td>
+                <td className="px-5 py-3 font-mono text-muted-foreground/60">
+                  {port}
+                </td>
+                <td className="px-5 py-3 text-muted-foreground/60">
+                  {PORT_SERVICES[port] ?? "Unknown"}
+                </td>
                 <td className="px-5 py-3">
                   <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                     Filtered
@@ -199,11 +234,7 @@ function SslSection({ r }: { r: StoredReportResults }) {
     typeof ssl.issuer === "object" && ssl.issuer !== null ? ssl.issuer : {};
 
   const rows: [string, string, boolean?][] = [
-    [
-      "Status",
-      ssl.valid ? "Valid" : ssl.error ?? "Invalid",
-      ssl.valid,
-    ],
+    ["Status", ssl.valid ? "Valid" : (ssl.error ?? "Invalid"), ssl.valid],
     [
       "Subject",
       (subject as Record<string, string>).commonName ||
@@ -311,7 +342,10 @@ function DnsSection({ r }: { r: StoredReportResults }) {
             </span>
             <div className="space-y-1">
               {values.map((v, i) => (
-                <p key={i} className="font-mono text-xs text-foreground break-all">
+                <p
+                  key={i}
+                  className="font-mono text-xs text-foreground break-all"
+                >
                   {v}
                 </p>
               ))}
@@ -355,15 +389,23 @@ function HeadersSection({ r }: { r: StoredReportResults }) {
       <table className="w-full text-sm">
         <thead className="bg-muted/30 border-b border-border">
           <tr>
-            <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">Header</th>
-            <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">Status</th>
-            <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">Value</th>
+            <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">
+              Header
+            </th>
+            <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">
+              Status
+            </th>
+            <th className="text-left px-5 py-2.5 text-xs font-semibold text-muted-foreground">
+              Value
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
           {entries.map(([header, info]) => (
             <tr key={header} className="hover:bg-muted/20 transition-colors">
-              <td className="px-5 py-3 font-mono text-xs text-foreground">{header}</td>
+              <td className="px-5 py-3 font-mono text-xs text-foreground">
+                {header}
+              </td>
               <td className="px-5 py-3">
                 {info.present ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-600 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
@@ -402,7 +444,10 @@ function FindingsSection({ r }: { r: StoredReportResults }) {
         <ScanSection title="Findings" defaultOpen>
           <div className="divide-y divide-border">
             {findings.map((f) => (
-              <div key={`${f.title}`} className="flex items-start gap-3 px-5 py-4">
+              <div
+                key={`${f.title}`}
+                className="flex items-start gap-3 px-5 py-4"
+              >
                 <span
                   className={cn(
                     "mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase",
@@ -416,8 +461,12 @@ function FindingsSection({ r }: { r: StoredReportResults }) {
                   {f.severity}
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{f.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-5">{f.detail}</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {f.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-5">
+                    {f.detail}
+                  </p>
                 </div>
               </div>
             ))}
@@ -431,7 +480,9 @@ function FindingsSection({ r }: { r: StoredReportResults }) {
             {recs.map((item, i) => (
               <div key={i} className="flex items-start gap-3 px-5 py-4">
                 <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
-                <p className="text-sm text-muted-foreground leading-6">{item}</p>
+                <p className="text-sm text-muted-foreground leading-6">
+                  {item}
+                </p>
               </div>
             ))}
           </div>
@@ -487,8 +538,7 @@ function WorkspaceInner() {
         return;
       }
 
-      const reportId =
-        matched.length > 0 ? matched[0].report_id : null;
+      const reportId = matched.length > 0 ? matched[0].report_id : null;
       if (reportId) {
         try {
           const report = await getReport(reportId);
@@ -509,20 +559,25 @@ function WorkspaceInner() {
     reloadWorkspace().finally(() => setLoading(false));
   }, [id, reloadWorkspace]);
 
-  const handleRunScan = useCallback(async (t?: Target) => {
-    const tgt = t ?? target;
-    if (!tgt || scanning) return;
-    setScanning(true);
-    setScanError(null);
-    try {
-      await analyzeUrl(tgt.url, { targetId: tgt.id, includePortScan: true });
-      await reloadWorkspace();
-    } catch (err) {
-      setScanError(err instanceof Error ? err.message : "Scan failed. Please try again.");
-    } finally {
-      setScanning(false);
-    }
-  }, [target, scanning, reloadWorkspace]);
+  const handleRunScan = useCallback(
+    async (t?: Target) => {
+      const tgt = t ?? target;
+      if (!tgt || scanning) return;
+      setScanning(true);
+      setScanError(null);
+      try {
+        await analyzeUrl(tgt.url, { targetId: tgt.id, includePortScan: true });
+        await reloadWorkspace();
+      } catch (err) {
+        setScanError(
+          err instanceof Error ? err.message : "Scan failed. Please try again.",
+        );
+      } finally {
+        setScanning(false);
+      }
+    },
+    [target, scanning, reloadWorkspace],
+  );
 
   // Trigger scan automatically when autoscan=1
   useEffect(() => {
@@ -543,13 +598,12 @@ function WorkspaceInner() {
     results?.scores?.performance ??
     results?.performance?.desktop?.performance_score ??
     null;
-  const seoScore =
-    results?.scores?.seo ?? results?.seo?.seo_score ?? null;
+  const seoScore = results?.scores?.seo ?? results?.seo?.seo_score ?? null;
 
   const trafficData = useMemo(() => {
     const queries = target?.gsc_analytics?.top_queries ?? [];
     return queries.slice(0, 14).map((q) => ({
-      query: q.query.length > 20 ? q.query.slice(0, 20) + "…" : q.query,
+      query: q.query.length > 20 ? `${q.query.slice(0, 20)}…` : q.query,
       clicks: q.clicks,
     }));
   }, [target]);
@@ -587,7 +641,6 @@ function WorkspaceInner() {
 
   return (
     <div className="space-y-6 max-w-[1280px] mx-auto pb-20">
-
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
         <div className="flex items-center gap-4 min-w-0">
@@ -604,7 +657,9 @@ function WorkspaceInner() {
             <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
-                {target.lastScan ? `Scanned ${target.lastScan}` : "Never scanned"}
+                {target.lastScan
+                  ? `Scanned ${target.lastScan}`
+                  : "Never scanned"}
               </span>
               <ScoreLevelBadge score={overall} />
             </div>
@@ -644,7 +699,11 @@ function WorkspaceInner() {
       {scanning && (
         <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-400">
           <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-          <p>Scanning <span className="font-mono font-semibold">{target.url}</span> — this takes 10–30 seconds…</p>
+          <p>
+            Scanning{" "}
+            <span className="font-mono font-semibold">{target.url}</span> — this
+            takes 10–30 seconds…
+          </p>
         </div>
       )}
 
@@ -652,7 +711,9 @@ function WorkspaceInner() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="col-span-2 sm:col-span-1 border border-border rounded-2xl bg-card p-6 flex flex-col items-center justify-center shadow-sm">
           <ScoreRing score={overall} size={110} strokeWidth={8} />
-          <p className="font-semibold text-sm mt-4 text-foreground">Overall Health</p>
+          <p className="font-semibold text-sm mt-4 text-foreground">
+            Overall Health
+          </p>
         </div>
         <MetricCard
           label="Security Score"
@@ -736,7 +797,10 @@ function WorkspaceInner() {
                 title="Region"
                 value={
                   results.server_location
-                    ? [results.server_location.city, results.server_location.country]
+                    ? [
+                        results.server_location.city,
+                        results.server_location.country,
+                      ]
                         .filter(Boolean)
                         .join(", ")
                     : "—"
@@ -758,7 +822,7 @@ function WorkspaceInner() {
           </section>
 
           {/* Findings & recommendations */}
-          {(results.findings?.length || results.recommendations?.length) ? (
+          {results.findings?.length || results.recommendations?.length ? (
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground px-1">
                 Analysis
@@ -772,7 +836,12 @@ function WorkspaceInner() {
             <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground px-1">
               Trends
             </h3>
-            <div className={cn("grid gap-4", hasGsc ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1 max-w-xl")}>
+            <div
+              className={cn(
+                "grid gap-4",
+                hasGsc ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1 max-w-xl",
+              )}
+            >
               {hasGsc && (
                 <ChartCard
                   title="Top Search Queries"
@@ -785,17 +854,47 @@ function WorkspaceInner() {
                       margin={{ top: 10, right: 16, bottom: 0, left: 8 }}
                       barSize={10}
                     >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
-                      <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                      <YAxis type="category" dataKey="query" width={130} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid var(--border)", background: "var(--card)" }} />
-                      <Bar dataKey="clicks" fill="#6366f1" radius={[0, 4, 4, 0]} name="Clicks" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        horizontal={false}
+                        stroke="var(--border)"
+                      />
+                      <XAxis
+                        type="number"
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="query"
+                        width={130}
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: "8px",
+                          border: "1px solid var(--border)",
+                          background: "var(--card)",
+                        }}
+                      />
+                      <Bar
+                        dataKey="clicks"
+                        fill="#6366f1"
+                        radius={[0, 4, 4, 0]}
+                        name="Clicks"
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartCard>
               )}
 
-              <ChartCard title="Score Trend" subtitle="Overall health score over time">
+              <ChartCard
+                title="Score Trend"
+                subtitle="Overall health score over time"
+              >
                 {perfTrendData.length < 2 ? (
                   <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
                     Run more scans to see your trend.
@@ -807,16 +906,56 @@ function WorkspaceInner() {
                       margin={{ top: 10, right: 10, bottom: 0, left: -20 }}
                     >
                       <defs>
-                        <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        <linearGradient
+                          id="scoreGrad"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#10b981"
+                            stopOpacity={0.3}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#10b981"
+                            stopOpacity={0}
+                          />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                      <YAxis domain={["auto", 100]} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid var(--border)", background: "var(--card)" }} />
-                      <Area type="monotone" dataKey="score" stroke="#10b981" strokeWidth={3} fill="url(#scoreGrad)" />
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="var(--border)"
+                      />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        domain={["auto", 100]}
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: "8px",
+                          border: "1px solid var(--border)",
+                          background: "var(--card)",
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="score"
+                        stroke="#10b981"
+                        strokeWidth={3}
+                        fill="url(#scoreGrad)"
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 )}

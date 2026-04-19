@@ -129,10 +129,18 @@ export default function ScansPage() {
         <div className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden">
           {/* Header */}
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/30">Target</span>
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/30 text-right">Score</span>
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/30 text-right">Date</span>
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/30 text-right">Report</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/30">
+              Target
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/30 text-right">
+              Score
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/30 text-right">
+              Date
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/30 text-right">
+              Report
+            </span>
           </div>
 
           {scans.map((scan, idx) => (

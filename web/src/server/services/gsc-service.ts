@@ -1,4 +1,7 @@
-import type { GscAnalyticsRequest, GscRepository } from "@/server/domain/integrations";
+import type {
+  GscAnalyticsRequest,
+  GscRepository,
+} from "@/server/domain/integrations";
 
 export class GscService {
   constructor(private readonly repo: GscRepository) {}

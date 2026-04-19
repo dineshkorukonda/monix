@@ -3,11 +3,11 @@
  */
 
 import {
+  type CloudflareAnalytics,
+  type CloudflareZone,
   getCloudflareAnalytics,
   getCloudflareStatus,
   getCloudflareZones,
-  type CloudflareAnalytics,
-  type CloudflareZone,
   type Target,
 } from "@/lib/api";
 
@@ -189,8 +189,7 @@ export function rollUpCfWorkspace(
   }
 
   byProject.sort((x, y) => y.requests - x.requests);
-  const cacheRatio =
-    totalRequests > 0 ? totalCached / totalRequests : null;
+  const cacheRatio = totalRequests > 0 ? totalCached / totalRequests : null;
 
   return {
     hasData: matched > 0,
