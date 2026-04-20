@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { runFullUrlAnalysis } from "@/server/scan/analyze-url-engine";
+import { runFullUrlAnalysis } from "@/server/analysis/analyze-url-engine";
 
 export async function POST(request: NextRequest) {
   try {
