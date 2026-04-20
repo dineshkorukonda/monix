@@ -1,13 +1,14 @@
 import type {
   GscAnalyticsRequest,
+  GscConnectContext,
   GscRepository,
 } from "@/server/domain/integrations";
 
 export class GscService {
   constructor(private readonly repo: GscRepository) {}
 
-  getConnectAuthorizationUrl(token: string) {
-    return this.repo.connectUrl(token);
+  getConnectAuthorizationUrl(ctx: GscConnectContext) {
+    return this.repo.connectUrl(ctx);
   }
 
   handleOAuthCallback(query: string) {

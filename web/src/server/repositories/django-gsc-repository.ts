@@ -7,11 +7,12 @@ import type { DjangoApiClient } from "@/server/infrastructure/django-api-client"
 export class DjangoGscRepository implements GscRepository {
   constructor(private readonly client: DjangoApiClient) {}
 
-  connectUrl(token: string) {
+  connectUrl(ctx: { bearerToken: string; supabaseUserId: string }) {
+    void ctx.supabaseUserId;
     return this.client.requestJson<{ authorization_url: string }>(
       "/api/gsc/connect/",
       { method: "GET" },
-      token,
+      ctx.bearerToken,
     );
   }
 
