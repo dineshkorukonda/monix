@@ -1,4 +1,4 @@
-import { getSystemStatsPayload } from "@/server/engine/system-stats";
+import { getSystemStatsPayload } from "@/server/analysis/system-stats";
 
 export function dashboardPayload(): Record<string, unknown> {
   const system_stats = {

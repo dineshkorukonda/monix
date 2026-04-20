@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { analyzeIpPayload } from "@/server/engine/analyze-ip";
+import { analyzeIpPayload } from "@/server/analysis/analyze-ip";
 import { handleRouteError } from "@/server/transport/http";
 
 export async function POST(request: NextRequest) {
