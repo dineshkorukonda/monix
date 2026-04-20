@@ -19,14 +19,15 @@ bun run dev
 
 ## Environment
 
-Configure `web/.env.local` with:
+Configure `web/.env.local` (or repo-root `.env`) with at least:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_DJANGO_URL` (optional compatibility endpoint)
-- `NEXT_PUBLIC_USE_NEXT_INTEGRATION_API`
-- `NEXT_PUBLIC_ENABLE_DUAL_READ_VERIFICATION`
-- `NEXT_PUBLIC_ANALYTICS_INTEGRATION_FIRST`
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SITE_URL` (for server-side fetches during SSR)
+- `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` (server-only)
+- JWT verification: `SUPABASE_JWKS_URL` + `SUPABASE_JWT_AUD` (or `SUPABASE_JWT_SECRET` for local HS256 tests only)
+- Google Search Console: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (e.g. `http://localhost:3000/api/gsc/callback`)
+
+Optional: `NEXT_PUBLIC_ANALYTICS_INTEGRATION_FIRST=true` for alternate Analytics copy; `PAGESPEED_API_KEY` for higher PageSpeed quotas.
 
 ## Testing
 

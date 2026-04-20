@@ -270,10 +270,9 @@ export default function Home() {
               What we evaluate
             </h2>
             <p className="mt-4 max-w-2xl text-base text-white/50 md:text-lg">
-              Three lenses on the same URL—the Python scan engine in{" "}
-              <code className="font-mono text-[13px] text-white/60">core/</code>{" "}
-              for analysis and scoring, Django for persistence and APIs, Next.js
-              for the dashboard.
+              Three lenses on the same URL—a TypeScript scan pipeline in Next.js
+              for analysis and scoring, Supabase Postgres for persistence, and
+              the same app for the dashboard and authenticated APIs.
             </p>
           </motion.div>
           <div className="grid gap-px bg-white/10 md:grid-cols-3">
@@ -342,7 +341,7 @@ export default function Home() {
                 <div className="shrink-0 md:max-w-xs md:text-right">
                   <p className="text-xs leading-relaxed text-white/40">
                     Requires Google Cloud OAuth credentials and a redirect URI
-                    that hits the Django callback. Details are in the
+                    that hits the Next.js GSC callback. Details are in the
                     documentation.
                   </p>
                   <Link
@@ -543,9 +542,9 @@ export default function Home() {
                 Documentation
               </h3>
               <p className="mt-4 text-sm leading-relaxed text-white/45">
-                Django API, report persistence, Next.js frontend, Search Console
-                and Cloudflare, environment variables, and local
-                development—spelled out in one place.
+                Next.js APIs, Supabase-backed persistence, Search Console and
+                Cloudflare, environment variables, and local development—spelled
+                out in one place.
               </p>
               <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white/80 group-hover:text-white">
                 Open docs
