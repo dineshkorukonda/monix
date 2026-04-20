@@ -12,92 +12,37 @@ import {
 } from "@/lib/feature-flags";
 import { supabase } from "@/lib/supabase";
 
-/** RFC1918-style hosts (not localhost / loopback). */
-function isLanHostname(hostname: string): boolean {
-  if (hostname === "localhost" || hostname === "127.0.0.1") return false;
-  return (
-    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(hostname)
-  );
-}
-
-/** In dev, API origin that matches this page (avoids LAN→127.0.0.1 fetch blocks). */
-function devDjangoOriginFromPage(): string {
-  if (typeof window === "undefined") return "http://127.0.0.1:8000";
-  const h = window.location.hostname;
-  if (h === "localhost" || h === "127.0.0.1") {
-    return `http://${h}:8000`;
-  }
-  if (isLanHostname(h)) {
-    return `http://${h}:8000`;
-  }
-  return "http://127.0.0.1:8000";
-}
-
-/** If page is on LAN but env points at loopback, rewrite so fetches are not blocked. */
-function devAlignEnvApiBaseWithPage(baseNoSlash: string): string {
-  if (typeof window === "undefined" || process.env.NODE_ENV !== "development") {
-    return baseNoSlash;
-  }
-  const page = window.location.hostname;
-  if (!isLanHostname(page)) {
-    return baseNoSlash;
-  }
-  try {
-    const u = new URL(baseNoSlash);
-    if (u.hostname === "localhost" || u.hostname === "127.0.0.1") {
-      u.hostname = page;
-      return u.origin;
-    }
-  } catch {
-    /* ignore */
-  }
-  return baseNoSlash;
-}
-
 /**
- * Base URL for Django API requests.
+ * Base URL for Monix API (Next.js Route Handlers under `/api/*`).
  *
- * **Browser (development):** Prefer `NEXT_PUBLIC_DJANGO_URL` if set. If you open the
- * app at a LAN URL (e.g. `http://10.x.x.x:3000`), the API base must use that same
- * host (e.g. `http://10.x.x.x:8000`) and Django must listen on `0.0.0.0:8000` —
- * otherwise the browser blocks `fetch` to `127.0.0.1` (Private Network Access).
- *
- * **Browser (production):** Use `NEXT_PUBLIC_DJANGO_URL` (your deployed API) or same-origin
- * `""` when the app and API share one host.
- *
- * **Server (SSR):** Absolute URL from env or `http://127.0.0.1:8000`.
+ * In the browser, requests use same-origin relative URLs (`""`).
+ * During SSR, use `NEXT_PUBLIC_SITE_URL` or infer from `VERCEL_URL`, else localhost.
  */
 export function djangoApiBase(): string {
   if (typeof window !== "undefined") {
-    const fromEnv = (
-      process.env.NEXT_PUBLIC_DJANGO_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      ""
-    ).trim();
-    if (fromEnv) {
-      return devAlignEnvApiBaseWithPage(fromEnv.replace(/\/$/, ""));
-    }
-    if (process.env.NODE_ENV === "development") {
-      return devDjangoOriginFromPage();
-    }
     return "";
   }
-  return (
-    process.env.NEXT_PUBLIC_DJANGO_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    "http://127.0.0.1:8000"
-  );
+  const site = (process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+  if (site) return site.replace(/\/$/, "");
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) return `https://${vercel}`.replace(/\/$/, "");
+  return "http://127.0.0.1:3000";
 }
 
-/** Shown in error messages — where Django should be listening (rewrite target). */
-function djangoApiDisplayUrl(): string {
-  return (
+/** Legacy Django base URL (dual-read verification only). */
+function djangoLegacyApiBase(): string {
+  const fromEnv = (
     process.env.NEXT_PUBLIC_DJANGO_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
-    "http://127.0.0.1:8000"
-  );
+    ""
+  ).trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  return "http://127.0.0.1:8000";
+}
+
+/** Shown in error messages when the API cannot be reached. */
+function djangoApiDisplayUrl(): string {
+  return djangoApiBase() || djangoLegacyApiBase() || "this app origin";
 }
 
 function integrationApiBase(): string {
@@ -126,7 +71,9 @@ async function verifyDualReadStatus<T>({
     return;
   }
   try {
-    const baselineRes = await fetch(`${djangoApiBase()}${path}`, { headers });
+    const baselineRes = await fetch(`${djangoLegacyApiBase()}${path}`, {
+      headers,
+    });
     if (!baselineRes.ok) return;
     const baseline = (await baselineRes.json()) as T;
     if (isDifferent(baseline, nextPayload)) {
@@ -532,9 +479,8 @@ export async function analyzeUrl(
         error.message.includes("Failed to fetch")
       ) {
         throw new Error(
-          "Cannot connect to API server - ensure Django is running on " +
-            djangoApiDisplayUrl() +
-            " (e.g. cd core && python manage.py runserver)",
+          "Cannot connect to API server — ensure the Next.js app is reachable at " +
+            djangoApiDisplayUrl(),
         );
       }
     }
@@ -627,11 +573,12 @@ export async function getReport(
     `report:${reportId}`,
     async () => {
       const response = await fetch(
-        `${djangoApiBase()}/api/reports/${reportId}/`,
+        `${djangoApiBase()}/api/me/reports/${reportId}/`,
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
+            ...(await authHeaders()),
           },
         },
       );
