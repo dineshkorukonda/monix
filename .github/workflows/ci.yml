@@ -50,7 +50,7 @@ jobs:
       - name: Build production bundle
         working-directory: web
         env:
-          NEXT_PUBLIC_DJANGO_URL: ${{ secrets.NEXT_PUBLIC_DJANGO_URL || 'http://localhost:8000' }}
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
           SUPABASE_URL: https://ci-placeholder.supabase.co
           SUPABASE_JWT_AUD: authenticated
         run: |

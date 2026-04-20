@@ -3,13 +3,9 @@
  *
  * Auth:
  * - Supabase Auth runs in the browser and provides a JWT access token.
- * - Django APIs accept `Authorization: Bearer <token>` for authenticated routes.
+ * - Next.js route handlers accept `Authorization: Bearer <token>` for authenticated routes.
  */
 
-import {
-  enableDualReadVerificationClient,
-  useNextIntegrationApiClient,
-} from "@/lib/feature-flags";
 import { supabase } from "@/lib/supabase";
 
 /**
@@ -18,7 +14,7 @@ import { supabase } from "@/lib/supabase";
  * In the browser, requests use same-origin relative URLs (`""`).
  * During SSR, use `NEXT_PUBLIC_SITE_URL` or infer from `VERCEL_URL`, else localhost.
  */
-export function djangoApiBase(): string {
+export function monixApiBase(): string {
   if (typeof window !== "undefined") {
     return "";
   }
@@ -29,62 +25,14 @@ export function djangoApiBase(): string {
   return "http://127.0.0.1:3000";
 }
 
-/** Legacy Django base URL (dual-read verification only). */
-function djangoLegacyApiBase(): string {
-  const fromEnv = (
-    process.env.NEXT_PUBLIC_DJANGO_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    ""
-  ).trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
-  return "http://127.0.0.1:8000";
+/** @deprecated Use `monixApiBase`. */
+export function djangoApiBase(): string {
+  return monixApiBase();
 }
 
 /** Shown in error messages when the API cannot be reached. */
-function djangoApiDisplayUrl(): string {
-  return djangoApiBase() || djangoLegacyApiBase() || "this app origin";
-}
-
-function integrationApiBase(): string {
-  if (useNextIntegrationApiClient()) {
-    return "";
-  }
-  return djangoApiBase();
-}
-
-async function verifyDualReadStatus<T>({
-  path,
-  headers,
-  nextPayload,
-  isDifferent,
-  label,
-}: {
-  path: string;
-  headers: Record<string, string>;
-  nextPayload: T;
-  isDifferent: (baseline: T, next: T) => boolean;
-  label: string;
-}): Promise<void> {
-  // Intentionally fire-and-forget in migration mode so primary UX latency is not
-  // impacted by baseline comparison requests.
-  if (!useNextIntegrationApiClient() || !enableDualReadVerificationClient()) {
-    return;
-  }
-  try {
-    const baselineRes = await fetch(`${djangoLegacyApiBase()}${path}`, {
-      headers,
-    });
-    if (!baselineRes.ok) return;
-    const baseline = (await baselineRes.json()) as T;
-    if (isDifferent(baseline, nextPayload)) {
-      console.warn(`Dual-read mismatch: ${label}`, {
-        next: nextPayload,
-        django: baseline,
-      });
-    }
-  } catch {
-    // no-op
-  }
+function monixApiDisplayUrl(): string {
+  return monixApiBase() || "this app origin";
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -419,9 +367,9 @@ export async function analyzeUrl(
   const parseJson = async (res: Response) => res.json().catch(() => ({}));
 
   try {
-    // Prefer Django authenticated scan so results link to your targets; fall back
-    // to public analyze-url when not logged in.
-    const proxied = await fetch(`${djangoApiBase()}/api/scans/run/`, {
+    // Prefer authenticated scan so results link to your targets; fall back to public
+    // analyze-url when not logged in.
+    const proxied = await fetch(`${monixApiBase()}/api/scans/run/`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify(body),
@@ -439,7 +387,7 @@ export async function analyzeUrl(
     }
 
     if (proxied.status === 401 || proxied.status === 403) {
-      const direct = await fetch(`${djangoApiBase()}/api/analyze-url`, {
+      const direct = await fetch(`${monixApiBase()}/api/analyze-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -480,7 +428,7 @@ export async function analyzeUrl(
       ) {
         throw new Error(
           "Cannot connect to API server — ensure the Next.js app is reachable at " +
-            djangoApiDisplayUrl(),
+            monixApiDisplayUrl(),
         );
       }
     }
@@ -492,7 +440,7 @@ export async function analyzeUrl(
  * Get current system dashboard data.
  */
 export async function getDashboardData(): Promise<DashboardData> {
-  const response = await fetch(`${djangoApiBase()}/api/dashboard`, {
+  const response = await fetch(`${monixApiBase()}/api/dashboard`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -510,7 +458,7 @@ export async function getDashboardData(): Promise<DashboardData> {
  * Get system statistics.
  */
 export async function getSystemStats(): Promise<SystemStats> {
-  const response = await fetch(`${djangoApiBase()}/api/system-stats`, {
+  const response = await fetch(`${monixApiBase()}/api/system-stats`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -528,7 +476,7 @@ export async function getSystemStats(): Promise<SystemStats> {
  * Get current network connections.
  */
 export async function getConnections(): Promise<Connection[]> {
-  const response = await fetch(`${djangoApiBase()}/api/connections`, {
+  const response = await fetch(`${monixApiBase()}/api/connections`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -547,7 +495,7 @@ export async function getConnections(): Promise<Connection[]> {
  * Get security alerts.
  */
 export async function getAlerts(): Promise<string[]> {
-  const response = await fetch(`${djangoApiBase()}/api/alerts`, {
+  const response = await fetch(`${monixApiBase()}/api/alerts`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -573,7 +521,7 @@ export async function getReport(
     `report:${reportId}`,
     async () => {
       const response = await fetch(
-        `${djangoApiBase()}/api/me/reports/${reportId}/`,
+        `${monixApiBase()}/api/me/reports/${reportId}/`,
         {
           method: "GET",
           headers: {
@@ -605,7 +553,7 @@ export async function checkHealth(): Promise<{
   service: string;
 }> {
   try {
-    const response = await fetch(`${djangoApiBase()}/api/health`, {
+    const response = await fetch(`${monixApiBase()}/api/health`, {
       method: "GET",
       signal: AbortSignal.timeout(5000), // 5 second timeout
     });
@@ -620,13 +568,13 @@ export async function checkHealth(): Promise<{
       if (error.name === "TimeoutError") {
         throw new Error(
           "API server timeout - ensure the backend is running on " +
-            djangoApiDisplayUrl(),
+            monixApiDisplayUrl(),
         );
       }
       if (error.message.includes("fetch")) {
         throw new Error(
           "Cannot connect to API server - ensure the backend is running on " +
-            djangoApiDisplayUrl(),
+            monixApiDisplayUrl(),
         );
       }
     }
@@ -638,14 +586,14 @@ export async function checkHealth(): Promise<{
  * Get the current API base URL.
  */
 export function getApiUrl(): string {
-  return djangoApiDisplayUrl();
+  return monixApiDisplayUrl();
 }
 
 // ---------------------------------------------------------------------------
-// Django typed helpers — use relative paths so Next.js rewrites route to :8000
+// Typed helpers for targets, scans, and integrations
 // ---------------------------------------------------------------------------
 
-/** Cached Google Search Console metrics for a target (from Django). */
+/** Cached Google Search Console metrics for a target. */
 export interface GscAnalyticsSummary {
   clicks: number | null;
   impressions: number | null;
@@ -714,9 +662,8 @@ export interface ScanSummary {
 
 /** Fetch whether the user has connected Google Search Console (server-side tokens). */
 export async function getGscStatus(): Promise<{ connected: boolean }> {
-  const integrationBase = integrationApiBase();
   const headers = await authHeaders();
-  const res = await fetch(`${integrationBase}/api/gsc/status/`, { headers });
+  const res = await fetch(`${monixApiBase()}/api/gsc/status/`, { headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new ApiError(
@@ -724,17 +671,7 @@ export async function getGscStatus(): Promise<{ connected: boolean }> {
       res.status,
     );
   }
-  const payload = (await res.json()) as { connected: boolean };
-
-  void verifyDualReadStatus({
-    path: "/api/gsc/status/",
-    headers,
-    nextPayload: payload,
-    isDifferent: (baseline, next) => baseline.connected !== next.connected,
-    label: "gsc status",
-  });
-
-  return payload;
+  return (await res.json()) as { connected: boolean };
 }
 
 /**
@@ -744,7 +681,7 @@ export async function getGscStatus(): Promise<{ connected: boolean }> {
 export async function getGscConnectAuthorizationUrl(): Promise<{
   authorization_url: string;
 }> {
-  const res = await fetch(`${integrationApiBase()}/api/gsc/connect/`, {
+  const res = await fetch(`${monixApiBase()}/api/gsc/connect/`, {
     headers: await authHeaders(),
   });
   if (!res.ok) {
@@ -763,7 +700,7 @@ export async function syncGscTargets(): Promise<{
   targets: number;
   errors: number;
 }> {
-  const res = await fetch(`${integrationApiBase()}/api/gsc/sync-targets/`, {
+  const res = await fetch(`${monixApiBase()}/api/gsc/sync-targets/`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: "{}",
@@ -787,7 +724,7 @@ export async function getTargets(
   return cachedRequest(
     "targets",
     async () => {
-      const res = await fetch(`${djangoApiBase()}/api/targets/`, {
+      const res = await fetch(`${monixApiBase()}/api/targets/`, {
         headers: await authHeaders(),
       });
       if (!res.ok) {
@@ -802,7 +739,7 @@ export async function getTargets(
 
 /** Create a new monitored target (URL only). */
 export async function createTarget(url: string): Promise<Target> {
-  const res = await fetch(`${djangoApiBase()}/api/targets/`, {
+  const res = await fetch(`${monixApiBase()}/api/targets/`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ url }),
@@ -825,7 +762,7 @@ export async function getTarget(
   return cachedRequest(
     `target:${id}`,
     async () => {
-      const res = await fetch(`${djangoApiBase()}/api/targets/${id}/`, {
+      const res = await fetch(`${monixApiBase()}/api/targets/${id}/`, {
         headers: await authHeaders(),
       });
       if (!res.ok) throw new Error("Target not found");
@@ -837,7 +774,7 @@ export async function getTarget(
 
 /** Delete a monitored target. */
 export async function deleteTarget(id: string): Promise<void> {
-  const res = await fetch(`${djangoApiBase()}/api/targets/${id}/`, {
+  const res = await fetch(`${monixApiBase()}/api/targets/${id}/`, {
     method: "DELETE",
     headers: await authHeaders(),
   });
@@ -859,7 +796,7 @@ export interface ScanLocation {
 
 /** Fetch unique server coordinates for all scans belonging to the current user. */
 export async function getScanLocations(): Promise<ScanLocation[]> {
-  const res = await fetch(`${djangoApiBase()}/api/scans/locations/`, {
+  const res = await fetch(`${monixApiBase()}/api/scans/locations/`, {
     headers: await authHeaders(),
   });
   if (!res.ok) {
@@ -879,7 +816,7 @@ export async function getScans(
   return cachedRequest(
     "scans",
     async () => {
-      const res = await fetch(`${djangoApiBase()}/api/scans/`, {
+      const res = await fetch(`${monixApiBase()}/api/scans/`, {
         headers: await authHeaders(),
       });
       if (!res.ok) {
@@ -899,7 +836,7 @@ export async function getMe(
   return cachedRequest(
     "me",
     async () => {
-      const res = await fetch(`${djangoApiBase()}/api/auth/me/`, {
+      const res = await fetch(`${monixApiBase()}/api/auth/me/`, {
         headers: await authHeaders(),
       });
       if (res.ok) {
@@ -919,7 +856,7 @@ export async function getMe(
         return serverProfile;
       }
 
-      // Fall back to Supabase session info so UI can render even if Django is down.
+      // Fall back to Supabase session info so UI can render if the profile API fails.
       if (!supabase) throw new ApiError("Not authenticated", 401);
       const { data } = await supabase.auth.getUser();
       const u = data.user;
@@ -944,7 +881,7 @@ export async function getMe(
   );
 }
 
-/** Email + password sign-in via Supabase; JWT is sent to Django on subsequent API calls. */
+/** Email + password sign-in via Supabase; JWT is sent to `/api/*` on subsequent calls. */
 export async function login(
   email: string,
   password: string,
@@ -1030,7 +967,7 @@ export async function logout(): Promise<void> {
 
 /** Permanently delete the user account and all data. */
 export async function deleteAccount(): Promise<void> {
-  const res = await fetch(`${djangoApiBase()}/api/auth/account/`, {
+  const res = await fetch(`${monixApiBase()}/api/auth/account/`, {
     method: "DELETE",
     headers: await authHeaders(),
   });
@@ -1085,12 +1022,11 @@ export interface CloudflareAnalytics {
 export async function getCloudflareStatus(
   options?: CachedRequestOptions,
 ): Promise<CloudflareStatus> {
-  const integrationBase = integrationApiBase();
   return cachedRequest(
     "cloudflare:status",
     async () => {
       const headers = await authHeaders();
-      const res = await fetch(`${integrationBase}/api/cloudflare/status/`, {
+      const res = await fetch(`${monixApiBase()}/api/cloudflare/status/`, {
         headers,
       });
       if (!res.ok) {
@@ -1101,17 +1037,7 @@ export async function getCloudflareStatus(
           res.status,
         );
       }
-      const payload = (await res.json()) as CloudflareStatus;
-      void verifyDualReadStatus<CloudflareStatus>({
-        path: "/api/cloudflare/status/",
-        headers,
-        nextPayload: payload,
-        isDifferent: (baseline, next) =>
-          baseline.connected !== next.connected ||
-          (baseline.account_id || null) !== (next.account_id || null),
-        label: "cloudflare status",
-      });
-      return payload;
+      return (await res.json()) as CloudflareStatus;
     },
     { ttlMs: 30_000, ...options },
   );
@@ -1121,7 +1047,7 @@ export async function getCloudflareStatus(
 export async function connectCloudflare(
   apiToken: string,
 ): Promise<{ success: boolean; account_name: string; zones_count: number }> {
-  const res = await fetch(`${integrationApiBase()}/api/cloudflare/connect/`, {
+  const res = await fetch(`${monixApiBase()}/api/cloudflare/connect/`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify({ api_token: apiToken }),
@@ -1139,20 +1065,17 @@ export async function connectCloudflare(
 
 /** Remove the stored Cloudflare API token. */
 export async function disconnectCloudflare(): Promise<void> {
-  const res = await fetch(
-    `${integrationApiBase()}/api/cloudflare/disconnect/`,
-    {
-      method: "DELETE",
-      headers: await authHeaders(),
-    },
-  );
+  const res = await fetch(`${monixApiBase()}/api/cloudflare/disconnect/`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
   if (!res.ok) throw new Error("Failed to disconnect Cloudflare");
   invalidateApiCache("cloudflare:");
 }
 
 /** List all zones accessible via the stored Cloudflare token. */
 export async function getCloudflareZones(): Promise<CloudflareZone[]> {
-  const res = await fetch(`${integrationApiBase()}/api/cloudflare/zones/`, {
+  const res = await fetch(`${monixApiBase()}/api/cloudflare/zones/`, {
     headers: await authHeaders(),
   });
   if (!res.ok) {
@@ -1172,7 +1095,7 @@ export async function getCloudflareAnalytics(
 ): Promise<CloudflareAnalytics> {
   const params = new URLSearchParams({ zone_id: zoneId, days: String(days) });
   const res = await fetch(
-    `${integrationApiBase()}/api/cloudflare/analytics/?${params}`,
+    `${monixApiBase()}/api/cloudflare/analytics/?${params}`,
     { headers: await authHeaders() },
   );
   if (!res.ok) {

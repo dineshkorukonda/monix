@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { UnauthorizedError } from "@/server/auth/policy";
 import { AuthVerificationError } from "@/server/auth/supabase-jwt";
-import { UpstreamApiError } from "@/server/infrastructure/django-api-client";
+import { UpstreamApiError } from "@/server/infrastructure/upstream-api-client";
 
 export function handleRouteError(error: unknown): NextResponse {
   if (error instanceof UnauthorizedError) {

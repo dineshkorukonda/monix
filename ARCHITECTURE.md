@@ -17,7 +17,7 @@ Monix is now a **Next.js-only** application.
 | --- | --- |
 | `web/src/app` | App Router pages and route handlers |
 | `web/src/components` | Shared UI components |
-| `web/src/lib` | Client utilities and feature flags |
+| `web/src/lib` | Client utilities and API client |
 | `web/src/server` | Server-side integration/domain layers |
 | `web/src/**/*.test.ts` | TypeScript/JavaScript test suite |
 | `.github/workflows/ci.yml` | CI: lint, test, build |
