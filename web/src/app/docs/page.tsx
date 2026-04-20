@@ -13,7 +13,7 @@ const nav = [
   { id: "architecture", title: "Architecture" },
   { id: "reports-storage", title: "Reports & persistence" },
   { id: "scan-engine", title: "Scan engine" },
-  { id: "django", title: "Django reports & auth" },
+  { id: "backend-api", title: "Next.js API & data" },
   { id: "nextjs", title: "Next.js web app" },
   { id: "analysis", title: "What gets analyzed" },
   { id: "configuration", title: "Configuration" },
@@ -71,11 +71,12 @@ export default function DocsPage() {
                 How everything fits together
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/50">
-                This guide matches the repo: Django runs the scan engine and
-                persists scan results in PostgreSQL, serves authenticated APIs
-                (Supabase JWT, optional Google Search Console OAuth, optional
-                Cloudflare API token), and the Next.js app is where you sign in
-                to manage sites, scans, and integrations.
+                This guide matches the repo: Next.js route handlers run the scan
+                pipeline, persist results in Supabase Postgres, verify Supabase
+                JWTs for authenticated APIs, and orchestrate Google Search
+                Console OAuth and Cloudflare using server-side secrets. The same
+                Next.js app is where you sign in and manage sites, scans, and
+                integrations.
               </p>
             </header>
 
@@ -113,29 +114,24 @@ export default function DocsPage() {
                     <code className="font-mono text-[13px] text-white/70">
                       Authorization: Bearer &lt;JWT&gt;
                     </code>{" "}
-                    to Django; the API verifies the JWT (JWKS) and maps the user
-                    to a Django account. Optional{" "}
-                    <strong className="text-white/90">
-                      Sign in with Google
-                    </strong>{" "}
-                    for the app uses social-auth (
+                    to{" "}
                     <code className="font-mono text-[13px] text-white/70">
-                      /api/auth/login/google-oauth2/
+                      /api/*
                     </code>
-                    ) and the shared callback{" "}
-                    <code className="font-mono text-[13px] text-white/70">
-                      /api/auth/google/callback/
-                    </code>
-                    . <strong className="text-white/90">Search Console</strong>{" "}
-                    OAuth uses the same client and typically the same{" "}
+                    ; the server verifies the JWT (JWKS or HS256 in tests) and
+                    syncs profile rows in Postgres. App sign-in is{" "}
+                    <strong className="text-white/90">Supabase Auth</strong>{" "}
+                    (email/password or Google via Supabase).{" "}
+                    <strong className="text-white/90">Search Console</strong>{" "}
+                    OAuth is a separate Google consent flow: set{" "}
                     <code className="font-mono text-[13px] text-white/70">
                       GOOGLE_REDIRECT_URI
-                    </code>
-                    ; Django routes webmasters scope to the GSC token handler (
-                    <code className="font-mono text-[12px] text-white/55">
-                      api_auth_google_callback_compat
-                    </code>
-                    ).
+                    </code>{" "}
+                    to your deployed{" "}
+                    <code className="font-mono text-[13px] text-white/70">
+                      /api/gsc/callback
+                    </code>{" "}
+                    URL so Google returns the authorization code to Monix.
                   </li>
                   <li>
                     <strong className="text-white/90">Overview</strong> — The
@@ -230,32 +226,27 @@ export default function DocsPage() {
                       Authorized redirect URIs
                     </strong>
                     , click <strong className="text-white/90">Add URI</strong>{" "}
-                    and paste exactly (local Django; includes trailing slash).
-                    Sign-in and Search Console share this path:
-                    <code className="mt-2 block font-mono text-[13px] text-emerald-300/90">
-                      http://localhost:8000/api/auth/google/callback/
+                    and paste exactly (local Next.js; path must match{" "}
+                    <code className="font-mono text-[13px] text-white/70">
+                      GOOGLE_REDIRECT_URI
                     </code>
-                    If you use{" "}
+                    ):
+                    <code className="mt-2 block font-mono text-[13px] text-emerald-300/90">
+                      http://localhost:3000/api/gsc/callback
+                    </code>
+                    Production: use your real origin, e.g.{" "}
                     <code className="font-mono text-[13px] text-white/70">
-                      127.0.0.1
-                    </code>{" "}
-                    everywhere, add that host instead and set{" "}
-                    <code className="font-mono text-[13px] text-white/70">
-                      DJANGO_PUBLIC_BASE_URL
-                    </code>{" "}
-                    to match.
+                      https://app.example.com/api/gsc/callback
+                    </code>
+                    .
                   </li>
                   <li>
                     Set{" "}
                     <code className="font-mono text-[13px] text-white/70">
                       GOOGLE_REDIRECT_URI
                     </code>{" "}
-                    to that same callback URL so GSC token exchange matches. You
-                    do not need a separate{" "}
-                    <code className="font-mono text-[13px] text-white/70">
-                      /api/gsc/callback/
-                    </code>{" "}
-                    unless you configure it that way yourself.
+                    to that same callback URL so Google&apos;s redirect matches
+                    what Monix exchanges for tokens.
                   </li>
                   <li>
                     Under{" "}
@@ -306,10 +297,10 @@ export default function DocsPage() {
                   </li>
                   <li>
                     <strong className="text-white/90">Matching</strong> — For
-                    each target URL, Django picks a Search Console property you
-                    have verified (URL-prefix or domain) that matches the target
-                    host. If nothing matches, the target records a clear sync
-                    message instead of failing the rest of the app.
+                    each target URL, the server picks a Search Console property
+                    you have verified (URL-prefix or domain) that matches the
+                    target host. If nothing matches, the target records a clear
+                    sync message instead of failing the rest of the app.
                   </li>
                 </ul>
                 <h3 className="mt-10 text-sm font-semibold text-white">
@@ -331,7 +322,7 @@ export default function DocsPage() {
                   </li>
                 </ul>
                 <h3 className="mt-10 text-sm font-semibold text-white">
-                  Django API routes
+                  Search Console API routes
                 </h3>
                 <ul className="mt-4 max-w-3xl space-y-2 font-mono text-[13px] leading-relaxed text-white/55">
                   <li>
@@ -340,23 +331,13 @@ export default function DocsPage() {
                     <code className="text-white/70">state</code>).
                   </li>
                   <li>
-                    <code className="text-white/75">
-                      GET /api/auth/google/callback/
-                    </code>{" "}
-                    — Recommended redirect URI for GSC OAuth (must match{" "}
+                    <code className="text-white/75">GET /api/gsc/callback</code>{" "}
+                    — OAuth redirect handler (must match{" "}
                     <code className="text-white/70">GOOGLE_REDIRECT_URI</code>
-                    ). With <code className="text-white/70">webmasters</code>{" "}
-                    scope, exchanges the code and stores tokens, then redirects
-                    to{" "}
+                    ). Exchanges the code, stores refresh tokens encrypted at
+                    rest, then redirects to{" "}
                     <code className="text-white/70">GSC_OAUTH_SUCCESS_URL</code>{" "}
                     / error URL.
-                  </li>
-                  <li>
-                    <code className="text-white/75">
-                      GET /api/gsc/callback/
-                    </code>{" "}
-                    — Alternate handler with the same logic if you register this
-                    path in Google Cloud instead.
                   </li>
                   <li>
                     <code className="text-white/75">GET /api/gsc/status/</code>{" "}
@@ -398,7 +379,7 @@ export default function DocsPage() {
                   </code>{" "}
                   is{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    http://localhost:8000/api/auth/google/callback/
+                    http://localhost:3000/api/gsc/callback
                   </code>
                   . Success and error browser redirects after OAuth use{" "}
                   <code className="font-mono text-[13px] text-white/70">
@@ -426,9 +407,9 @@ export default function DocsPage() {
                   >
                     Cloudflare API token
                   </a>{" "}
-                  in the app. Django verifies it, encrypts it with the same
-                  Fernet machinery as GSC tokens, and calls Cloudflare API v4
-                  (REST for zones and token verify;{" "}
+                  in the app. The Next.js server verifies it, encrypts it with
+                  the same Fernet machinery as GSC tokens, and calls Cloudflare
+                  API v4 (REST for zones and token verify;{" "}
                   <strong className="text-white/90">GraphQL</strong> for zone
                   HTTP request analytics). No Cloudflare secrets live in the
                   browser.
@@ -446,7 +427,7 @@ export default function DocsPage() {
                   Sites, Analytics, and Issues.
                 </p>
                 <h3 className="mt-10 text-sm font-semibold text-white">
-                  Django API routes
+                  Cloudflare API routes
                 </h3>
                 <ul className="mt-4 max-w-3xl space-y-2 font-mono text-[13px] leading-relaxed text-white/55">
                   <li>
@@ -491,24 +472,24 @@ export default function DocsPage() {
                   Architecture
                 </h2>
                 <div className="mt-6 max-w-3xl space-y-4 border border-white/10 bg-white/[0.02] p-6 font-mono text-xs leading-relaxed text-white/55 md:text-sm">
-                  <pre className="whitespace-pre-wrap">{`Browser (Next.js)
+                  <pre className="whitespace-pre-wrap">{`Browser (Next.js UI)
        │
-       └─► Django :8000  — Supabase JWT auth, scan engine, targets, scans,
-           reports API, GSC OAuth, Cloudflare token proxy
+       └─► Next.js Route Handlers (/api/*) — Supabase JWT auth, scan pipeline,
+           targets/scans persistence, GSC OAuth, Cloudflare API proxy
 
-PostgreSQL — DATABASE_URL; stores User, Target, Scan, integration credentials.
+Supabase Postgres — monix_* tables (users, targets, scans, credentials).
 
 Google APIs — Search Console via stored OAuth refresh tokens.
 
 Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API token.`}</pre>
                 </div>
                 <p className="mt-6 max-w-3xl text-base leading-relaxed text-white/60">
-                  When you trigger a scan from the authenticated app, Django
+                  When you trigger a scan from the authenticated app, the server
                   validates the bearer token, associates the run with a target
-                  when provided, and runs the scan engine in-process. Results
-                  are written through{" "}
+                  when provided, and runs the TypeScript scan pipeline. Results
+                  are written to{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    reports.persistence.save_scan_result
+                    monix_scans
                   </code>{" "}
                   (see Reports &amp; persistence below).
                 </p>
@@ -519,11 +500,11 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                   Reports &amp; persistence
                 </h2>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
-                  Scan outcomes are stored in the{" "}
+                  Scan outcomes are stored in{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    reports.Scan
-                  </code>{" "}
-                  model: a unique{" "}
+                    public.monix_scans
+                  </code>
+                  : a unique{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     report_id
                   </code>{" "}
@@ -537,9 +518,9 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                   </code>{" "}
                   JSON from the engine, optional{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    target
+                    target_id
                   </code>{" "}
-                  FK, and{" "}
+                  reference, and{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     expires_at
                   </code>{" "}
@@ -547,11 +528,8 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                   <code className="font-mono text-[13px] text-white/70">
                     is_expired
                   </code>{" "}
-                  for shareable report lifetime (default TTL 30 days from{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    persistence.save_scan_result
-                  </code>
-                  ).
+                  for shareable report lifetime (default TTL 30 days when
+                  persisted).
                 </p>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
                   <code className="font-mono text-[13px] text-white/70">
@@ -572,52 +550,42 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                   Scan engine
                 </h2>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
-                  The{" "}
+                  The scan pipeline lives in{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    core/scan_engine/
+                    web/src/server/scan/
                   </code>{" "}
-                  package hosts scan orchestration, enrichment, and scoring
-                  (invoked from Django views). Tasks such as TLS, DNS, headers,
-                  redirects, cookies, geo, optional port checks, and—when
-                  configured—PageSpeed run and feed into category scores. The
-                  response model includes findings, recommendations, summaries,
-                  and raw fields the UI renders in tables and panels.
+                  (TypeScript). It covers TLS, DNS, headers, redirects, cookies,
+                  geo, optional port checks, and—when configured—PageSpeed, then
+                  feeds category scores. The response model includes findings,
+                  recommendations, summaries, and raw fields the UI renders in
+                  tables and panels.
                 </p>
               </section>
 
-              <section id="django" className="scroll-mt-28">
+              <section id="backend-api" className="scroll-mt-28">
                 <h2 className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">
-                  Django reports &amp; auth
+                  Next.js API &amp; data
                 </h2>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
-                  The{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    core/
-                  </code>{" "}
-                  project owns models for targets, scans, and reports; exposes
-                  REST-style JSON under{" "}
+                  Authenticated JSON lives under{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     /api/
-                  </code>
-                  ; and includes the admin UI at{" "}
+                  </code>{" "}
+                  as Next.js route handlers. The Supabase service role key is
+                  used only on the server to read and write{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    /admin/
-                  </code>
-                  . CORS is configured so the browser can call Django directly
-                  from the Next.js origin. Google Search Console and Cloudflare
-                  integration endpoints live here (
+                    monix_*
+                  </code>{" "}
+                  tables. Google Search Console and Cloudflare integration
+                  endpoints are{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     /api/gsc/*
-                  </code>
-                  ,{" "}
+                  </code>{" "}
+                  and{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     /api/cloudflare/*
                   </code>
-                  ). Admin login can be rate-limited via django-axes using{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    AXES_*
-                  </code>{" "}
-                  in environment.
+                  .
                 </p>
               </section>
 
@@ -634,24 +602,16 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                   <code className="font-mono text-[13px] text-white/70">
                     src/lib/api.ts
                   </code>
-                  : Django base URL from{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    NEXT_PUBLIC_DJANGO_URL
-                  </code>{" "}
-                  or legacy{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    NEXT_PUBLIC_API_URL
-                  </code>{" "}
-                  (defaults to{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    http://localhost:8000
-                  </code>
-                  ). Do not proxy browser calls through Next.js{" "}
+                  : the browser calls same-origin{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     /api/*
+                  </code>
+                  . For server-side rendering, set{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    NEXT_PUBLIC_SITE_URL
                   </code>{" "}
-                  routes in a way that fights Django&apos;s trailing-slash
-                  behavior—the client calls Django directly.
+                  to the public app origin so fetches resolve correctly outside
+                  the browser.
                 </p>
               </section>
 
@@ -721,10 +681,21 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                 </p>
                 <dl className="mt-6 max-w-3xl space-y-4 border border-white/10 divide-y divide-white/10">
                   {[
-                    ["DATABASE_URL", "PostgreSQL URL for Django."],
                     [
-                      "DJANGO_SECRET_KEY",
-                      "Required for Django sessions and signing.",
+                      "NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY",
+                      "Supabase project URL and anon key for browser auth.",
+                    ],
+                    [
+                      "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY",
+                      "Server-only: Postgres access and admin operations from route handlers.",
+                    ],
+                    [
+                      "SUPABASE_JWKS_URL / SUPABASE_JWT_AUD",
+                      "JWT verification for production (RS256 via JWKS).",
+                    ],
+                    [
+                      "NEXT_PUBLIC_SITE_URL",
+                      "Public site origin for SSR fetches to /api/* (no trailing slash).",
                     ],
                     [
                       "PAGESPEED_API_KEY",
@@ -732,19 +703,11 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                     ],
                     [
                       "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET",
-                      "OAuth client for Google login and Search Console; create in Google Cloud Console.",
-                    ],
-                    [
-                      "DJANGO_PUBLIC_BASE_URL",
-                      "Canonical origin of Django (no trailing slash). With default path, sign-in redirect is …/api/auth/google/callback/. In DEBUG defaults to http://localhost:8000.",
-                    ],
-                    [
-                      "GOOGLE_LOGIN_REDIRECT_PATH",
-                      "Optional path segment for sign-in only (default /api/auth/google/callback/). Must match Authorized redirect URIs.",
+                      "OAuth client for Search Console API access; create in Google Cloud Console.",
                     ],
                     [
                       "GOOGLE_REDIRECT_URI",
-                      "Full URL for GSC OAuth code exchange — use the same …/api/auth/google/callback/ as sign-in when sharing one Console URI.",
+                      "Must match Authorized redirect URIs — typically https://your-app/api/gsc/callback (local: http://localhost:3000/api/gsc/callback).",
                     ],
                     [
                       "GSC_OAUTH_SUCCESS_URL / GSC_OAUTH_ERROR_URL",
@@ -752,7 +715,7 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                     ],
                     [
                       "GOOGLE_REFRESH_TOKEN_FERNET_KEY",
-                      "Optional Fernet key for stored GSC refresh tokens and Cloudflare API tokens; if unset, a key is derived from DJANGO_SECRET_KEY.",
+                      "Optional Fernet key for stored GSC refresh tokens and Cloudflare API tokens; if unset, a key is derived from MONIX_FERNET_SECRET or SUPABASE_SERVICE_ROLE_KEY.",
                     ],
                   ].map(([name, desc]) => (
                     <div
@@ -773,36 +736,44 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                   Local development
                 </h2>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
-                  From the repo root: create a Python venv, install
-                  requirements, copy{" "}
+                  Copy{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     .env.example
                   </code>{" "}
                   to{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     .env
-                  </code>
-                  , run Django in{" "}
-                  <code className="font-mono text-[13px] text-white/70">
-                    core/
                   </code>{" "}
-                  with migrations, and run the Next.js dev server in{" "}
+                  at the repo root and configure Supabase plus Google OAuth as
+                  documented above. Apply SQL in{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    supabase/migrations/
+                  </code>{" "}
+                  to your Supabase Postgres project. Then run the Next.js app in{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     web/
                   </code>{" "}
-                  with Bun. Use{" "}
+                  with{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    pytest
+                    bun install
                   </code>{" "}
-                  from the repo root for backend tests;{" "}
+                  and{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    bun run dev
+                  </code>
+                  . Use{" "}
+                  <code className="font-mono text-[13px] text-white/70">
+                    bun run test
+                  </code>{" "}
+                  and{" "}
                   <code className="font-mono text-[13px] text-white/70">
                     bun run build
                   </code>{" "}
-                  for the frontend. If your team uses{" "}
+                  before shipping. Optionally run{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    setup.sh
-                  </code>
-                  , follow that for the exact sequence.
+                    ./setup.sh web
+                  </code>{" "}
+                  from the repo root.
                 </p>
               </section>
             </div>

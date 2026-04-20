@@ -58,7 +58,6 @@ import {
   hostnameFromTargetUrl,
   loadCloudflareWorkspaceMetrics,
 } from "@/lib/cf-workspace";
-import { useIntegrationFirstAnalyticsClient } from "@/lib/feature-flags";
 
 // ── Chart theme ──────────────────────────────────────────────────────────────
 
@@ -632,7 +631,8 @@ function ImprVsPositionScatter({
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
-  const integrationFirst = useIntegrationFirstAnalyticsClient();
+  const integrationFirst =
+    process.env.NEXT_PUBLIC_ANALYTICS_INTEGRATION_FIRST === "true";
   const [targets, setTargets] = useState<Target[]>([]);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [cfWorkspace, setCfWorkspace] = useState<CfWorkspaceResult | null>(
