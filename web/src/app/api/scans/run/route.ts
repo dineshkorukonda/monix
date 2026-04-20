@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { runFullUrlAnalysis } from "@/server/analysis/analyze-url-engine";
 import { requireSupabaseAuth } from "@/server/auth/policy";
 import { requireUserSub } from "@/server/db/monix-data";
 import { getSupabaseAdmin } from "@/server/db/supabase-admin";
-import { runFullUrlAnalysis } from "@/server/scan/analyze-url-engine";
 import { handleRouteError } from "@/server/transport/http";
 
 export async function POST(request: NextRequest) {

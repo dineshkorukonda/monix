@@ -1,18 +1,19 @@
 # Monix
 
-Monix is now a **Next.js-only** web security, SEO, and performance analysis application.
+Monix is a **Next.js-only** web security, SEO, and performance analysis application.
 
-## Project Layout
+Documentation lives in **[`docs/`](./docs/README.md)** (architecture, deployment, web app setup).
 
-| Path     | Role                                              |
-| -------- | ------------------------------------------------- |
-| `web/`   | Next.js 16 app (React 19, TypeScript, Bun)        |
-| `supabase/migrations/` | SQL schema for `monix_*` tables (apply to Supabase Postgres) |
-| `.github/workflows/ci.yml` | CI for lint, JS/TS tests, and production build |
-| `ARCHITECTURE.md` | High-level system design for the Next.js stack |
-| `DEPLOYMENT.md` | Production deployment checklist |
+## Project layout
 
-## Local Setup
+| Path | Role |
+| --- | --- |
+| [`web/`](./web/) | Next.js 16 app (React 19, TypeScript, Bun) |
+| [`docs/`](./docs/) | Markdown documentation |
+| [`supabase/migrations/`](./supabase/migrations/) | SQL schema for `monix_*` tables (apply to Supabase Postgres) |
+| [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) | CI for lint, JS/TS tests, and production build |
+
+## Local setup
 
 ```bash
 cd web
@@ -22,20 +23,18 @@ bun run dev
 
 The app starts on `http://localhost:3000`.
 
-## Environment Variables
+## Environment variables
 
-Copy `.env.example` to `.env` at the repo root (or use `web/.env.local`) and configure Supabase, `NEXT_PUBLIC_SITE_URL`, Google OAuth for GSC (`GOOGLE_REDIRECT_URI` must match `/api/gsc/callback`), and optional `PAGESPEED_API_KEY`. See `.env.example` and `DEPLOYMENT.md`.
+Copy `.env.example` to `.env` at the repo root (or use `web/.env.local`) and configure Supabase, `NEXT_PUBLIC_SITE_URL`, Google OAuth for GSC (`GOOGLE_REDIRECT_URI` must match `/api/gsc/callback`), and optional `PAGESPEED_API_KEY`. See `.env.example` and [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
 ## Testing
-
-All tests are JavaScript/TypeScript tests in the Next.js app:
 
 ```bash
 cd web
 bun run test
 ```
 
-## Quality Checks
+## Quality checks
 
 ```bash
 cd web
@@ -43,4 +42,4 @@ bun run lint
 bun run build
 ```
 
-CI runs lint + JS/TS tests + production build on pushes and pull requests to `main`.
+CI runs lint, JS/TS tests, and production build on pushes and pull requests to `main`.

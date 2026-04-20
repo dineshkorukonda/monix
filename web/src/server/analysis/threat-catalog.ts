@@ -1,7 +1,7 @@
 import {
   HIGH_RISK_ENDPOINTS,
   MALICIOUS_BOT_SIGNATURES,
-} from "@/server/engine/traffic-reference";
+} from "@/server/analysis/traffic-reference";
 
 export function threatInfoPayload(): Record<string, unknown> {
   return {
