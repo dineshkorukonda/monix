@@ -552,7 +552,7 @@ Cloudflare — api.cloudflare.com (zones, GraphQL HTTP analytics) via stored API
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/60">
                   The scan pipeline lives in{" "}
                   <code className="font-mono text-[13px] text-white/70">
-                    web/src/server/scan/
+                    web/src/server/analysis/
                   </code>{" "}
                   (TypeScript). It covers TLS, DNS, headers, redirects, cookies,
                   geo, optional port checks, and—when configured—PageSpeed, then
