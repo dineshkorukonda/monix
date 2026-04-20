@@ -7,8 +7,10 @@ Monix is now a **Next.js-only** web security, SEO, and performance analysis appl
 | Path     | Role                                              |
 | -------- | ------------------------------------------------- |
 | `web/`   | Next.js 16 app (React 19, TypeScript, Bun)        |
+| `supabase/migrations/` | SQL schema for `monix_*` tables (apply to Supabase Postgres) |
 | `.github/workflows/ci.yml` | CI for lint, JS/TS tests, and production build |
 | `ARCHITECTURE.md` | High-level system design for the Next.js stack |
+| `DEPLOYMENT.md` | Production deployment checklist |
 
 ## Local Setup
 
@@ -22,14 +24,7 @@ The app starts on `http://localhost:3000`.
 
 ## Environment Variables
 
-Create `web/.env.local` and configure:
-
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_DJANGO_URL` (optional while transitioning legacy API dependencies)
-- `NEXT_PUBLIC_USE_NEXT_INTEGRATION_API`
-- `NEXT_PUBLIC_ENABLE_DUAL_READ_VERIFICATION`
-- `NEXT_PUBLIC_ANALYTICS_INTEGRATION_FIRST`
+Copy `.env.example` to `.env` at the repo root (or use `web/.env.local`) and configure Supabase, `NEXT_PUBLIC_SITE_URL`, Google OAuth for GSC (`GOOGLE_REDIRECT_URI` must match `/api/gsc/callback`), and optional `PAGESPEED_API_KEY`. See `.env.example` and `DEPLOYMENT.md`.
 
 ## Testing
 

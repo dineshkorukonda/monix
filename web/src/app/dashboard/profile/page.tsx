@@ -64,7 +64,8 @@ export default function ProfilePage() {
       .catch(() => {
         setNameStatus({
           type: "error",
-          message: "Could not load profile. Is the Django backend running?",
+          message:
+            "Could not load profile. Check that you are signed in and the app can reach /api/auth/me.",
         });
       });
   }, []);
