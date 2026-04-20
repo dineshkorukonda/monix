@@ -6,9 +6,12 @@ import { handleRouteError } from "@/server/transport/http";
 
 export async function GET(request: NextRequest) {
   try {
-    const { token } = await requireSupabaseAuth(request);
+    const { token, sub } = await requireSupabaseAuth(request);
     const payload =
-      await buildIntegrationServices().gsc.getConnectAuthorizationUrl(token);
+      await buildIntegrationServices().gsc.getConnectAuthorizationUrl({
+        bearerToken: token,
+        supabaseUserId: sub,
+      });
     return NextResponse.json(asJson(payload));
   } catch (error) {
     return handleRouteError(error);

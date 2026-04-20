@@ -16,6 +16,16 @@ export function handleRouteError(error: unknown): NextResponse {
       { status: error.status },
     );
   }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof (error as { status: unknown }).status === "number"
+  ) {
+    const status = (error as { status: number }).status;
+    const message = error instanceof Error ? error.message : "Request failed";
+    return NextResponse.json({ error: message }, { status });
+  }
   const message =
     error instanceof Error ? error.message : "Internal server error";
   return NextResponse.json({ error: message }, { status: 500 });
