@@ -67,6 +67,39 @@ Do not set `MONIX_VERIFY_SUPABASE_JWT=false` in production.
    - GSC: connect flow returns to success URL; Analytics shows data after sync
    - Cloudflare: connect, list zones, load analytics for a matching hostname
 
+### Optional: one-command VPS setup (PM2 + Nginx + SSL)
+
+If you are deploying this repository on a Linux server directly, use:
+
+```bash
+cd <repo-root>
+APP_USER=ubuntu LETSENCRYPT_EMAIL=you@example.com sudo bash scripts/setup-server.sh
+```
+
+What this script does:
+
+- Installs Node.js 22.x, Bun, PM2, Nginx, Certbot, and the Certbot Nginx plugin (`python3-certbot-nginx`)
+- Builds and starts the Next.js app with PM2 from `web/` on port `3000`
+- Configures Nginx reverse proxy for `monix.dineshkorukonda.in`
+- Provisions and enables Let's Encrypt SSL for the same subdomain
+
+Optional overrides:
+
+- `APP_USER` (required if not inferred from `sudo`)
+- `DOMAIN` (default: `monix.dineshkorukonda.in`)
+- `APP_PORT` (default: `3000`)
+- `APP_NAME` (default: `monix-web`)
+- `APP_DIR` (default: `<repo-root>/web`)
+- `PM2_VERSION` (default: `5.4.2`)
+
+After you update production env variables, restart PM2:
+
+```bash
+sudo -u <APP_USER> pm2 restart monix-web
+```
+
+Replace `<APP_USER>` with the same Linux user used in setup (for example `ubuntu`).
+
 ## 6. Cutover from a legacy stack
 
 1. Freeze writes on the old API during migration window if needed.
