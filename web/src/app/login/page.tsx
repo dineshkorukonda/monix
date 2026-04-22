@@ -67,7 +67,9 @@ export default function LoginPage() {
       window.history.replaceState({}, "", "/login");
     }
     if (sp.get("error") === "google_auth_failed") {
-      setError("Google sign-in failed. Please try again or use email/password.");
+      setError(
+        "Google sign-in failed. Please try again or use email/password.",
+      );
       window.history.replaceState({}, "", "/login");
     }
   }, []);

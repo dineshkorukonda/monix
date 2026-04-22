@@ -49,8 +49,13 @@ export async function GET(request: NextRequest) {
       email: user.email ?? googleUser.email,
     });
 
-    const payload = JSON.stringify({ token, email: user.email ?? googleUser.email });
-    const response = NextResponse.redirect(new URL("/auth/complete", request.url));
+    const payload = JSON.stringify({
+      token,
+      email: user.email ?? googleUser.email,
+    });
+    const response = NextResponse.redirect(
+      new URL("/auth/complete", request.url),
+    );
     response.cookies.set(HANDOFF_COOKIE, payload, {
       httpOnly: false,
       sameSite: "lax",
