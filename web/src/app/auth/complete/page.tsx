@@ -15,7 +15,10 @@ function readAndClearHandoffCookie(): { token: string; email: string } | null {
   // Clear the cookie
   document.cookie = `${HANDOFF_COOKIE}=; Max-Age=0; Path=/`;
   try {
-    return JSON.parse(decodeURIComponent(value)) as { token: string; email: string };
+    return JSON.parse(decodeURIComponent(value)) as {
+      token: string;
+      email: string;
+    };
   } catch {
     return null;
   }

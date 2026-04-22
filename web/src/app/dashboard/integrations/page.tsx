@@ -233,7 +233,9 @@ export default function IntegrationsPage() {
   const [gscStatus, setGscStatus] = useState<GscStatus | null>(null);
   const [cfStatus, setCfStatus] = useState<CloudflareStatus | null>(null);
   const [error, setError] = useState("");
-  const [banner, setBanner] = useState<"gsc_connected" | "gsc_error" | null>(null);
+  const [banner, setBanner] = useState<"gsc_connected" | "gsc_error" | null>(
+    null,
+  );
   const [isConnectingGsc, setIsConnectingGsc] = useState(false);
 
   useEffect(() => {

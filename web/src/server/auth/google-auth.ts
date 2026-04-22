@@ -67,8 +67,7 @@ export async function getGoogleUserInfo(accessToken: string): Promise<{
   const res = await fetch(GOOGLE_USERINFO, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!res.ok)
-    throw new Error(`Failed to get Google user info: ${res.status}`);
+  if (!res.ok) throw new Error(`Failed to get Google user info: ${res.status}`);
   return (await res.json()) as {
     id: string;
     email: string;
