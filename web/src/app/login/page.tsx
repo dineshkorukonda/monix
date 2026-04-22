@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth/auth-shell";
 import {
   ApiError,
-  login,
   logout as apiLogout,
+  login,
   requestPasswordReset,
   signup,
 } from "@/lib/api";
@@ -235,7 +235,9 @@ export default function LoginPage() {
             placeholder="Password"
             required
             minLength={8}
-            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            autoComplete={
+              mode === "signup" ? "new-password" : "current-password"
+            }
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={fieldClassName}

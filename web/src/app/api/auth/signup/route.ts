@@ -1,10 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { signAccessToken } from "@/server/auth/jwt";
 import { hashPassword } from "@/server/auth/passwords";
-import {
-  createMonixUser,
-  getMonixUserByEmail,
-} from "@/server/db/monix-user";
+import { createMonixUser, getMonixUserByEmail } from "@/server/db/monix-user";
 import { handleRouteError } from "@/server/transport/http";
 
 export async function POST(request: NextRequest) {

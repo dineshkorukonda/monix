@@ -1,8 +1,5 @@
 import { decryptAtRest, encryptAtRest } from "@/server/crypto/fernet-tokens";
-import {
-  queryMaybeOne,
-  queryRows,
-} from "@/server/db/postgres";
+import { queryMaybeOne, queryRows } from "@/server/db/postgres";
 
 const GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN = "https://oauth2.googleapis.com/token";

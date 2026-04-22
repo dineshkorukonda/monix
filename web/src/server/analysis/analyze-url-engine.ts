@@ -589,7 +589,7 @@ export async function runFullUrlAnalysis(opts: {
     const reportId = randomUUID();
     security.report_id = reportId;
     security.report_url = `/dashboard/report/${reportId}`;
-    const { queryMaybeOne, queryRows } = await import("@/server/db/postgres");
+    const { queryRows } = await import("@/server/db/postgres");
     const { syncTargetSearchConsole } = await import(
       "@/server/integrations/gsc-api"
     );

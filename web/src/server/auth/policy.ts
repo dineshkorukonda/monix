@@ -1,8 +1,5 @@
 import type { NextRequest } from "next/server";
-import {
-  AuthVerificationError,
-  verifyAccessToken,
-} from "@/server/auth/jwt";
+import { AuthVerificationError, verifyAccessToken } from "@/server/auth/jwt";
 
 export class UnauthorizedError extends Error {
   status: number;

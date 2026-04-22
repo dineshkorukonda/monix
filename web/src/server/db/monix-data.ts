@@ -4,11 +4,7 @@ import {
   getMonixProfile,
   updateMonixProfile,
 } from "@/server/db/monix-user";
-import {
-  queryMaybeOne,
-  queryOne,
-  queryRows,
-} from "@/server/db/postgres";
+import { queryMaybeOne, queryOne, queryRows } from "@/server/db/postgres";
 import { syncTargetSearchConsole } from "@/server/integrations/gsc-api";
 
 export async function requireUserSub(bearerJwt: string): Promise<string> {
@@ -32,7 +28,9 @@ function formatScanTime(iso: string): string {
   });
 }
 
-async function scanCountByTarget(targetIds: string[]): Promise<Map<string, number>> {
+async function scanCountByTarget(
+  targetIds: string[],
+): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   for (const id of targetIds) counts.set(id, 0);
   if (!targetIds.length) return counts;
@@ -122,7 +120,8 @@ export async function getTargetDetail(
     `,
     [targetId, userId],
   );
-  if (!row) throw Object.assign(new Error("Target not found."), { status: 404 });
+  if (!row)
+    throw Object.assign(new Error("Target not found."), { status: 404 });
   const latest = await queryMaybeOne<Record<string, unknown>>(
     `
       select report_id, score, created_at
@@ -380,10 +379,12 @@ export async function getReportEnvelopePublic(
     `,
     [reportId],
   );
-  if (!row) throw Object.assign(new Error("Report not found."), { status: 404 });
+  if (!row)
+    throw Object.assign(new Error("Report not found."), { status: 404 });
   const expired =
     row.is_expired || new Date(row.expires_at).getTime() <= Date.now();
-  if (expired) throw Object.assign(new Error("Report not found."), { status: 404 });
+  if (expired)
+    throw Object.assign(new Error("Report not found."), { status: 404 });
   return {
     report_id: row.report_id,
     url: row.url,
@@ -412,10 +413,12 @@ export async function getReportEnvelopeForUser(
     `,
     [reportId],
   );
-  if (!row) throw Object.assign(new Error("Report not found."), { status: 404 });
+  if (!row)
+    throw Object.assign(new Error("Report not found."), { status: 404 });
   const expired =
     row.is_expired || new Date(row.expires_at).getTime() <= Date.now();
-  if (expired) throw Object.assign(new Error("Report not found."), { status: 404 });
+  if (expired)
+    throw Object.assign(new Error("Report not found."), { status: 404 });
   if (row.target_id) {
     const own = await queryMaybeOne<{ id: string }>(
       `
@@ -471,8 +474,11 @@ export async function patchProfileFromBody(
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   await ensureMonixUser(userId, email);
-  const patch: { first_name?: string; last_name?: string; avatar_url?: string } =
-    {};
+  const patch: {
+    first_name?: string;
+    last_name?: string;
+    avatar_url?: string;
+  } = {};
   if (typeof body.first_name === "string") {
     patch.first_name = body.first_name.trim();
   }
