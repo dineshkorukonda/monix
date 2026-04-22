@@ -90,7 +90,16 @@ export async function loadCloudflareWorkspaceMetrics(
   options?: { analyticsDays?: number },
 ): Promise<CfWorkspaceResult> {
   const days = options?.analyticsDays ?? 7;
-  const status = await getCloudflareStatus({ force: true }).catch(() => ({
+  if (targets.length === 0) {
+    return {
+      connected: false,
+      zones: [],
+      byTargetId: {},
+      aggregate: emptyAggregate(days),
+    };
+  }
+
+  const status = await getCloudflareStatus().catch(() => ({
     connected: false,
   }));
   if (!status.connected) {

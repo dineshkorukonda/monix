@@ -1,14 +1,18 @@
-import { verifySupabaseAccessToken } from "@/server/auth/supabase-jwt";
+import { verifyAccessToken } from "@/server/auth/jwt";
 import {
   ensureMonixUser,
   getMonixProfile,
   updateMonixProfile,
 } from "@/server/db/monix-user";
-import { getSupabaseAdmin } from "@/server/db/supabase-admin";
+import {
+  queryMaybeOne,
+  queryOne,
+  queryRows,
+} from "@/server/db/postgres";
 import { syncTargetSearchConsole } from "@/server/integrations/gsc-api";
 
 export async function requireUserSub(bearerJwt: string): Promise<string> {
-  const payload = await verifySupabaseAccessToken(bearerJwt);
+  const payload = await verifyAccessToken(bearerJwt);
   const sub = typeof payload.sub === "string" ? payload.sub : "";
   if (!sub) throw Object.assign(new Error("Unauthorized"), { status: 401 });
   return sub;
@@ -28,54 +32,56 @@ function formatScanTime(iso: string): string {
   });
 }
 
-async function scanCountByTarget(
-  db: ReturnType<typeof getSupabaseAdmin>,
-  targetIds: string[],
-): Promise<Map<string, number>> {
-  const m = new Map<string, number>();
-  for (const id of targetIds) m.set(id, 0);
-  if (!targetIds.length) return m;
-  const { data, error } = await db
-    .from("monix_scans")
-    .select("target_id")
-    .in("target_id", targetIds);
-  if (error || !data) return m;
-  for (const row of data as { target_id: string }[]) {
-    const tid = row.target_id;
-    m.set(tid, (m.get(tid) ?? 0) + 1);
+async function scanCountByTarget(targetIds: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  for (const id of targetIds) counts.set(id, 0);
+  if (!targetIds.length) return counts;
+  const rows = await queryRows<{ target_id: string; total: string }>(
+    `
+      select target_id, count(*)::text as total
+      from monix_scans
+      where target_id = any($1::uuid[])
+      group by target_id
+    `,
+    [targetIds],
+  );
+  for (const row of rows) {
+    counts.set(row.target_id, Number(row.total));
   }
-  return m;
+  return counts;
 }
 
 export async function listTargetsPayload(userId: string): Promise<unknown[]> {
-  const db = getSupabaseAdmin();
-  const { data: targets, error } = await db
-    .from("monix_targets")
-    .select(
-      "id, url, environment, gsc_property_url, gsc_analytics, gsc_synced_at, gsc_sync_error, created_at",
-    )
-    .eq("owner_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  const rows = (targets ?? []) as Record<string, unknown>[];
+  const rows = await queryRows<Record<string, unknown>>(
+    `
+      select id, url, environment, gsc_property_url, gsc_analytics,
+        gsc_synced_at, gsc_sync_error, created_at
+      from monix_targets
+      where owner_id = $1::uuid
+      order by created_at desc
+    `,
+    [userId],
+  );
   const ids = rows.map((t) => String(t.id));
-  const counts = await scanCountByTarget(db, ids);
+  const counts = await scanCountByTarget(ids);
   const out: unknown[] = [];
   for (const t of rows) {
-    const tid = String(t.id);
-    const { data: scans } = await db
-      .from("monix_scans")
-      .select("score, results, created_at")
-      .eq("target_id", tid)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    const latest = scans?.[0] as Record<string, unknown> | undefined;
+    const latest = await queryMaybeOne<Record<string, unknown>>(
+      `
+        select score, results, created_at
+        from monix_scans
+        where target_id = $1::uuid
+        order by created_at desc
+        limit 1
+      `,
+      [String(t.id)],
+    );
     const results =
       (latest?.results as Record<string, unknown> | undefined) ?? {};
     const findings = (results.findings as unknown[]) ?? [];
     const score = latest?.score != null ? Number(latest.score) : null;
     out.push({
-      id: tid,
+      id: String(t.id),
       name: displayHost(String(t.url)),
       url: t.url,
       environment: t.environment ?? "",
@@ -92,7 +98,7 @@ export async function listTargetsPayload(userId: string): Promise<unknown[]> {
         : null,
       score,
       created_at: t.created_at,
-      scan_count: counts.get(tid) ?? 0,
+      scan_count: counts.get(String(t.id)) ?? 0,
       gsc_property_url: t.gsc_property_url || null,
       gsc_analytics: t.gsc_analytics,
       gsc_synced_at: t.gsc_synced_at ?? null,
@@ -106,27 +112,29 @@ export async function getTargetDetail(
   userId: string,
   targetId: string,
 ): Promise<Record<string, unknown>> {
-  const db = getSupabaseAdmin();
-  const { data: t, error } = await db
-    .from("monix_targets")
-    .select(
-      "id, url, environment, gsc_property_url, gsc_analytics, gsc_synced_at, gsc_sync_error, created_at",
-    )
-    .eq("id", targetId)
-    .eq("owner_id", userId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!t) throw Object.assign(new Error("Target not found."), { status: 404 });
-  const row = t as Record<string, unknown>;
-  const { data: scans } = await db
-    .from("monix_scans")
-    .select("report_id, score, created_at")
-    .eq("target_id", targetId)
-    .order("created_at", { ascending: false })
-    .limit(1);
-  const latest = scans?.[0] as Record<string, unknown> | undefined;
+  const row = await queryMaybeOne<Record<string, unknown>>(
+    `
+      select id, url, environment, gsc_property_url, gsc_analytics,
+        gsc_synced_at, gsc_sync_error, created_at
+      from monix_targets
+      where id = $1::uuid and owner_id = $2::uuid
+      limit 1
+    `,
+    [targetId, userId],
+  );
+  if (!row) throw Object.assign(new Error("Target not found."), { status: 404 });
+  const latest = await queryMaybeOne<Record<string, unknown>>(
+    `
+      select report_id, score, created_at
+      from monix_scans
+      where target_id = $1::uuid
+      order by created_at desc
+      limit 1
+    `,
+    [targetId],
+  );
   const score = latest?.score != null ? Number(latest.score) : null;
-  const cntMap = await scanCountByTarget(db, [targetId]);
+  const cntMap = await scanCountByTarget([targetId]);
   return {
     id: String(row.id),
     name: displayHost(String(row.url)),
@@ -159,39 +167,42 @@ export async function createTargetForUser(
 ): Promise<Record<string, unknown>> {
   let url = urlRaw.trim();
   if (!url) throw Object.assign(new Error("url is required"), { status: 400 });
-  if (!url.startsWith("http://") && !url.startsWith("https://"))
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
     url = `https://${url}`;
+  }
   await ensureMonixUser(userId, email);
-  const db = getSupabaseAdmin();
-  const { data: created, error } = await db
-    .from("monix_targets")
-    .insert({ owner_id: userId, url, environment: environment.trim() })
-    .select(
-      "id, url, environment, gsc_property_url, gsc_analytics, gsc_synced_at, gsc_sync_error, created_at",
-    )
-    .single();
-  if (error) throw new Error(error.message);
-  const row = created as Record<string, unknown>;
+  const row = await queryOne<Record<string, unknown>>(
+    `
+      insert into monix_targets (owner_id, url, environment)
+      values ($1::uuid, $2, $3)
+      returning id, url, environment, gsc_property_url, gsc_analytics,
+        gsc_synced_at, gsc_sync_error, created_at
+    `,
+    [userId, url, environment.trim()],
+  );
   try {
     await syncTargetSearchConsole(userId, String(row.id), String(row.url));
   } catch {
     /* ignore */
   }
-  const { data: refreshed } = await db
-    .from("monix_targets")
-    .select("gsc_property_url, gsc_analytics, gsc_synced_at, gsc_sync_error")
-    .eq("id", row.id)
-    .single();
-  const r = refreshed as Record<string, unknown> | null;
+  const refreshed = await queryMaybeOne<Record<string, unknown>>(
+    `
+      select gsc_property_url, gsc_analytics, gsc_synced_at, gsc_sync_error
+      from monix_targets
+      where id = $1::uuid
+      limit 1
+    `,
+    [String(row.id)],
+  );
   return {
     id: String(row.id),
     url: row.url,
     name: displayHost(String(row.url)),
     environment: row.environment,
-    gsc_property_url: r?.gsc_property_url || null,
-    gsc_analytics: r?.gsc_analytics ?? null,
-    gsc_synced_at: r?.gsc_synced_at ?? null,
-    gsc_sync_error: r?.gsc_sync_error || null,
+    gsc_property_url: refreshed?.gsc_property_url || null,
+    gsc_analytics: refreshed?.gsc_analytics ?? null,
+    gsc_synced_at: refreshed?.gsc_synced_at ?? null,
+    gsc_sync_error: refreshed?.gsc_sync_error || null,
   };
 }
 
@@ -199,15 +210,17 @@ export async function deleteTargetForUser(
   userId: string,
   targetId: string,
 ): Promise<void> {
-  const db = getSupabaseAdmin();
-  const { error, count } = await db
-    .from("monix_targets")
-    .delete({ count: "exact" })
-    .eq("id", targetId)
-    .eq("owner_id", userId);
-  if (error) throw new Error(error.message);
-  if (!count)
+  const row = await queryMaybeOne<{ id: string }>(
+    `
+      delete from monix_targets
+      where id = $1::uuid and owner_id = $2::uuid
+      returning id
+    `,
+    [targetId, userId],
+  );
+  if (!row) {
     throw Object.assign(new Error("Target not found."), { status: 404 });
+  }
 }
 
 function formatScanRow(
@@ -231,36 +244,39 @@ function formatScanRow(
 }
 
 export async function listScansForUser(userId: string): Promise<unknown[]> {
-  const db = getSupabaseAdmin();
-  const { data: targets } = await db
-    .from("monix_targets")
-    .select("id, url")
-    .eq("owner_id", userId);
-  const tlist = (targets ?? []) as { id: string; url: string }[];
-  if (!tlist.length) return [];
-  const targetIds = tlist.map((x) => x.id);
-  const idToUrl = new Map(tlist.map((t) => [t.id, t.url]));
-  const ownedUrls = tlist.map((t) => t.url);
-
-  const { data: byTarget } = await db
-    .from("monix_scans")
-    .select("report_id, url, score, created_at, target_id")
-    .in("target_id", targetIds)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  const { data: orphans } = await db
-    .from("monix_scans")
-    .select("report_id, url, score, created_at, target_id")
-    .is("target_id", null)
-    .in("url", ownedUrls)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  const merged = [...(byTarget ?? []), ...(orphans ?? [])] as Record<
-    string,
-    unknown
-  >[];
+  const targets = await queryRows<{ id: string; url: string }>(
+    `
+      select id, url
+      from monix_targets
+      where owner_id = $1::uuid
+    `,
+    [userId],
+  );
+  if (!targets.length) return [];
+  const targetIds = targets.map((x) => x.id);
+  const idToUrl = new Map(targets.map((t) => [t.id, t.url]));
+  const ownedUrls = targets.map((t) => t.url);
+  const byTarget = await queryRows<Record<string, unknown>>(
+    `
+      select report_id, url, score, created_at, target_id
+      from monix_scans
+      where target_id = any($1::uuid[])
+      order by created_at desc
+      limit 100
+    `,
+    [targetIds],
+  );
+  const orphans = await queryRows<Record<string, unknown>>(
+    `
+      select report_id, url, score, created_at, target_id
+      from monix_scans
+      where target_id is null and url = any($1::text[])
+      order by created_at desc
+      limit 100
+    `,
+    [ownedUrls],
+  );
+  const merged = [...byTarget, ...orphans];
   merged.sort(
     (a, b) =>
       new Date(String(b.created_at)).getTime() -
@@ -279,39 +295,44 @@ export async function listScansForUser(userId: string): Promise<unknown[]> {
 }
 
 export async function scanLocationsForUser(userId: string): Promise<unknown[]> {
-  const db = getSupabaseAdmin();
-  const { data: targets } = await db
-    .from("monix_targets")
-    .select("id, url")
-    .eq("owner_id", userId);
-  const tlist = (targets ?? []) as { id: string; url: string }[];
-  if (!tlist.length) return [];
-  const targetIds = tlist.map((x) => x.id);
-  const ownedUrls = tlist.map((t) => t.url);
-
-  const a = await db
-    .from("monix_scans")
-    .select("report_id, url, score, results, target_id, created_at")
-    .in("target_id", targetIds)
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const b = await db
-    .from("monix_scans")
-    .select("report_id, url, score, results, target_id, created_at")
-    .is("target_id", null)
-    .in("url", ownedUrls)
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const rows = [...(a.data ?? []), ...(b.data ?? [])] as Record<
-    string,
-    unknown
-  >[];
+  const targets = await queryRows<{ id: string; url: string }>(
+    `
+      select id, url
+      from monix_targets
+      where owner_id = $1::uuid
+    `,
+    [userId],
+  );
+  if (!targets.length) return [];
+  const targetIds = targets.map((x) => x.id);
+  const ownedUrls = targets.map((t) => t.url);
+  const rows = [
+    ...(await queryRows<Record<string, unknown>>(
+      `
+        select report_id, url, score, results, target_id, created_at
+        from monix_scans
+        where target_id = any($1::uuid[])
+        order by created_at desc
+        limit 200
+      `,
+      [targetIds],
+    )),
+    ...(await queryRows<Record<string, unknown>>(
+      `
+        select report_id, url, score, results, target_id, created_at
+        from monix_scans
+        where target_id is null and url = any($1::text[])
+        order by created_at desc
+        limit 200
+      `,
+      [ownedUrls],
+    )),
+  ];
   rows.sort(
     (x, y) =>
       new Date(String(y.created_at)).getTime() -
       new Date(String(x.created_at)).getTime(),
   );
-
   const out: unknown[] = [];
   const seen = new Set<string>();
   for (const s of rows.slice(0, 200)) {
@@ -342,32 +363,29 @@ export async function scanLocationsForUser(userId: string): Promise<unknown[]> {
 export async function getReportEnvelopePublic(
   reportId: string,
 ): Promise<Record<string, unknown>> {
-  const db = getSupabaseAdmin();
-  const { data: scan, error } = await db
-    .from("monix_scans")
-    .select(
-      "report_id, url, score, results, created_at, expires_at, is_expired",
-    )
-    .eq("report_id", reportId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!scan)
-    throw Object.assign(new Error("Report not found."), { status: 404 });
-  const row = scan as {
-    is_expired: boolean;
-    expires_at: string;
+  const row = await queryMaybeOne<{
     report_id: string;
     url: string;
     score: number;
-    created_at: string;
     results: unknown;
-  };
+    created_at: string;
+    expires_at: string;
+    is_expired: boolean;
+  }>(
+    `
+      select report_id, url, score, results, created_at, expires_at, is_expired
+      from monix_scans
+      where report_id = $1::uuid
+      limit 1
+    `,
+    [reportId],
+  );
+  if (!row) throw Object.assign(new Error("Report not found."), { status: 404 });
   const expired =
     row.is_expired || new Date(row.expires_at).getTime() <= Date.now();
-  if (expired)
-    throw Object.assign(new Error("Report not found."), { status: 404 });
+  if (expired) throw Object.assign(new Error("Report not found."), { status: 404 });
   return {
-    report_id: String(row.report_id),
+    report_id: row.report_id,
     url: row.url,
     score: row.score,
     created_at: row.created_at,
@@ -380,44 +398,48 @@ export async function getReportEnvelopeForUser(
   reportId: string,
   userId: string,
 ): Promise<Record<string, unknown>> {
-  const db = getSupabaseAdmin();
-  const { data: scan, error } = await db
-    .from("monix_scans")
-    .select(
-      "report_id, url, score, results, created_at, expires_at, is_expired, target_id",
-    )
-    .eq("report_id", reportId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!scan)
-    throw Object.assign(new Error("Report not found."), { status: 404 });
-  const row = scan as {
-    is_expired: boolean;
-    expires_at: string;
+  const row = await queryMaybeOne<{
     target_id: string | null;
     url: string;
-  };
+    expires_at: string;
+    is_expired: boolean;
+  }>(
+    `
+      select target_id, url, expires_at, is_expired
+      from monix_scans
+      where report_id = $1::uuid
+      limit 1
+    `,
+    [reportId],
+  );
+  if (!row) throw Object.assign(new Error("Report not found."), { status: 404 });
   const expired =
     row.is_expired || new Date(row.expires_at).getTime() <= Date.now();
-  if (expired)
-    throw Object.assign(new Error("Report not found."), { status: 404 });
-
+  if (expired) throw Object.assign(new Error("Report not found."), { status: 404 });
   if (row.target_id) {
-    const { data: own } = await db
-      .from("monix_targets")
-      .select("id")
-      .eq("id", row.target_id)
-      .eq("owner_id", userId)
-      .maybeSingle();
+    const own = await queryMaybeOne<{ id: string }>(
+      `
+        select id
+        from monix_targets
+        where id = $1::uuid and owner_id = $2::uuid
+        limit 1
+      `,
+      [row.target_id, userId],
+    );
     if (!own) throw Object.assign(new Error("Forbidden"), { status: 403 });
   } else {
-    const { data: targets } = await db
-      .from("monix_targets")
-      .select("url")
-      .eq("owner_id", userId);
-    const urls = new Set((targets ?? []).map((t: { url: string }) => t.url));
-    if (!urls.has(row.url))
+    const targets = await queryRows<{ url: string }>(
+      `
+        select url
+        from monix_targets
+        where owner_id = $1::uuid
+      `,
+      [userId],
+    );
+    const urls = new Set(targets.map((t) => t.url));
+    if (!urls.has(row.url)) {
       throw Object.assign(new Error("Forbidden"), { status: 403 });
+    }
   }
   return getReportEnvelopePublic(reportId);
 }
@@ -430,14 +452,16 @@ export async function buildMeResponse(
   const profile = await getMonixProfile(userId);
   const first = profile?.first_name ?? "";
   const last = profile?.last_name ?? "";
-  const display = `${first} ${last}`.trim() || email || userId;
-  const initials = (email || "U").slice(0, 2).toUpperCase();
+  const primaryEmail = profile?.email ?? email;
+  const display = `${first} ${last}`.trim() || primaryEmail || userId;
+  const initials = (primaryEmail || "U").slice(0, 2).toUpperCase();
   return {
-    email: profile?.email ?? email,
+    email: primaryEmail,
     name: display,
     first_name: first,
     last_name: last,
     initials,
+    avatar_url: profile?.avatar_url || null,
   };
 }
 
@@ -447,21 +471,33 @@ export async function patchProfileFromBody(
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   await ensureMonixUser(userId, email);
-  const patch: { first_name?: string; last_name?: string } = {};
-  if (typeof body.first_name === "string")
+  const patch: { first_name?: string; last_name?: string; avatar_url?: string } =
+    {};
+  if (typeof body.first_name === "string") {
     patch.first_name = body.first_name.trim();
-  if (typeof body.last_name === "string")
+  }
+  if (typeof body.last_name === "string") {
     patch.last_name = body.last_name.trim();
-  if (Object.keys(patch).length) await updateMonixProfile(userId, patch);
+  }
+  if (typeof body.avatar_url === "string") {
+    patch.avatar_url = body.avatar_url.trim();
+  }
+  if (Object.keys(patch).length) {
+    await updateMonixProfile(userId, patch);
+  }
   const profile = await getMonixProfile(userId);
   const first = profile?.first_name ?? "";
   const last = profile?.last_name ?? "";
   const display = `${first} ${last}`.trim() || profile?.email || email;
   const initials = (profile?.email ?? email ?? "U").slice(0, 2).toUpperCase();
-  return { ok: true, name: display, initials };
+  return {
+    ok: true,
+    name: display,
+    initials,
+    avatar_url: profile?.avatar_url || null,
+  };
 }
 
 export async function deleteUserData(userId: string): Promise<void> {
-  const db = getSupabaseAdmin();
-  await db.from("monix_users").delete().eq("id", userId);
+  await queryRows("delete from monix_users where id = $1::uuid", [userId]);
 }

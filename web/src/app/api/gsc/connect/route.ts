@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const payload =
       await buildIntegrationServices().gsc.getConnectAuthorizationUrl({
         bearerToken: token,
-        supabaseUserId: sub,
+        userId: sub,
       });
     return NextResponse.json(asJson(payload));
   } catch (error) {

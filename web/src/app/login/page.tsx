@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { ApiError, logout as apiLogout, login, signup } from "@/lib/api";
+import {
+  ApiError,
+  login,
+  logout as apiLogout,
+  requestPasswordReset,
+  signup,
+} from "@/lib/api";
 import { describeAuthError, isGoogleAuthUiEnabled } from "@/lib/auth-errors";
-import { supabase } from "@/lib/supabase";
+import { getStoredAuthSession } from "@/lib/local-auth";
 
 type AuthMode = "login" | "signup" | "reset";
 
@@ -48,16 +54,9 @@ export default function LoginPage() {
   const [passwordUpdatedBanner, setPasswordUpdatedBanner] = useState(false);
 
   useEffect(() => {
-    if (!supabase) {
-      setSessionEmail(null);
-      setSessionChecked(true);
-      return;
-    }
-    supabase.auth
-      .getUser()
-      .then(({ data }) => setSessionEmail(data.user?.email || null))
-      .catch(() => setSessionEmail(null))
-      .finally(() => setSessionChecked(true));
+    const session = getStoredAuthSession();
+    setSessionEmail(session?.email || null);
+    setSessionChecked(true);
   }, []);
 
   useEffect(() => {
@@ -79,26 +78,13 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === "reset") {
-      if (!supabase) {
-        setError(
-          "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-        );
-        return;
-      }
       setError("");
       setIsSubmitting(true);
       try {
-        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
-          email.trim(),
-          {
-            redirectTo: `${window.location.origin}/auth/reset-password`,
-          },
-        );
-        if (resetErr) {
-          setError(describeAuthError(resetErr));
-          return;
-        }
+        await requestPasswordReset(email.trim());
         setResetEmailSent(true);
+      } catch (err) {
+        setError(describeAuthError(err));
       } finally {
         setIsSubmitting(false);
       }
@@ -200,28 +186,7 @@ export default function LoginPage() {
             type="button"
             className="flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 py-2.5 text-sm font-medium text-zinc-100 shadow-sm hover:bg-zinc-900/80 transition-colors disabled:opacity-50"
             onClick={async () => {
-              setError("");
-              setIsSubmitting(true);
-              try {
-                if (!supabase) {
-                  setError(
-                    "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-                  );
-                  return;
-                }
-                const { error: oauthErr } = await supabase.auth.signInWithOAuth(
-                  {
-                    provider: "google",
-                    options: {
-                      redirectTo: `${window.location.origin}/dashboard`,
-                      queryParams: { prompt: "select_account" },
-                    },
-                  },
-                );
-                if (oauthErr) setError(describeAuthError(oauthErr));
-              } finally {
-                setIsSubmitting(false);
-              }
+              setError("Google sign-in is not available with local JWT auth.");
             }}
             disabled={isSubmitting}
           >
@@ -264,31 +229,17 @@ export default function LoginPage() {
         />
 
         {mode !== "reset" ? (
-          <div className="space-y-2">
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              required
-              autoComplete={
-                mode === "login" ? "current-password" : "new-password"
-              }
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={fieldClassName}
-            />
-            {mode === "login" ? (
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => switchMode("reset")}
-                  className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-                >
-                  Forgot password
-                </button>
-              </div>
-            ) : null}
-          </div>
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            required
+            minLength={8}
+            autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={fieldClassName}
+          />
         ) : null}
 
         {error ? (
@@ -303,9 +254,11 @@ export default function LoginPage() {
           className="w-full rounded-md bg-white py-2.5 text-sm font-medium text-zinc-950 shadow-sm hover:bg-zinc-100 transition-colors disabled:opacity-50"
         >
           {isSubmitting
-            ? mode === "signup"
-              ? "Creating account…"
-              : "Signing in…"
+            ? mode === "login"
+              ? "Signing in…"
+              : mode === "signup"
+                ? "Creating account…"
+                : "Sending reset link…"
             : mode === "login"
               ? "Sign in"
               : mode === "signup"
@@ -314,49 +267,42 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <p className="text-center text-xs text-zinc-500">
+      <div className="flex items-center justify-between text-sm text-zinc-500">
         {mode === "login" ? (
           <>
-            No account?{" "}
             <button
               type="button"
+              className="font-medium text-zinc-300 hover:text-white transition-colors"
               onClick={() => switchMode("signup")}
-              className="font-medium text-zinc-300 hover:text-white transition-colors"
             >
-              Sign up
+              Create account
             </button>
-          </>
-        ) : null}
-        {mode === "signup" ? (
-          <>
-            Already have an account?{" "}
             <button
               type="button"
-              onClick={() => switchMode("login")}
               className="font-medium text-zinc-300 hover:text-white transition-colors"
+              onClick={() => switchMode("reset")}
             >
-              Sign in
+              Forgot password?
             </button>
           </>
-        ) : null}
-        {mode === "reset" ? (
-          <>
-            Remember it?{" "}
-            <button
-              type="button"
-              onClick={() => switchMode("login")}
-              className="font-medium text-zinc-300 hover:text-white transition-colors"
-            >
-              Sign in
-            </button>
-          </>
-        ) : null}
-      </p>
-
-      <p className="text-center text-[11px] leading-relaxed text-zinc-600">
-        If you have an existing account, sign in above. New accounts may be
-        disabled depending on how Monix is configured.
-      </p>
+        ) : mode === "signup" ? (
+          <button
+            type="button"
+            className="font-medium text-zinc-300 hover:text-white transition-colors"
+            onClick={() => switchMode("login")}
+          >
+            Already have an account?
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="font-medium text-zinc-300 hover:text-white transition-colors"
+            onClick={() => switchMode("login")}
+          >
+            Back to sign in
+          </button>
+        )}
+      </div>
     </AuthShell>
   );
 }

@@ -589,25 +589,31 @@ export async function runFullUrlAnalysis(opts: {
     const reportId = randomUUID();
     security.report_id = reportId;
     security.report_url = `/dashboard/report/${reportId}`;
-    const { getSupabaseAdmin } = await import("@/server/db/supabase-admin");
+    const { queryMaybeOne, queryRows } = await import("@/server/db/postgres");
     const { syncTargetSearchConsole } = await import(
       "@/server/integrations/gsc-api"
     );
-    const db = getSupabaseAdmin();
     const expires = new Date();
     expires.setDate(expires.getDate() + 30);
     const owner = opts.targetId
       ? await resolveTargetOwner(opts.targetId)
       : null;
-    await db.from("monix_scans").insert({
-      target_id: opts.targetId,
-      report_id: reportId,
-      url: u,
-      score: scores.overall,
-      results: security,
-      is_expired: false,
-      expires_at: expires.toISOString(),
-    });
+    await queryRows(
+      `
+        insert into monix_scans (
+          target_id, report_id, url, score, results, is_expired, expires_at
+        )
+        values ($1::uuid, $2::uuid, $3, $4, $5::jsonb, false, $6::timestamptz)
+      `,
+      [
+        opts.targetId,
+        reportId,
+        u,
+        scores.overall,
+        JSON.stringify(security),
+        expires.toISOString(),
+      ],
+    );
     if (owner && opts.targetId) {
       await syncTargetSearchConsole(owner, opts.targetId, u);
     }
@@ -616,11 +622,15 @@ export async function runFullUrlAnalysis(opts: {
 }
 
 async function resolveTargetOwner(targetId: string): Promise<string | null> {
-  const { getSupabaseAdmin } = await import("@/server/db/supabase-admin");
-  const { data } = await getSupabaseAdmin()
-    .from("monix_targets")
-    .select("owner_id")
-    .eq("id", targetId)
-    .maybeSingle();
-  return (data as { owner_id?: string } | null)?.owner_id ?? null;
+  const { queryMaybeOne } = await import("@/server/db/postgres");
+  const row = await queryMaybeOne<{ owner_id: string }>(
+    `
+      select owner_id
+      from monix_targets
+      where id = $1::uuid
+      limit 1
+    `,
+    [targetId],
+  );
+  return row?.owner_id ?? null;
 }

@@ -36,6 +36,7 @@ import {
   formatPosition,
 } from "@/components/gsc-metrics";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -353,6 +354,41 @@ function SectionCard({
   );
 }
 
+function AnalyticsSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="rounded-xl border border-border bg-card p-4 space-y-3"
+          >
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-8 w-28" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-[220px] w-full" />
+        </div>
+        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-[220px] w-full" />
+        </div>
+      </div>
+      <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+        <Skeleton className="h-4 w-40" />
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-10 w-full" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Charts ───────────────────────────────────────────────────────────────────
 
 function ClicksByProjectChart({
@@ -639,6 +675,7 @@ export default function AnalyticsPage() {
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [cfLoading, setCfLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
   /** `all` = combined; target id = Monix site; `zone:<id>` = Cloudflare zone without a matching target */
@@ -769,33 +806,71 @@ export default function AnalyticsPage() {
     [scopedTargets],
   );
 
+  const loadCloudflareData = useCallback(async (t: Target[]) => {
+    setCfLoading(true);
+    try {
+      setCfWorkspace(await loadCloudflareWorkspaceMetrics(t));
+    } catch {
+      setCfWorkspace({
+        connected: false,
+        zones: [],
+        byTargetId: {},
+        aggregate: {
+          hasData: false,
+          totalRequests: 0,
+          totalThreats: 0,
+          totalCached: 0,
+          bandwidthBytes: 0,
+          cacheRatio: null,
+          periodDays: 7,
+          matchedProjectCount: 0,
+          byProject: [],
+        },
+      });
+    } finally {
+      setCfLoading(false);
+    }
+  }, []);
+
   const load = useCallback(async (runSync: boolean) => {
     setError("");
     try {
-      const s = await getGscStatus();
+      const [statusResult, targetsResult] = await Promise.allSettled([
+        getGscStatus(),
+        getTargets(),
+      ]);
+
+      const s =
+        statusResult.status === "fulfilled"
+          ? statusResult.value
+          : { connected: false };
+      let t = targetsResult.status === "fulfilled" ? targetsResult.value : [];
+
       setConnected(s.connected);
-      let t = await getTargets();
-      if (!s.connected) {
-        setTargets(t);
-        setCfWorkspace(await loadCloudflareWorkspaceMetrics(t));
-        return;
-      }
+      setTargets(t);
+      setLoading(false);
+
       if (runSync) {
         setSyncing(true);
-        await syncGscTargets();
-        t = await getTargets();
+        if (s.connected) {
+          await syncGscTargets();
+          t = await getTargets({ force: true });
+          setTargets(t);
+        }
       }
-      setTargets(t);
-      setCfWorkspace(await loadCloudflareWorkspaceMetrics(t));
+
+      void loadCloudflareData(t);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403))
         return;
-      setError(e instanceof Error ? e.message : "Failed to load analytics");
+      setConnected(false);
+      setTargets([]);
+      setLoading(false);
+      setError("");
     } finally {
       setSyncing(false);
-      setLoading(false);
     }
-  }, []);
+  }, [loadCloudflareData]);
 
   useEffect(() => {
     // Initial render should stay read-only and fast.
@@ -987,19 +1062,23 @@ export default function AnalyticsPage() {
       )}
 
       {!loading && cfView.kind === "zoneLoading" && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 animate-pulse">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="h-24 rounded-xl bg-muted/30 border border-border"
-            />
+              className="rounded-xl border border-border bg-card p-4 space-y-3"
+            >
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-8 w-28" />
+              <Skeleton className="h-3 w-24" />
+            </div>
           ))}
         </div>
       )}
 
       {!loading && cfView.kind === "zoneEmpty" && (
         <div className="rounded-xl border border-border bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
-          Could not load edge analytics for{" "}
+          No Cloudflare edge analytics yet for{" "}
           <span className="font-medium text-foreground">{cfView.zoneName}</span>
           .
         </div>
@@ -1017,6 +1096,17 @@ export default function AnalyticsPage() {
               Connect Cloudflare
             </Link>{" "}
             to show edge traffic alongside Search Console on this page.
+          </div>
+        )}
+
+      {!loading &&
+        connected &&
+        !cfLoading &&
+        !cfWorkspace?.connected &&
+        !domainScope.startsWith("zone:") && (
+          <div className="rounded-xl border border-border bg-muted/10 px-4 py-3 text-sm text-muted-foreground">
+            No Cloudflare integration yet. Connect Cloudflare to unlock edge
+            traffic, threat, and cache charts on this page.
           </div>
         )}
 
@@ -1107,23 +1197,34 @@ export default function AnalyticsPage() {
       )}
 
       {/* Loading skeletons */}
-      {loading && connected !== false && (
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-24 rounded-xl bg-muted/20 border border-border animate-pulse"
-              />
-            ))}
-          </div>
-          <div className="h-56 rounded-xl bg-muted/20 border border-border animate-pulse" />
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="h-48 rounded-xl bg-muted/20 border border-border animate-pulse" />
-            <div className="h-48 rounded-xl bg-muted/20 border border-border animate-pulse" />
-          </div>
-        </div>
-      )}
+      {loading && <AnalyticsSkeleton />}
+
+      {!loading &&
+        !error &&
+        targets.length === 0 &&
+        connected === false &&
+        !cfLoading && (
+          <SectionCard
+            title="No integrations yet"
+            subtitle="Connect a provider when you are ready. Until then, analytics will stay empty."
+            icon={AlertCircle}
+          >
+            <div className="px-5 py-10">
+              <div className="text-sm text-muted-foreground">
+                No Search Console or Cloudflare integration is connected yet,
+                and there are no monitored sites to analyze.
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Button asChild variant="secondary">
+                  <Link href="/dashboard/sites">Add your first site</Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/dashboard/integrations">Open integrations</Link>
+                </Button>
+              </div>
+            </div>
+          </SectionCard>
+        )}
 
       {/* Connected — full dashboard */}
       {!loading && connected && (

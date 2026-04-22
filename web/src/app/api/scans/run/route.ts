@@ -1,13 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { runFullUrlAnalysis } from "@/server/analysis/analyze-url-engine";
-import { requireSupabaseAuth } from "@/server/auth/policy";
+import { requireMonixAuth } from "@/server/auth/policy";
 import { requireUserSub } from "@/server/db/monix-data";
-import { getSupabaseAdmin } from "@/server/db/supabase-admin";
+import { queryMaybeOne } from "@/server/db/postgres";
 import { handleRouteError } from "@/server/transport/http";
 
 export async function POST(request: NextRequest) {
   try {
-    const { token } = await requireSupabaseAuth(request);
+    const { token } = await requireMonixAuth(request);
     const sub = await requireUserSub(token);
     let body: Record<string, unknown> = {};
     try {
@@ -29,13 +29,16 @@ export async function POST(request: NextRequest) {
     const tidRaw = body.target_id;
     if (tidRaw != null && String(tidRaw).trim()) {
       const tid = String(tidRaw).trim();
-      const { data } = await getSupabaseAdmin()
-        .from("monix_targets")
-        .select("id")
-        .eq("id", tid)
-        .eq("owner_id", sub)
-        .maybeSingle();
-      if (!data) {
+      const row = await queryMaybeOne<{ id: string }>(
+        `
+          select id
+          from monix_targets
+          where id = $1::uuid and owner_id = $2::uuid
+          limit 1
+        `,
+        [tid, sub],
+      );
+      if (!row) {
         return NextResponse.json(
           { error: "Target not found." },
           { status: 404 },

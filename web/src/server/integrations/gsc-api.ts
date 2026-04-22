@@ -1,5 +1,8 @@
 import { decryptAtRest, encryptAtRest } from "@/server/crypto/fernet-tokens";
-import { getSupabaseAdmin } from "@/server/db/supabase-admin";
+import {
+  queryMaybeOne,
+  queryRows,
+} from "@/server/db/postgres";
 
 const GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN = "https://oauth2.googleapis.com/token";
@@ -258,18 +261,20 @@ export async function fetchGscBundleForSite(
 export async function getValidGscAccessToken(
   userId: string,
 ): Promise<string | null> {
-  const db = getSupabaseAdmin();
-  const { data, error } = await db
-    .from("monix_gsc_credentials")
-    .select("refresh_token_encrypted, access_token, access_token_expires_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error || !data) return null;
-  const row = data as {
+  const row = await queryMaybeOne<{
     refresh_token_encrypted: string;
     access_token: string;
     access_token_expires_at: string | null;
-  };
+  }>(
+    `
+      select refresh_token_encrypted, access_token, access_token_expires_at
+      from monix_gsc_credentials
+      where user_id = $1::uuid
+      limit 1
+    `,
+    [userId],
+  );
+  if (!row) return null;
   const skewMs = 120_000;
   const now = Date.now();
   if (
@@ -291,14 +296,16 @@ export async function getValidGscAccessToken(
       bundle.expires_in != null
         ? new Date(now + bundle.expires_in * 1000).toISOString()
         : null;
-    await db
-      .from("monix_gsc_credentials")
-      .update({
-        access_token: bundle.access_token,
-        access_token_expires_at: expiresAt,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", userId);
+    await queryRows(
+      `
+        update monix_gsc_credentials
+        set access_token = $2,
+            access_token_expires_at = $3::timestamptz,
+            updated_at = now()
+        where user_id = $1::uuid
+      `,
+      [userId, bundle.access_token, expiresAt],
+    );
     return bundle.access_token;
   } catch {
     return null;
@@ -310,69 +317,77 @@ export async function syncTargetSearchConsole(
   targetId: string,
   targetUrl: string,
 ): Promise<void> {
-  const db = getSupabaseAdmin();
   const token = await getValidGscAccessToken(userId);
   const now = new Date().toISOString();
   if (!token) {
-    await db
-      .from("monix_targets")
-      .update({
-        gsc_property_url: "",
-        gsc_analytics: null,
-        gsc_synced_at: now,
-        gsc_sync_error: "",
-      })
-      .eq("id", targetId);
+    await queryRows(
+      `
+        update monix_targets
+        set gsc_property_url = '',
+            gsc_analytics = null,
+            gsc_synced_at = $2::timestamptz,
+            gsc_sync_error = ''
+        where id = $1::uuid
+      `,
+      [targetId, now],
+    );
     return;
   }
   let sites: Record<string, unknown>[];
   try {
     sites = await listSites(token);
   } catch {
-    await db
-      .from("monix_targets")
-      .update({
-        gsc_synced_at: now,
-        gsc_sync_error: "Could not list Search Console properties.",
-      })
-      .eq("id", targetId);
+    await queryRows(
+      `
+        update monix_targets
+        set gsc_synced_at = $2::timestamptz,
+            gsc_sync_error = 'Could not list Search Console properties.'
+        where id = $1::uuid
+      `,
+      [targetId, now],
+    );
     return;
   }
   const match = pickMatchingSiteUrl(sites, targetUrl);
   if (!match) {
-    await db
-      .from("monix_targets")
-      .update({
-        gsc_property_url: "",
-        gsc_analytics: null,
-        gsc_synced_at: now,
-        gsc_sync_error:
-          "No verified Search Console property matches this URL's domain.",
-      })
-      .eq("id", targetId);
+    await queryRows(
+      `
+        update monix_targets
+        set gsc_property_url = '',
+            gsc_analytics = null,
+            gsc_synced_at = $2::timestamptz,
+            gsc_sync_error = 'No verified Search Console property matches this URL''s domain.'
+        where id = $1::uuid
+      `,
+      [targetId, now],
+    );
     return;
   }
   try {
     const bundle = await fetchGscBundleForSite(match, token);
-    await db
-      .from("monix_targets")
-      .update({
-        gsc_property_url: match,
-        gsc_analytics: bundle,
-        gsc_synced_at: now,
-        gsc_sync_error: "",
-      })
-      .eq("id", targetId);
+    await queryRows(
+      `
+        update monix_targets
+        set gsc_property_url = $2,
+            gsc_analytics = $3::jsonb,
+            gsc_synced_at = $4::timestamptz,
+            gsc_sync_error = ''
+        where id = $1::uuid
+      `,
+      [targetId, match, JSON.stringify(bundle), now],
+    );
   } catch {
-    await db
-      .from("monix_targets")
-      .update({
-        gsc_property_url: match,
-        gsc_analytics: null,
-        gsc_synced_at: now,
-        gsc_sync_error: "Could not fetch Search Analytics for this property.",
-      })
-      .eq("id", targetId);
+    await queryRows(
+      `
+        update monix_targets
+        set gsc_property_url = $2,
+            gsc_analytics = null,
+            gsc_synced_at = $3::timestamptz,
+            gsc_sync_error = 'Could not fetch Search Analytics for this property.'
+        where id = $1::uuid
+      `,
+      [targetId, match, now],
+    );
   }
 }
 
@@ -382,7 +397,6 @@ export async function saveGscTokensFromOAuth(
   refreshToken: string | null | undefined,
   expiresIn: number | null | undefined,
 ): Promise<void> {
-  const db = getSupabaseAdmin();
   const now = Date.now();
   const expiresAt =
     expiresIn != null ? new Date(now + expiresIn * 1000).toISOString() : null;
@@ -391,27 +405,36 @@ export async function saveGscTokensFromOAuth(
   if (refreshToken) {
     refreshEnc = encryptAtRest(refreshToken);
   } else {
-    const { data: existing } = await db
-      .from("monix_gsc_credentials")
-      .select("refresh_token_encrypted")
-      .eq("user_id", userId)
-      .maybeSingle();
+    const existing = await queryMaybeOne<{ refresh_token_encrypted: string }>(
+      `
+        select refresh_token_encrypted
+        from monix_gsc_credentials
+        where user_id = $1::uuid
+        limit 1
+      `,
+      [userId],
+    );
     if (!existing?.refresh_token_encrypted) {
       throw new Error(
         "Google did not return a refresh token. Revoke app access in Google Account settings and connect again.",
       );
     }
-    refreshEnc = existing.refresh_token_encrypted as string;
+    refreshEnc = existing.refresh_token_encrypted;
   }
 
-  await db.from("monix_gsc_credentials").upsert(
-    {
-      user_id: userId,
-      refresh_token_encrypted: refreshEnc,
-      access_token: accessToken,
-      access_token_expires_at: expiresAt,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" },
+  await queryRows(
+    `
+      insert into monix_gsc_credentials (
+        user_id, refresh_token_encrypted, access_token,
+        access_token_expires_at, updated_at
+      )
+      values ($1::uuid, $2, $3, $4::timestamptz, now())
+      on conflict (user_id) do update
+      set refresh_token_encrypted = excluded.refresh_token_encrypted,
+          access_token = excluded.access_token,
+          access_token_expires_at = excluded.access_token_expires_at,
+          updated_at = now()
+    `,
+    [userId, refreshEnc, accessToken, expiresAt],
   );
 }
