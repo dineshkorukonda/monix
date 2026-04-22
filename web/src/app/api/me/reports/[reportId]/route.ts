@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { requireSupabaseAuth } from "@/server/auth/policy";
+import { requireMonixAuth } from "@/server/auth/policy";
 import {
   getReportEnvelopeForUser,
   requireUserSub,
@@ -12,7 +12,7 @@ export async function GET(
   ctx: { params: Promise<{ reportId: string }> },
 ) {
   try {
-    const { token } = await requireSupabaseAuth(request);
+    const { token } = await requireMonixAuth(request);
     const sub = await requireUserSub(token);
     const { reportId } = await ctx.params;
     const payload = await getReportEnvelopeForUser(reportId, sub);

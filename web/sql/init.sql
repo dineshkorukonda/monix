@@ -13,8 +13,12 @@ create table if not exists public.monix_users (
   password_hash text,
   avatar_url text not null default '',
   reset_token_hash text,
-  reset_token_expires_at timestamptz
+  reset_token_expires_at timestamptz,
+  google_sub text unique
 );
+
+-- Migration for existing databases:
+-- alter table public.monix_users add column if not exists google_sub text unique;
 
 create table if not exists public.monix_targets (
   id uuid primary key default gen_random_uuid(),

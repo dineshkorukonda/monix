@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { requireSupabaseAuth } from "@/server/auth/policy";
+import { requireMonixAuth } from "@/server/auth/policy";
 import { emailFromBearer } from "@/server/db/monix-auth-email";
 import {
   createTargetForUser,
@@ -10,7 +10,7 @@ import { handleRouteError } from "@/server/transport/http";
 
 export async function GET(request: NextRequest) {
   try {
-    const { token } = await requireSupabaseAuth(request);
+    const { token } = await requireMonixAuth(request);
     const sub = await requireUserSub(token);
     const data = await listTargetsPayload(sub);
     return NextResponse.json(data);
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { token } = await requireSupabaseAuth(request);
+    const { token } = await requireMonixAuth(request);
     const sub = await requireUserSub(token);
     const email = await emailFromBearer(token);
     let body: Record<string, unknown> = {};
