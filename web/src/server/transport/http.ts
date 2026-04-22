@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { UnauthorizedError } from "@/server/auth/policy";
-import { AuthVerificationError } from "@/server/auth/supabase-jwt";
+import { AuthConfigError, AuthVerificationError } from "@/server/auth/jwt";
 import { UpstreamApiError } from "@/server/infrastructure/upstream-api-client";
 
 export function handleRouteError(error: unknown): NextResponse {
@@ -9,6 +9,9 @@ export function handleRouteError(error: unknown): NextResponse {
   }
   if (error instanceof AuthVerificationError) {
     return NextResponse.json({ error: error.message }, { status: 401 });
+  }
+  if (error instanceof AuthConfigError) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (error instanceof UpstreamApiError) {
     return NextResponse.json(

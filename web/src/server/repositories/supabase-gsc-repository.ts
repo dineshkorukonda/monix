@@ -3,9 +3,12 @@ import {
   signGscOAuthState,
   verifyGscOAuthState,
 } from "@/server/auth/gsc-oauth-state";
-import { verifySupabaseAccessToken } from "@/server/auth/supabase-jwt";
-import { ensureMonixUser } from "@/server/db/monix-user";
-import { getSupabaseAdmin } from "@/server/db/supabase-admin";
+import { verifyAccessToken } from "@/server/auth/jwt";
+import { ensureMonixUser, getMonixUserById } from "@/server/db/monix-user";
+import {
+  queryMaybeOne,
+  queryRows,
+} from "@/server/db/postgres";
 import type {
   GscAnalyticsRequest,
   GscConnectContext,
@@ -46,7 +49,7 @@ function gscErrorRedirect(): string {
 }
 
 async function requireSubFromBearer(bearerJwt: string): Promise<string> {
-  const payload = await verifySupabaseAccessToken(bearerJwt);
+  const payload = await verifyAccessToken(bearerJwt);
   const sub = typeof payload.sub === "string" ? payload.sub : "";
   if (!sub) throw new Error("Unauthorized");
   return sub;
@@ -56,9 +59,8 @@ export class SupabaseGscRepository implements GscRepository {
   async connectUrl(
     ctx: GscConnectContext,
   ): Promise<{ authorization_url: string }> {
-    const state = await signGscOAuthState(ctx.supabaseUserId);
-    const authorization_url = buildGscAuthorizationUrl(state);
-    return { authorization_url };
+    const state = await signGscOAuthState(ctx.userId);
+    return { authorization_url: buildGscAuthorizationUrl(state) };
   }
 
   async callback(query: string): Promise<Response> {
@@ -69,9 +71,7 @@ export class SupabaseGscRepository implements GscRepository {
 
     const params = new URLSearchParams(query);
     const err = params.get("error");
-    if (err) {
-      return NextResponse.redirect(appendReason(errBase, err));
-    }
+    if (err) return NextResponse.redirect(appendReason(errBase, err));
     const code = params.get("code");
     const state = params.get("state");
     if (!code || !state) {
@@ -85,15 +85,8 @@ export class SupabaseGscRepository implements GscRepository {
     }
     try {
       const bundle = await exchangeCodeForTokens(code);
-      let email = "";
-      try {
-        const { data, error } =
-          await getSupabaseAdmin().auth.admin.getUserById(userId);
-        if (!error && data.user?.email) email = data.user.email;
-      } catch {
-        /* optional */
-      }
-      await ensureMonixUser(userId, email);
+      const user = await getMonixUserById(userId);
+      await ensureMonixUser(userId, user?.email ?? "");
       await saveGscTokensFromOAuth(
         userId,
         bundle.access_token,
@@ -112,12 +105,16 @@ export class SupabaseGscRepository implements GscRepository {
 
   async status(bearerJwt: string): Promise<{ connected: boolean }> {
     const sub = await requireSubFromBearer(bearerJwt);
-    const { data } = await getSupabaseAdmin()
-      .from("monix_gsc_credentials")
-      .select("user_id")
-      .eq("user_id", sub)
-      .maybeSingle();
-    return { connected: Boolean(data) };
+    const row = await queryMaybeOne<{ user_id: string }>(
+      `
+        select user_id
+        from monix_gsc_credentials
+        where user_id = $1::uuid
+        limit 1
+      `,
+      [sub],
+    );
+    return { connected: Boolean(row) };
   }
 
   async sites(bearerJwt: string): Promise<{ sites: unknown[] }> {
@@ -129,8 +126,7 @@ export class SupabaseGscRepository implements GscRepository {
         { status: 400 },
       );
     }
-    const sites = await listSites(access);
-    return { sites };
+    return { sites: await listSites(access) };
   }
 
   async analytics(
@@ -182,10 +178,10 @@ export class SupabaseGscRepository implements GscRepository {
 
   async disconnect(bearerJwt: string): Promise<{ ok: boolean }> {
     const sub = await requireSubFromBearer(bearerJwt);
-    await getSupabaseAdmin()
-      .from("monix_gsc_credentials")
-      .delete()
-      .eq("user_id", sub);
+    await queryRows(
+      "delete from monix_gsc_credentials where user_id = $1::uuid",
+      [sub],
+    );
     return { ok: true };
   }
 
@@ -193,32 +189,38 @@ export class SupabaseGscRepository implements GscRepository {
     bearerJwt: string,
   ): Promise<{ ok: boolean; targets: number; errors: number }> {
     const sub = await requireSubFromBearer(bearerJwt);
-    const db = getSupabaseAdmin();
-    const { data: row } = await db
-      .from("monix_gsc_credentials")
-      .select("user_id")
-      .eq("user_id", sub)
-      .maybeSingle();
+    const row = await queryMaybeOne<{ user_id: string }>(
+      `
+        select user_id
+        from monix_gsc_credentials
+        where user_id = $1::uuid
+        limit 1
+      `,
+      [sub],
+    );
     if (!row) {
       throw Object.assign(
         new Error("Google Search Console is not connected."),
         { status: 400 },
       );
     }
-    const { data: targets } = await db
-      .from("monix_targets")
-      .select("id, url")
-      .eq("owner_id", sub)
-      .order("created_at", { ascending: false });
-    const list = (targets ?? []) as { id: string; url: string }[];
+    const targets = await queryRows<{ id: string; url: string }>(
+      `
+        select id, url
+        from monix_targets
+        where owner_id = $1::uuid
+        order by created_at desc
+      `,
+      [sub],
+    );
     let errors = 0;
-    for (const t of list) {
+    for (const target of targets) {
       try {
-        await syncTargetSearchConsole(sub, t.id, t.url);
+        await syncTargetSearchConsole(sub, target.id, target.url);
       } catch {
         errors += 1;
       }
     }
-    return { ok: true, targets: list.length, errors };
+    return { ok: true, targets: targets.length, errors };
   }
 }

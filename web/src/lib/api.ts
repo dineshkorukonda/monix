@@ -2,11 +2,14 @@
  * API client for Monix backend services.
  *
  * Auth:
- * - Supabase Auth runs in the browser and provides a JWT access token.
+ * - Monix stores a custom JWT in browser local storage.
  * - Next.js route handlers accept `Authorization: Bearer <token>` for authenticated routes.
  */
-
-import { supabase } from "@/lib/supabase";
+import {
+  clearStoredAuthSession,
+  getStoredAccessToken,
+  setStoredAuthSession,
+} from "@/lib/local-auth";
 
 /**
  * Base URL for Monix API (Next.js Route Handlers under `/api/*`).
@@ -36,9 +39,8 @@ function monixApiDisplayUrl(): string {
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
-  if (!supabase) return {};
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+  if (typeof window === "undefined") return {};
+  const token = getStoredAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -440,7 +442,7 @@ export async function analyzeUrl(
  * Get current system dashboard data.
  */
 export async function getDashboardData(): Promise<DashboardData> {
-  const response = await fetch(`${monixApiBase()}/api/dashboard`, {
+  const response = await fetch(`${monixApiBase()}/api/overview-data`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -661,17 +663,25 @@ export interface ScanSummary {
 }
 
 /** Fetch whether the user has connected Google Search Console (server-side tokens). */
-export async function getGscStatus(): Promise<{ connected: boolean }> {
-  const headers = await authHeaders();
-  const res = await fetch(`${monixApiBase()}/api/gsc/status/`, { headers });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new ApiError(
-      err.error || "Failed to load Search Console status",
-      res.status,
-    );
-  }
-  return (await res.json()) as { connected: boolean };
+export async function getGscStatus(
+  options?: CachedRequestOptions,
+): Promise<{ connected: boolean }> {
+  return cachedRequest(
+    "gsc:status",
+    async () => {
+      const headers = await authHeaders();
+      const res = await fetch(`${monixApiBase()}/api/gsc/status/`, { headers });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new ApiError(
+          err.error || "Failed to load Search Console status",
+          res.status,
+        );
+      }
+      return (await res.json()) as { connected: boolean };
+    },
+    { ttlMs: 30_000, ...options },
+  );
 }
 
 /**
@@ -713,6 +723,7 @@ export async function syncGscTargets(): Promise<{
     );
   }
   const payload = await res.json();
+  invalidateApiCache("gsc:");
   invalidateApiCache("targets");
   return payload;
 }
@@ -816,7 +827,7 @@ export async function getScans(
   return cachedRequest(
     "scans",
     async () => {
-      const res = await fetch(`${monixApiBase()}/api/scans/`, {
+      const res = await fetch(`${monixApiBase()}/api/scan-history/`, {
         headers: await authHeaders(),
       });
       if (!res.ok) {
@@ -840,81 +851,75 @@ export async function getMe(
         headers: await authHeaders(),
       });
       if (res.ok) {
-        const serverProfile = (await res.json()) as UserProfile;
-        // Enrich with Supabase metadata (Google avatar, custom avatar, etc.)
-        if (supabase) {
-          const { data } = await supabase.auth.getUser();
-          const u = data.user;
-          const avatar =
-            (u?.user_metadata?.avatar_url as string | undefined) ||
-            (u?.user_metadata?.picture as string | undefined) ||
-            null;
-          if (avatar) {
-            return { ...serverProfile, avatar_url: avatar };
-          }
-        }
-        return serverProfile;
+        return (await res.json()) as UserProfile;
       }
-
-      // Fall back to Supabase session info so UI can render if the profile API fails.
-      if (!supabase) throw new ApiError("Not authenticated", 401);
-      const { data } = await supabase.auth.getUser();
-      const u = data.user;
-      if (!u) throw new ApiError("Not authenticated", 401);
-      const full =
-        (u.user_metadata?.full_name as string | undefined) ||
-        (u.user_metadata?.name as string | undefined) ||
-        "";
-      return {
-        email: u.email || "",
-        name: full || u.email || "",
-        first_name: (u.user_metadata?.first_name as string | undefined) || "",
-        last_name: (u.user_metadata?.last_name as string | undefined) || "",
-        initials: (u.email || "U").slice(0, 2).toUpperCase(),
-        avatar_url:
-          (u.user_metadata?.avatar_url as string | undefined) ||
-          (u.user_metadata?.picture as string | undefined) ||
-          null,
-      };
+      if (res.status === 401) {
+        clearStoredAuthSession();
+      }
+      throw new ApiError("Not authenticated", res.status);
     },
     { ttlMs: 60_000, ...options },
   );
 }
 
-/** Email + password sign-in via Supabase; JWT is sent to `/api/*` on subsequent calls. */
+/** Email + password sign-in; JWT is sent to `/api/*` on subsequent calls. */
 export async function login(
   email: string,
   password: string,
 ): Promise<AuthUser> {
-  if (!supabase) throw new ApiError("Supabase is not configured", 500);
-  const { error, data } = await supabase.auth.signInWithPassword({
-    email: email.trim().toLowerCase(),
-    password,
+  const res = await fetch(`${monixApiBase()}/api/auth/login/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: email.trim().toLowerCase(),
+      password,
+    }),
   });
-  if (error) throw new ApiError(error.message, 401);
-  return { email: data.user?.email || email };
+  const payload = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    token?: string;
+    user?: { email?: string };
+  };
+  if (!res.ok || !payload.token) {
+    throw new ApiError(payload.error || "Login failed", res.status);
+  }
+  setStoredAuthSession({
+    token: payload.token,
+    email: payload.user?.email || email.trim().toLowerCase(),
+  });
+  invalidateApiCache();
+  return { email: payload.user?.email || email };
 }
 
-/** Register via Supabase (project should have “Confirm email” off for immediate session). */
+/** Register and create a local Monix account. */
 export async function signup(data: {
   full_name: string;
   email: string;
   password: string;
 }): Promise<AuthUser> {
-  if (!supabase) throw new ApiError("Supabase is not configured", 500);
-  const { error, data: out } = await supabase.auth.signUp({
-    email: data.email.trim().toLowerCase(),
-    password: data.password,
-    options: { data: { full_name: data.full_name.trim() } },
+  const res = await fetch(`${monixApiBase()}/api/auth/signup/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      full_name: data.full_name.trim(),
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+    }),
   });
-  if (error) {
-    const status =
-      typeof (error as { status?: number }).status === "number"
-        ? (error as { status: number }).status
-        : 400;
-    throw new ApiError(error.message, status);
+  const payload = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    token?: string;
+    user?: { email?: string };
+  };
+  if (!res.ok || !payload.token) {
+    throw new ApiError(payload.error || "Signup failed", res.status);
   }
-  return { email: out.user?.email || data.email };
+  setStoredAuthSession({
+    token: payload.token,
+    email: payload.user?.email || data.email.trim().toLowerCase(),
+  });
+  invalidateApiCache();
+  return { email: payload.user?.email || data.email };
 }
 
 /** Update first and/or last name. */
@@ -928,22 +933,25 @@ export async function updateProfile(data: {
   initials: string;
   avatar_url?: string | null;
 }> {
-  if (!supabase) throw new Error("Supabase is not configured");
-  const { error } = await supabase.auth.updateUser({
-    data: {
+  const res = await fetch(`${monixApiBase()}/api/auth/me/`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({
       ...(data.first_name != null ? { first_name: data.first_name } : {}),
       ...(data.last_name != null ? { last_name: data.last_name } : {}),
       ...(data.avatar_url !== undefined ? { avatar_url: data.avatar_url } : {}),
-    },
+    }),
   });
-  if (error) throw new Error(error.message);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || "Failed to save.");
+  }
   invalidateApiCache("me");
-  const u = await getMe();
-  return {
-    ok: true,
-    name: u.name,
-    initials: u.initials,
-    avatar_url: u.avatar_url ?? null,
+  return (await res.json()) as {
+    ok: boolean;
+    name: string;
+    initials: string;
+    avatar_url?: string | null;
   };
 }
 
@@ -952,16 +960,22 @@ export async function changePassword(
   old_password: string,
   new_password: string,
 ): Promise<void> {
-  void old_password;
-  if (!supabase) throw new Error("Supabase is not configured");
-  const { error } = await supabase.auth.updateUser({ password: new_password });
-  if (error) throw new Error(error.message);
+  const res = await fetch(`${monixApiBase()}/api/auth/password/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+    body: JSON.stringify({ old_password, new_password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { error?: string }).error || "Failed to update password.",
+    );
+  }
 }
 
 /** End the current session. */
 export async function logout(): Promise<void> {
-  if (!supabase) return;
-  await supabase.auth.signOut();
+  clearStoredAuthSession();
   invalidateApiCache();
 }
 
@@ -972,7 +986,39 @@ export async function deleteAccount(): Promise<void> {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error("Failed to delete account");
+  clearStoredAuthSession();
   invalidateApiCache();
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch(`${monixApiBase()}/api/auth/password/reset/request/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { error?: string }).error || "Failed to request password reset.",
+    );
+  }
+}
+
+export async function confirmPasswordReset(
+  token: string,
+  password: string,
+): Promise<void> {
+  const res = await fetch(`${monixApiBase()}/api/auth/password/reset/confirm/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { error?: string }).error || "Failed to reset password.",
+    );
+  }
 }
 
 // ── Cloudflare Integration ───────────────────────────────────────────────────
@@ -1074,36 +1120,54 @@ export async function disconnectCloudflare(): Promise<void> {
 }
 
 /** List all zones accessible via the stored Cloudflare token. */
-export async function getCloudflareZones(): Promise<CloudflareZone[]> {
-  const res = await fetch(`${monixApiBase()}/api/cloudflare/zones/`, {
-    headers: await authHeaders(),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new ApiError(
-      (err as { error?: string }).error || "Failed to fetch zones",
-      res.status,
-    );
-  }
-  return res.json();
+export async function getCloudflareZones(
+  options?: CachedRequestOptions,
+): Promise<CloudflareZone[]> {
+  return cachedRequest(
+    "cloudflare:zones",
+    async () => {
+      const res = await fetch(`${monixApiBase()}/api/cloudflare/zones/`, {
+        headers: await authHeaders(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new ApiError(
+          (err as { error?: string }).error || "Failed to fetch zones",
+          res.status,
+        );
+      }
+      return res.json();
+    },
+    { ttlMs: 60_000, ...options },
+  );
 }
 
 /** Fetch traffic/threat analytics for a zone over the given number of days. */
 export async function getCloudflareAnalytics(
   zoneId: string,
   days = 7,
+  options?: CachedRequestOptions,
 ): Promise<CloudflareAnalytics> {
-  const params = new URLSearchParams({ zone_id: zoneId, days: String(days) });
-  const res = await fetch(
-    `${monixApiBase()}/api/cloudflare/analytics/?${params}`,
-    { headers: await authHeaders() },
+  return cachedRequest(
+    `cloudflare:analytics:${zoneId}:${days}`,
+    async () => {
+      const params = new URLSearchParams({
+        zone_id: zoneId,
+        days: String(days),
+      });
+      const res = await fetch(
+        `${monixApiBase()}/api/cloudflare/analytics/?${params}`,
+        { headers: await authHeaders() },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new ApiError(
+          (err as { error?: string }).error || "Failed to fetch analytics",
+          res.status,
+        );
+      }
+      return res.json();
+    },
+    { ttlMs: 60_000, ...options },
   );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new ApiError(
-      (err as { error?: string }).error || "Failed to fetch analytics",
-      res.status,
-    );
-  }
-  return res.json();
 }

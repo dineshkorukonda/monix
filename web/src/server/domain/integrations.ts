@@ -4,7 +4,7 @@ export interface GscAnalyticsRequest {
   end_date?: string;
 }
 
-export type GscConnectContext = { bearerToken: string; supabaseUserId: string };
+export type GscConnectContext = { bearerToken: string; userId: string };
 
 export interface GscRepository {
   connectUrl(ctx: GscConnectContext): Promise<{ authorization_url: string }>;
