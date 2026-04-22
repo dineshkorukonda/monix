@@ -1,10 +1,7 @@
 import { createHash } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/server/auth/passwords";
-import {
-  getMonixUserByEmail,
-  updateMonixPassword,
-} from "@/server/db/monix-user";
+import { updateMonixPassword } from "@/server/db/monix-user";
 import { queryMaybeOne } from "@/server/db/postgres";
 import { handleRouteError } from "@/server/transport/http";
 

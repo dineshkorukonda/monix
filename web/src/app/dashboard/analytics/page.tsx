@@ -832,45 +832,48 @@ export default function AnalyticsPage() {
     }
   }, []);
 
-  const load = useCallback(async (runSync: boolean) => {
-    setError("");
-    try {
-      const [statusResult, targetsResult] = await Promise.allSettled([
-        getGscStatus(),
-        getTargets(),
-      ]);
-
-      const s =
-        statusResult.status === "fulfilled"
-          ? statusResult.value
-          : { connected: false };
-      let t = targetsResult.status === "fulfilled" ? targetsResult.value : [];
-
-      setConnected(s.connected);
-      setTargets(t);
-      setLoading(false);
-
-      if (runSync) {
-        setSyncing(true);
-        if (s.connected) {
-          await syncGscTargets();
-          t = await getTargets({ force: true });
-          setTargets(t);
-        }
-      }
-
-      void loadCloudflareData(t);
-    } catch (e) {
-      if (e instanceof ApiError && (e.status === 401 || e.status === 403))
-        return;
-      setConnected(false);
-      setTargets([]);
-      setLoading(false);
+  const load = useCallback(
+    async (runSync: boolean) => {
       setError("");
-    } finally {
-      setSyncing(false);
-    }
-  }, [loadCloudflareData]);
+      try {
+        const [statusResult, targetsResult] = await Promise.allSettled([
+          getGscStatus(),
+          getTargets(),
+        ]);
+
+        const s =
+          statusResult.status === "fulfilled"
+            ? statusResult.value
+            : { connected: false };
+        let t = targetsResult.status === "fulfilled" ? targetsResult.value : [];
+
+        setConnected(s.connected);
+        setTargets(t);
+        setLoading(false);
+
+        if (runSync) {
+          setSyncing(true);
+          if (s.connected) {
+            await syncGscTargets();
+            t = await getTargets({ force: true });
+            setTargets(t);
+          }
+        }
+
+        void loadCloudflareData(t);
+      } catch (e) {
+        if (e instanceof ApiError && (e.status === 401 || e.status === 403))
+          return;
+        setConnected(false);
+        setTargets([]);
+        setLoading(false);
+        setError("");
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [loadCloudflareData],
+  );
 
   useEffect(() => {
     // Initial render should stay read-only and fast.

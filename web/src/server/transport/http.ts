@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { UnauthorizedError } from "@/server/auth/policy";
 import { AuthConfigError, AuthVerificationError } from "@/server/auth/jwt";
+import { UnauthorizedError } from "@/server/auth/policy";
 import { UpstreamApiError } from "@/server/infrastructure/upstream-api-client";
 
 export function handleRouteError(error: unknown): NextResponse {

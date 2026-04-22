@@ -1,9 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  queryMaybeOne,
-  queryOne,
-  queryRows,
-} from "@/server/db/postgres";
+import { queryMaybeOne, queryOne, queryRows } from "@/server/db/postgres";
 
 export type MonixUserRow = {
   id: string;

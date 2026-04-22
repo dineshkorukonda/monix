@@ -991,11 +991,14 @@ export async function deleteAccount(): Promise<void> {
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  const res = await fetch(`${monixApiBase()}/api/auth/password/reset/request/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: email.trim().toLowerCase() }),
-  });
+  const res = await fetch(
+    `${monixApiBase()}/api/auth/password/reset/request/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    },
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(
@@ -1008,11 +1011,14 @@ export async function confirmPasswordReset(
   token: string,
   password: string,
 ): Promise<void> {
-  const res = await fetch(`${monixApiBase()}/api/auth/password/reset/confirm/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, password }),
-  });
+  const res = await fetch(
+    `${monixApiBase()}/api/auth/password/reset/confirm/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password }),
+    },
+  );
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(

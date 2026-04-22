@@ -5,10 +5,7 @@ import {
 } from "@/server/auth/gsc-oauth-state";
 import { verifyAccessToken } from "@/server/auth/jwt";
 import { ensureMonixUser, getMonixUserById } from "@/server/db/monix-user";
-import {
-  queryMaybeOne,
-  queryRows,
-} from "@/server/db/postgres";
+import { queryMaybeOne, queryRows } from "@/server/db/postgres";
 import type {
   GscAnalyticsRequest,
   GscConnectContext,

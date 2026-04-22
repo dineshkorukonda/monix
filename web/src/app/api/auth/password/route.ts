@@ -1,13 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { hashPassword, verifyPassword } from "@/server/auth/passwords";
 import { requireMonixAuth } from "@/server/auth/policy";
-import {
-  hashPassword,
-  verifyPassword,
-} from "@/server/auth/passwords";
-import {
-  getMonixUserById,
-  updateMonixPassword,
-} from "@/server/db/monix-user";
+import { getMonixUserById, updateMonixPassword } from "@/server/db/monix-user";
 import { handleRouteError } from "@/server/transport/http";
 
 export async function POST(request: NextRequest) {
