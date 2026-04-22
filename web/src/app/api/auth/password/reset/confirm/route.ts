@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
-import { hashPassword } from "@/server/auth/passwords";
+import { hashPassword, validatePassword } from "@/server/auth/passwords";
 import { updateMonixPassword } from "@/server/db/monix-user";
 import { queryMaybeOne } from "@/server/db/postgres";
 import { handleRouteError } from "@/server/transport/http";
@@ -17,9 +17,10 @@ export async function POST(request: NextRequest) {
     };
     const token = (body.token ?? "").trim();
     const password = body.password ?? "";
-    if (!token || password.length < 8) {
+    const pwdError = validatePassword(password);
+    if (!token || pwdError) {
       return NextResponse.json(
-        { error: "Reset token and a valid password are required." },
+        { error: pwdError ?? "Reset token is required." },
         { status: 400 },
       );
     }

@@ -41,4 +41,3 @@ export async function requireMonixAuth(request: NextRequest): Promise<{
   }
 }
 
-export const requireSupabaseAuth = requireMonixAuth;

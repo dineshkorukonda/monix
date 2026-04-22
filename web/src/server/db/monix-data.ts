@@ -60,25 +60,32 @@ export async function listTargetsPayload(userId: string): Promise<unknown[]> {
     `,
     [userId],
   );
+  if (!rows.length) return [];
   const ids = rows.map((t) => String(t.id));
   const counts = await scanCountByTarget(ids);
-  const out: unknown[] = [];
-  for (const t of rows) {
-    const latest = await queryMaybeOne<Record<string, unknown>>(
-      `
-        select score, results, created_at
-        from monix_scans
-        where target_id = $1::uuid
-        order by created_at desc
-        limit 1
-      `,
-      [String(t.id)],
-    );
+
+  // Fetch latest scan per target in a single query using DISTINCT ON
+  const latestScans = await queryRows<Record<string, unknown>>(
+    `
+      select distinct on (target_id)
+        target_id, score, results, created_at
+      from monix_scans
+      where target_id = any($1::uuid[])
+      order by target_id, created_at desc
+    `,
+    [ids],
+  );
+  const latestByTarget = new Map<string, Record<string, unknown>>(
+    latestScans.map((s) => [String(s.target_id), s]),
+  );
+
+  return rows.map((t) => {
+    const latest = latestByTarget.get(String(t.id)) ?? null;
     const results =
       (latest?.results as Record<string, unknown> | undefined) ?? {};
     const findings = (results.findings as unknown[]) ?? [];
     const score = latest?.score != null ? Number(latest.score) : null;
-    out.push({
+    return {
       id: String(t.id),
       name: displayHost(String(t.url)),
       url: t.url,
@@ -101,9 +108,8 @@ export async function listTargetsPayload(userId: string): Promise<unknown[]> {
       gsc_analytics: t.gsc_analytics,
       gsc_synced_at: t.gsc_synced_at ?? null,
       gsc_sync_error: t.gsc_sync_error || null,
-    });
-  }
-  return out;
+    };
+  });
 }
 
 export async function getTargetDetail(
@@ -169,6 +175,14 @@ export async function createTargetForUser(
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     url = `https://${url}`;
   }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Invalid URL protocol.");
+    }
+  } catch {
+    throw Object.assign(new Error("Invalid URL."), { status: 400 });
+  }
   await ensureMonixUser(userId, email);
   const row = await queryOne<Record<string, unknown>>(
     `
@@ -181,8 +195,8 @@ export async function createTargetForUser(
   );
   try {
     await syncTargetSearchConsole(userId, String(row.id), String(row.url));
-  } catch {
-    /* ignore */
+  } catch (e) {
+    console.error("[GSC sync] Failed to sync new target:", e);
   }
   const refreshed = await queryMaybeOne<Record<string, unknown>>(
     `
