@@ -31,8 +31,8 @@ function getPool(): Pool {
     const url = normalizedConnectionString(rawUrl);
     pool = new Pool({
       connectionString: url,
-      ssl: shouldUseSsl(rawUrl) ? { rejectUnauthorized: false } : false,
-      max: 10,
+      ssl: shouldUseSsl(rawUrl) ? { rejectUnauthorized: true } : false,
+      max: Number(process.env.DB_POOL_MAX) || 20,
     });
   }
   return pool;

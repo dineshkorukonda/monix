@@ -64,6 +64,7 @@ import {
   getCloudflareStatus,
   getGscConnectAuthorizationUrl,
   getGscStatus,
+  invalidateApiCache,
 } from "@/lib/api";
 
 interface GscStatus {
@@ -232,13 +233,28 @@ export default function IntegrationsPage() {
   const [gscStatus, setGscStatus] = useState<GscStatus | null>(null);
   const [cfStatus, setCfStatus] = useState<CloudflareStatus | null>(null);
   const [error, setError] = useState("");
+  const [banner, setBanner] = useState<"gsc_connected" | "gsc_error" | null>(null);
   const [isConnectingGsc, setIsConnectingGsc] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const gscParam = sp.get("gsc");
+    if (gscParam === "connected") {
+      setBanner("gsc_connected");
+      invalidateApiCache("gsc:status");
+      window.history.replaceState({}, "", "/dashboard/integrations");
+    } else if (gscParam === "error") {
+      setBanner("gsc_error");
+      window.history.replaceState({}, "", "/dashboard/integrations");
+    }
+  }, []);
 
   useEffect(() => {
     void (async () => {
       try {
         const [gsc, cf] = await Promise.allSettled([
-          getGscStatus(),
+          getGscStatus({ force: banner === "gsc_connected" }),
           getCloudflareStatus(),
         ]);
         if (gsc.status === "fulfilled") setGscStatus(gsc.value);
@@ -250,7 +266,7 @@ export default function IntegrationsPage() {
         setError("Failed to load integration status.");
       }
     })();
-  }, []);
+  }, [banner]);
 
   const handleConnectGsc = async () => {
     setIsConnectingGsc(true);
@@ -277,6 +293,20 @@ export default function IntegrationsPage() {
           SEO, and performance data.
         </p>
       </div>
+
+      {banner === "gsc_connected" && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-500">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Google Search Console connected successfully.
+        </div>
+      )}
+
+      {banner === "gsc_error" && (
+        <div className="flex items-center gap-2 rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-500">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          Google Search Console connection failed. Please try again.
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-500">

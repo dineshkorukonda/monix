@@ -30,7 +30,7 @@ function gscSuccessRedirect(): string {
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
     "http://localhost:3000"
   ).replace(/\/$/, "");
-  return `${base}/dashboard/projects?gsc=connected`;
+  return `${base}/dashboard/integrations?gsc=connected`;
 }
 
 function gscErrorRedirect(): string {
@@ -42,7 +42,7 @@ function gscErrorRedirect(): string {
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
     "http://localhost:3000"
   ).replace(/\/$/, "");
-  return `${base}/dashboard/projects?gsc=error`;
+  return `${base}/dashboard/integrations?gsc=error`;
 }
 
 async function requireSubFromBearer(bearerJwt: string): Promise<string> {

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { signAccessToken } from "@/server/auth/jwt";
-import { hashPassword } from "@/server/auth/passwords";
+import { hashPassword, validatePassword } from "@/server/auth/passwords";
 import { createMonixUser, getMonixUserByEmail } from "@/server/db/monix-user";
 import { handleRouteError } from "@/server/transport/http";
 
@@ -20,11 +20,9 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters." },
-        { status: 400 },
-      );
+    const pwdError = validatePassword(password);
+    if (pwdError) {
+      return NextResponse.json({ error: pwdError }, { status: 400 });
     }
     const existing = await getMonixUserByEmail(email);
     if (existing) {

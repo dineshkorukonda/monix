@@ -61,10 +61,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (
-      new URLSearchParams(window.location.search).get("reset") === "success"
-    ) {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("reset") === "success") {
       setPasswordUpdatedBanner(true);
+      window.history.replaceState({}, "", "/login");
+    }
+    if (sp.get("error") === "google_auth_failed") {
+      setError("Google sign-in failed. Please try again or use email/password.");
       window.history.replaceState({}, "", "/login");
     }
   }, []);
@@ -185,8 +188,8 @@ export default function LoginPage() {
           <button
             type="button"
             className="flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 py-2.5 text-sm font-medium text-zinc-100 shadow-sm hover:bg-zinc-900/80 transition-colors disabled:opacity-50"
-            onClick={async () => {
-              setError("Google sign-in is not available with local JWT auth.");
+            onClick={() => {
+              window.location.assign("/api/auth/google/");
             }}
             disabled={isSubmitting}
           >

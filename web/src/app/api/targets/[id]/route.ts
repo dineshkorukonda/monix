@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { requireSupabaseAuth } from "@/server/auth/policy";
+import { requireMonixAuth } from "@/server/auth/policy";
 import {
   deleteTargetForUser,
   getTargetDetail,
@@ -12,7 +12,7 @@ export async function GET(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { token } = await requireSupabaseAuth(request);
+    const { token } = await requireMonixAuth(request);
     const sub = await requireUserSub(token);
     const { id } = await ctx.params;
     const data = await getTargetDetail(sub, id);
@@ -27,7 +27,7 @@ export async function DELETE(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { token } = await requireSupabaseAuth(request);
+    const { token } = await requireMonixAuth(request);
     const sub = await requireUserSub(token);
     const { id } = await ctx.params;
     await deleteTargetForUser(sub, id);
