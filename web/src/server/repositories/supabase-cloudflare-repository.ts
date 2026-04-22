@@ -1,6 +1,6 @@
-import { verifySupabaseAccessToken } from "@/server/auth/supabase-jwt";
+import { verifyAccessToken } from "@/server/auth/jwt";
 import { decryptAtRest, encryptAtRest } from "@/server/crypto/fernet-tokens";
-import { getSupabaseAdmin } from "@/server/db/supabase-admin";
+import { queryMaybeOne, queryRows } from "@/server/db/postgres";
 import type { CloudflareRepository } from "@/server/domain/integrations";
 import {
   CloudflareApiError,
@@ -12,21 +12,25 @@ import {
 } from "@/server/integrations/cloudflare-api";
 
 async function requireSub(bearerJwt: string): Promise<string> {
-  const payload = await verifySupabaseAccessToken(bearerJwt);
+  const payload = await verifyAccessToken(bearerJwt);
   const sub = typeof payload.sub === "string" ? payload.sub : "";
   if (!sub) throw new Error("Unauthorized");
   return sub;
 }
 
 async function decryptStoredToken(userId: string): Promise<string | null> {
-  const { data } = await getSupabaseAdmin()
-    .from("monix_cloudflare_credentials")
-    .select("api_token_encrypted")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!data?.api_token_encrypted) return null;
+  const row = await queryMaybeOne<{ api_token_encrypted: string }>(
+    `
+      select api_token_encrypted
+      from monix_cloudflare_credentials
+      where user_id = $1::uuid
+      limit 1
+    `,
+    [userId],
+  );
+  if (!row?.api_token_encrypted) return null;
   try {
-    return decryptAtRest(data.api_token_encrypted as string);
+    return decryptAtRest(row.api_token_encrypted);
   } catch {
     return null;
   }
@@ -40,17 +44,25 @@ export class SupabaseCloudflareRepository implements CloudflareRepository {
     zones_count?: number;
   }> {
     const sub = await requireSub(bearerJwt);
-    const { data } = await getSupabaseAdmin()
-      .from("monix_cloudflare_credentials")
-      .select("account_name, account_id, zones_count")
-      .eq("user_id", sub)
-      .maybeSingle();
-    if (!data) return { connected: false };
+    const row = await queryMaybeOne<{
+      account_name: string;
+      account_id: string;
+      zones_count: number;
+    }>(
+      `
+        select account_name, account_id, zones_count
+        from monix_cloudflare_credentials
+        where user_id = $1::uuid
+        limit 1
+      `,
+      [sub],
+    );
+    if (!row) return { connected: false };
     return {
       connected: true,
-      account_name: (data.account_name as string) || "Cloudflare",
-      account_id: (data.account_id as string) || undefined,
-      zones_count: Number(data.zones_count ?? 0),
+      account_name: row.account_name || "Cloudflare",
+      account_id: row.account_id || undefined,
+      zones_count: Number(row.zones_count ?? 0),
     };
   }
 
@@ -79,19 +91,28 @@ export class SupabaseCloudflareRepository implements CloudflareRepository {
       });
     }
     const enc = encryptAtRest(token);
-    await getSupabaseAdmin()
-      .from("monix_cloudflare_credentials")
-      .upsert(
-        {
-          user_id: sub,
-          api_token_encrypted: enc,
-          account_id: summary.account_id.slice(0, 64),
-          account_name: summary.account_name.slice(0, 255),
-          zones_count: summary.zones_count,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      );
+    await queryRows(
+      `
+        insert into monix_cloudflare_credentials (
+          user_id, api_token_encrypted, account_id, account_name,
+          zones_count, updated_at
+        )
+        values ($1::uuid, $2, $3, $4, $5, now())
+        on conflict (user_id) do update
+        set api_token_encrypted = excluded.api_token_encrypted,
+            account_id = excluded.account_id,
+            account_name = excluded.account_name,
+            zones_count = excluded.zones_count,
+            updated_at = now()
+      `,
+      [
+        sub,
+        enc,
+        summary.account_id.slice(0, 64),
+        summary.account_name.slice(0, 255),
+        summary.zones_count,
+      ],
+    );
     return {
       success: true,
       account_name: summary.account_name,
@@ -101,10 +122,10 @@ export class SupabaseCloudflareRepository implements CloudflareRepository {
 
   async disconnect(bearerJwt: string): Promise<{ ok: boolean }> {
     const sub = await requireSub(bearerJwt);
-    await getSupabaseAdmin()
-      .from("monix_cloudflare_credentials")
-      .delete()
-      .eq("user_id", sub);
+    await queryRows(
+      "delete from monix_cloudflare_credentials where user_id = $1::uuid",
+      [sub],
+    );
     return { ok: true };
   }
 
@@ -123,13 +144,14 @@ export class SupabaseCloudflareRepository implements CloudflareRepository {
     try {
       const zones = await listZonesAll(plain);
       const rows = zonesToApiRows(zones);
-      await getSupabaseAdmin()
-        .from("monix_cloudflare_credentials")
-        .update({
-          zones_count: rows.length,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", sub);
+      await queryRows(
+        `
+          update monix_cloudflare_credentials
+          set zones_count = $2, updated_at = now()
+          where user_id = $1::uuid
+        `,
+        [sub, rows.length],
+      );
       return rows;
     } catch (e) {
       if (e instanceof CloudflareApiError) {
@@ -156,9 +178,13 @@ export class SupabaseCloudflareRepository implements CloudflareRepository {
       });
     }
     try {
-      const z = await getZone(plain, zid);
-      const zoneName = String(z.name ?? "");
-      return await fetchZoneAnalyticsDashboard(plain, zid, zoneName, days);
+      const zone = await getZone(plain, zid);
+      return await fetchZoneAnalyticsDashboard(
+        plain,
+        zid,
+        String(zone.name ?? ""),
+        days,
+      );
     } catch (e) {
       if (e instanceof CloudflareApiError) {
         const status = e.message.includes("not found") ? 400 : 502;

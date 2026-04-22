@@ -19,12 +19,13 @@ function fernetKeyMaterial(): string {
     return explicit;
   }
   const fallback =
+    process.env.MONIX_ENCRYPTION_SECRET?.trim() ||
     process.env.MONIX_FERNET_SECRET?.trim() ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.MONIX_JWT_SECRET?.trim() ||
     "";
   if (!fallback) {
     throw new Error(
-      "Set GOOGLE_REFRESH_TOKEN_FERNET_KEY (or MONIX_FERNET_SECRET / SUPABASE_SERVICE_ROLE_KEY) for token encryption.",
+      "Set GOOGLE_REFRESH_TOKEN_FERNET_KEY (or MONIX_ENCRYPTION_SECRET / MONIX_FERNET_SECRET / MONIX_JWT_SECRET) for token encryption.",
     );
   }
   const digest = createHash("sha256").update(fallback, "utf8").digest();

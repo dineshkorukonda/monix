@@ -7,11 +7,13 @@ function stateSecret(): Uint8Array {
   const raw =
     process.env.MONIX_GSC_STATE_SECRET?.trim() ||
     process.env.GOOGLE_REFRESH_TOKEN_FERNET_KEY?.trim() ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.MONIX_ENCRYPTION_SECRET?.trim() ||
+    process.env.MONIX_FERNET_SECRET?.trim() ||
+    process.env.MONIX_JWT_SECRET?.trim() ||
     "";
   if (!raw) {
     throw new Error(
-      "Set MONIX_GSC_STATE_SECRET (or GOOGLE_REFRESH_TOKEN_FERNET_KEY / SUPABASE_SERVICE_ROLE_KEY) for GSC OAuth state signing.",
+      "Set MONIX_GSC_STATE_SECRET (or GOOGLE_REFRESH_TOKEN_FERNET_KEY / MONIX_ENCRYPTION_SECRET / MONIX_FERNET_SECRET / MONIX_JWT_SECRET) for GSC OAuth state signing.",
     );
   }
   return new TextEncoder().encode(
