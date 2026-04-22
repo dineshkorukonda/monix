@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { hashPassword, verifyPassword } from "@/server/auth/passwords";
+import {
+  hashPassword,
+  validatePassword,
+  verifyPassword,
+} from "@/server/auth/passwords";
 import { requireMonixAuth } from "@/server/auth/policy";
 import { getMonixUserById, updateMonixPassword } from "@/server/db/monix-user";
 import { handleRouteError } from "@/server/transport/http";
@@ -13,9 +17,10 @@ export async function POST(request: NextRequest) {
     };
     const oldPassword = body.old_password ?? "";
     const newPassword = body.new_password ?? "";
-    if (newPassword.length < 8) {
+    const pwdError = validatePassword(newPassword);
+    if (pwdError) {
       return NextResponse.json(
-        { error: "New password must be at least 8 characters." },
+        { error: `New ${pwdError.toLowerCase()}` },
         { status: 400 },
       );
     }

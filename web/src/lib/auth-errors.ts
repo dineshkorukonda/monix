@@ -35,10 +35,8 @@ export function describeAuthError(input: unknown): string {
     (lower.includes("validation_failed") && lower.includes("provider"))
   ) {
     return (
-      "Google sign-in is turned off for this Supabase project. " +
-      "Open Supabase Dashboard → Authentication → Providers → Google, enable it, " +
-      "and add your Google OAuth client ID and secret. " +
-      "Also add this app’s URL under Authentication → URL Configuration → Redirect URLs."
+      "Google sign-in is not configured. " +
+      "Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_AUTH_REDIRECT_URI in your environment."
     );
   }
 
