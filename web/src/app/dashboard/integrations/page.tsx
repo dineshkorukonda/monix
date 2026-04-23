@@ -64,7 +64,6 @@ import {
   getCloudflareStatus,
   getGscConnectAuthorizationUrl,
   getGscStatus,
-  invalidateApiCache,
 } from "@/lib/api";
 
 interface GscStatus {
@@ -239,24 +238,22 @@ export default function IntegrationsPage() {
   const [isConnectingGsc, setIsConnectingGsc] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    // Read URL params for banner, then always force-fetch fresh status in one
+    // effect so there's no race between URL-reading and data-fetching effects.
     const sp = new URLSearchParams(window.location.search);
     const gscParam = sp.get("gsc");
     if (gscParam === "connected") {
       setBanner("gsc_connected");
-      invalidateApiCache("gsc:status");
       window.history.replaceState({}, "", "/dashboard/integrations");
     } else if (gscParam === "error") {
       setBanner("gsc_error");
       window.history.replaceState({}, "", "/dashboard/integrations");
     }
-  }, []);
 
-  useEffect(() => {
     void (async () => {
       try {
         const [gsc, cf] = await Promise.allSettled([
-          getGscStatus({ force: banner === "gsc_connected" }),
+          getGscStatus({ force: true }),
           getCloudflareStatus(),
         ]);
         if (gsc.status === "fulfilled") setGscStatus(gsc.value);
@@ -268,7 +265,7 @@ export default function IntegrationsPage() {
         setError("Failed to load integration status.");
       }
     })();
-  }, [banner]);
+  }, []);
 
   const handleConnectGsc = async () => {
     setIsConnectingGsc(true);
