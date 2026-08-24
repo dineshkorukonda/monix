@@ -41,8 +41,10 @@ jobs:
       - name: Run tests
         working-directory: web
         env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/monix_test
           SUPABASE_URL: https://ci-placeholder.supabase.co
           SUPABASE_JWT_AUD: authenticated
+          MONIX_JWT_SECRET: ci-test-secret-32-chars-long-placeholder
         run: |
           export SUPABASE_JWT_SECRET="$(openssl rand -hex 32)"
           bun run test
@@ -51,8 +53,10 @@ jobs:
         working-directory: web
         env:
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/monix_test
           SUPABASE_URL: https://ci-placeholder.supabase.co
           SUPABASE_JWT_AUD: authenticated
+          MONIX_JWT_SECRET: ci-test-secret-32-chars-long-placeholder
         run: |
           export SUPABASE_JWT_SECRET="$(openssl rand -hex 32)"
           bun run build
