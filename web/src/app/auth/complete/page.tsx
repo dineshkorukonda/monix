@@ -36,8 +36,10 @@ export default function AuthCompletePage() {
   }, []);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950">
-      <p className="text-sm text-zinc-400">Signing you in…</p>
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground font-sans">
+      <p className="font-mono text-xs text-muted-foreground uppercase tracking-widest animate-pulse">
+        Signing you in…
+      </p>
     </div>
   );
 }

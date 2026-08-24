@@ -15,7 +15,7 @@ import { getStoredAuthSession } from "@/lib/local-auth";
 type AuthMode = "login" | "signup" | "reset";
 
 const fieldClassName =
-  "w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
+  "w-full rounded-sm border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none transition-colors";
 
 function GoogleIcon() {
   return (
@@ -128,35 +128,37 @@ export default function LoginPage() {
   };
 
   const titles: Record<AuthMode, string> = {
-    login: "Sign in to your account",
+    login: "Sign in to Monix",
     signup: "Create your account",
     reset: "Reset your password",
   };
 
   const subtitles: Record<AuthMode, string> = {
-    login: "Enter your email and password",
-    signup: "Enter your details below",
+    login: "Manage monitored sites and access saved reports",
+    signup: "Get started with automated site monitoring",
     reset: "We will email you a link to choose a new password",
   };
 
   return (
     <AuthShell>
       {passwordUpdatedBanner ? (
-        <p className="rounded-md border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-xs text-zinc-300">
+        <p className="rounded-sm border border-border bg-secondary/80 p-3 text-xs text-foreground font-mono">
           Password updated. Sign in with your new password.
         </p>
       ) : null}
 
       {sessionChecked && sessionEmail ? (
-        <div className="rounded-md border border-zinc-700 bg-zinc-900/80 px-3 py-2.5 text-xs text-zinc-300">
+        <div className="rounded-sm border border-border bg-secondary/80 p-3.5 text-xs text-muted-foreground font-mono">
           <p>
             You are signed in as{" "}
-            <span className="font-medium text-zinc-100">{sessionEmail}</span>.
-            Sign out first to use a different account.
+            <span className="font-semibold text-foreground">
+              {sessionEmail}
+            </span>
+            .
           </p>
           <button
             type="button"
-            className="mt-2 font-medium text-zinc-100 underline underline-offset-2 hover:text-white"
+            className="mt-2 text-accent underline underline-offset-2 hover:opacity-80 transition-opacity"
             onClick={async () => {
               try {
                 await apiLogout();
@@ -172,24 +174,26 @@ export default function LoginPage() {
       ) : null}
 
       {mode === "reset" && resetEmailSent ? (
-        <p className="rounded-md border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-xs text-zinc-300">
+        <p className="rounded-sm border border-border bg-secondary/80 p-3 text-xs text-foreground font-mono">
           If an account exists for that email, we sent a link to set a new
           password.
         </p>
       ) : null}
 
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold tracking-tight text-white">
+      <div className="space-y-1.5">
+        <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-foreground">
           {titles[mode]}
         </h1>
-        <p className="text-sm text-zinc-500">{subtitles[mode]}</p>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          {subtitles[mode]}
+        </p>
       </div>
 
       {mode !== "reset" && isGoogleAuthUiEnabled() ? (
         <div className="space-y-4">
           <button
             type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 py-2.5 text-sm font-medium text-zinc-100 shadow-sm hover:bg-zinc-900/80 transition-colors disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-sm border border-border bg-card py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50 cursor-pointer"
             onClick={() => {
               window.location.assign("/api/auth/google/");
             }}
@@ -199,11 +203,11 @@ export default function LoginPage() {
             Continue with Google
           </button>
           <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-zinc-800" />
-            <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               or
             </span>
-            <div className="h-px flex-1 bg-zinc-800" />
+            <div className="h-px flex-1 bg-border" />
           </div>
         </div>
       ) : null}
@@ -250,7 +254,7 @@ export default function LoginPage() {
         ) : null}
 
         {error ? (
-          <p className="rounded-md border border-red-900/50 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+          <p className="rounded-sm border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive font-mono">
             {error}
           </p>
         ) : null}
@@ -258,7 +262,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-md bg-white py-2.5 text-sm font-medium text-zinc-950 shadow-sm hover:bg-zinc-100 transition-colors disabled:opacity-50"
+          className="w-full rounded-sm bg-accent py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-50 cursor-pointer"
         >
           {isSubmitting
             ? mode === "login"
@@ -274,19 +278,19 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="flex items-center justify-between text-sm text-zinc-500">
+      <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground pt-2 border-t border-border">
         {mode === "login" ? (
           <>
             <button
               type="button"
-              className="font-medium text-zinc-300 hover:text-white transition-colors"
+              className="font-medium text-foreground hover:text-accent transition-colors cursor-pointer"
               onClick={() => switchMode("signup")}
             >
               Create account
             </button>
             <button
               type="button"
-              className="font-medium text-zinc-300 hover:text-white transition-colors"
+              className="font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               onClick={() => switchMode("reset")}
             >
               Forgot password?
@@ -295,15 +299,15 @@ export default function LoginPage() {
         ) : mode === "signup" ? (
           <button
             type="button"
-            className="font-medium text-zinc-300 hover:text-white transition-colors"
+            className="font-medium text-foreground hover:text-accent transition-colors cursor-pointer"
             onClick={() => switchMode("login")}
           >
-            Already have an account?
+            Already have an account? Sign in
           </button>
         ) : (
           <button
             type="button"
-            className="font-medium text-zinc-300 hover:text-white transition-colors"
+            className="font-medium text-foreground hover:text-accent transition-colors cursor-pointer"
             onClick={() => switchMode("login")}
           >
             Back to sign in
