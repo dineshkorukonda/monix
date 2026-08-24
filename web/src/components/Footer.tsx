@@ -96,12 +96,12 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="/dk-sites"
+                  href="/private-sites"
                   className="hover:text-[#00ff66] text-zinc-300 transition-colors flex items-center gap-1"
                 >
                   <span>Private Radar</span>
                   <span className="px-1.5 py-0.2 text-[9px] bg-[#00ff66]/20 text-[#00ff66] rounded font-bold">
-                    DK
+                    FLEET
                   </span>
                 </Link>
               </li>
