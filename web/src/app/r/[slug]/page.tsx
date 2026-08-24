@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Copy,
   ExternalLink,
-  Terminal,
 } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
@@ -78,15 +77,15 @@ export default function PublicReportPage({
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col font-mono text-xs">
         <Navigation />
-        <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-32 pb-20 space-y-4">
-          <div className="border border-border p-4 bg-secondary animate-pulse h-24" />
+        <main className="flex-1 max-w-4xl mx-auto w-full px-6 pt-32 pb-20 space-y-4">
+          <div className="border border-border p-4 bg-[#0d0d0f] animate-pulse h-24 rounded" />
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="border border-border p-4 bg-secondary animate-pulse h-16" />
-            <div className="border border-border p-4 bg-secondary animate-pulse h-16" />
-            <div className="border border-border p-4 bg-secondary animate-pulse h-16" />
-            <div className="border border-border p-4 bg-secondary animate-pulse h-16" />
+            <div className="border border-border p-4 bg-[#0d0d0f] animate-pulse h-16 rounded" />
+            <div className="border border-border p-4 bg-[#0d0d0f] animate-pulse h-16 rounded" />
+            <div className="border border-border p-4 bg-[#0d0d0f] animate-pulse h-16 rounded" />
+            <div className="border border-border p-4 bg-[#0d0d0f] animate-pulse h-16 rounded" />
           </div>
-          <div className="border border-border p-6 bg-secondary animate-pulse h-64" />
+          <div className="border border-border p-6 bg-[#0d0d0f] animate-pulse h-64 rounded" />
         </main>
         <Footer />
       </div>
@@ -101,12 +100,12 @@ export default function PublicReportPage({
           <p className="text-xs text-destructive uppercase tracking-widest">
             [404_NOT_FOUND]
           </p>
-          <h1 className="font-serif text-3xl font-medium tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight text-white font-sans">
             Report Not Found
           </h1>
           <p className="text-muted-foreground text-xs leading-relaxed">
             The scan identifier{" "}
-            <code className="bg-secondary px-1 border border-border">
+            <code className="bg-[#18181b] text-[#00ff66] px-1.5 py-0.5 border border-border rounded">
               {slug}
             </code>{" "}
             does not exist or has expired.
@@ -114,7 +113,7 @@ export default function PublicReportPage({
           <div className="pt-4">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground text-xs font-mono font-medium hover:opacity-90"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#00ff66] text-black text-xs font-mono font-semibold rounded hover:opacity-90 transition-opacity"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Return to Inspector
             </Link>
@@ -216,7 +215,7 @@ export default function PublicReportPage({
   const mobile = results.performance?.mobile;
   if (mobile && mobile.performance_score != null) {
     perfRows.push({
-      check: "LIGHTHOUSE SCORE",
+      check: "LIGHTHOUSE PERFORMANCE",
       status:
         mobile.performance_score >= 75
           ? "PASS"
@@ -250,18 +249,24 @@ export default function PublicReportPage({
     perfRows.push({
       check: "LAB METRICS",
       status: "WARN",
-      value: "Standard fast inspection pass (PageSpeed API bypassed)",
+      value: "Fast inspection pass (PageSpeed API bypassed)",
     });
   }
 
   const renderStatusBadge = (status: StatusType) => {
     if (status === "PASS") {
-      return <span className="text-emerald-700 font-semibold">[PASS]</span>;
+      return (
+        <span className="text-[#00ff66] font-semibold font-mono">[PASS]</span>
+      );
     }
     if (status === "WARN") {
-      return <span className="text-amber-700 font-semibold">[WARN]</span>;
+      return (
+        <span className="text-[#ffcc00] font-semibold font-mono">[WARN]</span>
+      );
     }
-    return <span className="text-destructive font-semibold">[FAIL]</span>;
+    return (
+      <span className="text-destructive font-semibold font-mono">[FAIL]</span>
+    );
   };
 
   const isoTimestamp = report.created_at
@@ -269,28 +274,28 @@ export default function PublicReportPage({
     : new Date().toISOString();
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-mono text-xs selection:bg-[#E8E6E1] selection:text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-mono text-xs selection:bg-[#00ff66] selection:text-black">
       <Navigation />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-24 pb-20 space-y-6">
-        {/* Terminal Inspection Header */}
-        <div className="border border-border bg-card p-4 space-y-2">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-6 pt-24 pb-20 space-y-6">
+        {/* Terminal Header */}
+        <div className="border border-border bg-[#0d0d0f] p-4 rounded space-y-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
-            <div className="flex items-center gap-2 text-foreground font-semibold">
-              <Terminal className="w-4 h-4 text-accent" />
-              <span>MONIX INSPECTION REPORT</span>
-              <span className="text-muted-foreground font-normal">
-                :: {slug}
+            <div className="flex items-center gap-2 text-white font-semibold text-sm">
+              <span className="text-[#00ff66]">&gt;</span>
+              <span>monix inspection report</span>
+              <span className="text-muted-foreground font-normal text-xs">
+                ::{slug}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-border bg-secondary hover:bg-border transition-colors text-[11px] cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-border bg-[#18181b] hover:border-[#00ff66] hover:text-[#00ff66] transition-colors text-[11px] rounded cursor-pointer"
               >
                 {copied ? (
-                  <Check className="w-3 h-3 text-accent" />
+                  <Check className="w-3 h-3 text-[#00ff66]" />
                 ) : (
                   <Copy className="w-3 h-3" />
                 )}
@@ -298,9 +303,9 @@ export default function PublicReportPage({
               </button>
               <Link
                 href="/"
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent text-accent-foreground text-[11px] hover:opacity-90 transition-opacity"
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#00ff66] text-black font-semibold text-[11px] rounded hover:opacity-90 transition-opacity"
               >
-                NEW SCAN
+                NEW INSPECT
               </Link>
             </div>
           </div>
@@ -316,7 +321,7 @@ export default function PublicReportPage({
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-foreground hover:underline inline-flex items-center gap-1"
+                className="text-[#00ff66] hover:underline inline-flex items-center gap-1"
               >
                 {report.url}
                 <ExternalLink className="w-3 h-3" />
@@ -324,51 +329,51 @@ export default function PublicReportPage({
             </div>
             <div className="flex items-center gap-2">
               <span>TIMESTAMP :</span>
-              <span className="text-foreground">{isoTimestamp}</span>
+              <span className="text-white">{isoTimestamp}</span>
             </div>
           </div>
         </div>
 
         {/* Dense Score Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div className="border border-border bg-card p-3 flex flex-col justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase">
+          <div className="border border-border bg-[#0d0d0f] p-3 rounded flex flex-col justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
               OVERALL SCORE
             </span>
-            <div className="text-xl font-bold text-foreground mt-1">
+            <div className="text-xl font-bold text-white mt-1">
               {overallScore}{" "}
               <span className="text-xs font-normal text-muted-foreground">
                 / 100
               </span>
             </div>
           </div>
-          <div className="border border-border bg-card p-3 flex flex-col justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase">
+          <div className="border border-border bg-[#0d0d0f] p-3 rounded flex flex-col justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
               SECURITY
             </span>
-            <div className="text-xl font-bold text-foreground mt-1">
+            <div className="text-xl font-bold text-white mt-1">
               {secScore}{" "}
               <span className="text-xs font-normal text-muted-foreground">
                 / 100
               </span>
             </div>
           </div>
-          <div className="border border-border bg-card p-3 flex flex-col justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase">
+          <div className="border border-border bg-[#0d0d0f] p-3 rounded flex flex-col justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
               SEO HYGIENE
             </span>
-            <div className="text-xl font-bold text-foreground mt-1">
+            <div className="text-xl font-bold text-white mt-1">
               {seoScore}{" "}
               <span className="text-xs font-normal text-muted-foreground">
                 / 100
               </span>
             </div>
           </div>
-          <div className="border border-border bg-card p-3 flex flex-col justify-between">
-            <span className="text-[10px] text-muted-foreground uppercase">
+          <div className="border border-border bg-[#0d0d0f] p-3 rounded flex flex-col justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
               PERFORMANCE
             </span>
-            <div className="text-xl font-bold text-foreground mt-1">
+            <div className="text-xl font-bold text-white mt-1">
               {perfScore != null ? perfScore : "FAST"}{" "}
               <span className="text-xs font-normal text-muted-foreground">
                 / 100
@@ -378,10 +383,10 @@ export default function PublicReportPage({
         </div>
 
         {/* Section 1: Security Posture */}
-        <div className="border border-border bg-card">
-          <div className="border-b border-border bg-secondary/50 px-4 py-2 font-semibold text-foreground flex items-center justify-between">
-            <span>[01] SECURITY &amp; HEADERS DIAGNOSTICS</span>
-            <span>SCORE: {secScore}/100</span>
+        <div className="border border-border bg-[#0d0d0f] rounded overflow-hidden">
+          <div className="border-b border-border bg-[#18181b] px-4 py-2 font-semibold text-white flex items-center justify-between">
+            <span>[01] TLS CERTIFICATE &amp; SECURITY HEADERS</span>
+            <span className="text-[#00ff66]">{secScore}/100</span>
           </div>
           <div className="divide-y divide-border">
             {securityRows.map((row) => (
@@ -391,12 +396,10 @@ export default function PublicReportPage({
               >
                 <div className="flex items-start sm:items-center gap-3">
                   {renderStatusBadge(row.status)}
-                  <span className="font-semibold text-foreground">
-                    {row.check}
-                  </span>
+                  <span className="font-medium text-white">{row.check}</span>
                 </div>
                 <div className="text-muted-foreground text-right overflow-x-auto max-w-xl truncate">
-                  <span className="text-foreground">{row.value}</span>
+                  <span className="text-white">{row.value}</span>
                   {row.note && (
                     <span className="text-muted-foreground ml-2">
                       ({row.note})
@@ -409,10 +412,10 @@ export default function PublicReportPage({
         </div>
 
         {/* Section 2: SEO & Discoverability */}
-        <div className="border border-border bg-card">
-          <div className="border-b border-border bg-secondary/50 px-4 py-2 font-semibold text-foreground flex items-center justify-between">
-            <span>[02] SEO DIRECTIVES &amp; DISCOVERABILITY</span>
-            <span>SCORE: {seoScore}/100</span>
+        <div className="border border-border bg-[#0d0d0f] rounded overflow-hidden">
+          <div className="border-b border-border bg-[#18181b] px-4 py-2 font-semibold text-white flex items-center justify-between">
+            <span>[02] ON-PAGE SEO &amp; CRAWL DIRECTIVES</span>
+            <span className="text-[#00ff66]">{seoScore}/100</span>
           </div>
           <div className="divide-y divide-border">
             {seoRows.map((row) => (
@@ -422,12 +425,10 @@ export default function PublicReportPage({
               >
                 <div className="flex items-start sm:items-center gap-3">
                   {renderStatusBadge(row.status)}
-                  <span className="font-semibold text-foreground">
-                    {row.check}
-                  </span>
+                  <span className="font-medium text-white">{row.check}</span>
                 </div>
                 <div className="text-muted-foreground text-right overflow-x-auto max-w-xl truncate">
-                  <span className="text-foreground">{row.value}</span>
+                  <span className="text-white">{row.value}</span>
                 </div>
               </div>
             ))}
@@ -435,11 +436,11 @@ export default function PublicReportPage({
         </div>
 
         {/* Section 3: Performance & Core Web Vitals */}
-        <div className="border border-border bg-card">
-          <div className="border-b border-border bg-secondary/50 px-4 py-2 font-semibold text-foreground flex items-center justify-between">
+        <div className="border border-border bg-[#0d0d0f] rounded overflow-hidden">
+          <div className="border-b border-border bg-[#18181b] px-4 py-2 font-semibold text-white flex items-center justify-between">
             <span>[03] PERFORMANCE &amp; CORE WEB VITALS</span>
-            <span>
-              SCORE: {perfScore != null ? `${perfScore}/100` : "FAST PASS"}
+            <span className="text-[#00ff66]">
+              {perfScore != null ? `${perfScore}/100` : "FAST PASS"}
             </span>
           </div>
           <div className="divide-y divide-border">
@@ -450,12 +451,10 @@ export default function PublicReportPage({
               >
                 <div className="flex items-start sm:items-center gap-3">
                   {renderStatusBadge(row.status)}
-                  <span className="font-semibold text-foreground">
-                    {row.check}
-                  </span>
+                  <span className="font-medium text-white">{row.check}</span>
                 </div>
                 <div className="text-muted-foreground text-right">
-                  <span className="text-foreground">{row.value}</span>
+                  <span className="text-white">{row.value}</span>
                 </div>
               </div>
             ))}
@@ -463,14 +462,14 @@ export default function PublicReportPage({
         </div>
 
         {/* Section 4: Raw Inspection Data (Toggleable) */}
-        <div className="border border-border bg-card">
+        <div className="border border-border bg-[#0d0d0f] rounded overflow-hidden">
           <button
             type="button"
             onClick={() => setShowRawJson(!showRawJson)}
-            className="w-full border-b border-border bg-secondary/50 px-4 py-2 font-semibold text-foreground flex items-center justify-between cursor-pointer hover:bg-secondary transition-colors"
+            className="w-full border-b border-border bg-[#18181b] px-4 py-2 font-semibold text-white flex items-center justify-between cursor-pointer hover:bg-secondary transition-colors"
           >
             <span>[04] RAW INSPECTION PAYLOAD</span>
-            <span className="text-muted-foreground flex items-center gap-1">
+            <span className="text-muted-foreground flex items-center gap-1 text-[11px]">
               {showRawJson ? (
                 <ChevronDown className="w-3.5 h-3.5" />
               ) : (
@@ -480,7 +479,7 @@ export default function PublicReportPage({
             </span>
           </button>
           {showRawJson && (
-            <div className="p-4 bg-background overflow-x-auto max-h-96 text-[11px] leading-relaxed">
+            <div className="p-4 bg-black overflow-x-auto max-h-96 text-[11px] leading-relaxed">
               <pre className="text-muted-foreground">
                 {JSON.stringify(results, null, 2)}
               </pre>

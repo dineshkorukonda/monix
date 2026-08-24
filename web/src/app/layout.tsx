@@ -1,20 +1,19 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Newsreader } from "next/font/google";
+import { Inter, JetBrains_Mono, Poppins } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
+const poppins = Poppins({
+  subsets: ["latin"],
+  variable: "--font-poppins",
+  weight: ["300", "400", "500", "600", "700"],
+});
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  weight: ["400", "500", "600", "700"],
-});
-
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  variable: "--font-newsreader",
   weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -24,9 +23,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Monix — Website Intelligence",
+  title: "Monix — Standalone Website Intelligence & Diagnostic Engine",
   description:
-    "Security, SEO, and performance analysis in one workspace. Monitor sites, track issues, and connect integrations.",
+    "Fast, zero-dependency website intelligence: TLS certificate chain validation, strict security headers, on-page SEO crawl directives, and Core Web Vitals.",
 };
 
 export default function RootLayout({
@@ -35,13 +34,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="dark">
       <body
-        className={`${inter.variable} ${newsreader.variable} ${jetbrainsMono.variable} bg-background text-foreground antialiased font-sans`}
+        className={`${poppins.variable} ${inter.variable} ${jetbrainsMono.variable} bg-background text-foreground antialiased font-sans`}
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="dark"
           enableSystem={false}
           disableTransitionOnChange
         >

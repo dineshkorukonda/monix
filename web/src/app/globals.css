@@ -6,8 +6,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-serif: var(--font-newsreader);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-poppins);
   --font-mono: var(--font-jetbrains-mono);
   --color-border: var(--border);
   --color-input: var(--input);
@@ -25,51 +24,32 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
 }
 
 :root {
-  --background: #fafaf8;
-  --foreground: #161513;
-  --card: #ffffff;
-  --card-foreground: #161513;
-  --popover: #ffffff;
-  --popover-foreground: #161513;
-  --primary: #161513;
-  --primary-foreground: #fafaf8;
-  --secondary: #f4f2ed;
-  --secondary-foreground: #161513;
-  --muted: #f4f2ed;
-  --muted-foreground: #6b6862;
-  --accent: #b5622c;
-  --accent-foreground: #ffffff;
-  --destructive: #dc2626;
-  --border: #e8e6e1;
-  --input: #e8e6e1;
-  --ring: #161513;
-  --radius: 0.25rem;
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #0d0d0f;
+  --card-foreground: #ffffff;
+  --popover: #0d0d0f;
+  --popover-foreground: #ffffff;
+  --primary: #00ff66;
+  --primary-foreground: #000000;
+  --secondary: #161619;
+  --secondary-foreground: #ffffff;
+  --muted: #161619;
+  --muted-foreground: #8e8e93;
+  --accent: #00ff66;
+  --accent-foreground: #000000;
+  --destructive: #ff453a;
+  --border: #242428;
+  --input: #242428;
+  --ring: #00ff66;
+  --radius: 0.375rem;
 
-  --sidebar: #fafaf8;
-  --sidebar-foreground: #161513;
-  --sidebar-primary: #161513;
-  --sidebar-primary-foreground: #fafaf8;
-  --sidebar-accent: #f4f2ed;
-  --sidebar-accent-foreground: #161513;
-  --sidebar-border: #e8e6e1;
-  --sidebar-ring: #161513;
-
-  --font-newsreader:
-    "Newsreader", Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-inter:
-    var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, sans-serif;
+  --font-poppins:
+    var(--font-poppins), "Poppins", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
   --font-jetbrains-mono:
     var(--font-jetbrains-mono), "JetBrains Mono", "SFMono-Regular", Menlo,
     Monaco, Consolas, monospace;
@@ -81,14 +61,14 @@
   }
 
   ::selection {
-    background-color: #e8e6e1;
-    color: #161513;
+    background-color: #00ff66;
+    color: #000000;
   }
 
   html {
     scroll-behavior: smooth;
-    background-color: #fafaf8;
-    color: #161513;
+    background-color: #000000;
+    color: #ffffff;
   }
 
   body {
@@ -105,9 +85,5 @@
   textarea,
   select {
     font: inherit;
-  }
-
-  .panel-flat {
-    @apply border border-border bg-card;
   }
 }

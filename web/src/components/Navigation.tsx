@@ -12,31 +12,40 @@ export default function Navigation() {
   ] as const;
 
   return (
-    <header className="fixed top-0 right-0 left-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6 md:h-16">
+    <header className="fixed top-0 right-0 left-0 z-50 border-b border-border bg-black/90 backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
         <Link
           href="/"
-          className="font-mono text-sm font-semibold tracking-[0.2em] text-foreground hover:opacity-80 transition-opacity"
+          className="font-mono text-sm font-semibold tracking-wider text-white hover:text-[#00ff66] transition-colors flex items-center gap-1.5"
         >
-          MONIX
+          <span className="text-[#00ff66]">&gt;</span>
+          <span>monix</span>
         </Link>
-        <nav className="flex items-center gap-2 sm:gap-4">
+        <nav className="flex items-center gap-4 sm:gap-6 font-mono text-xs">
           {links.map((link) => {
             const active = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`font-mono px-2.5 py-1 text-xs tracking-wide transition-colors ${
+                className={`transition-colors ${
                   active
-                    ? "text-foreground font-semibold border-b border-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "text-[#00ff66] font-semibold"
+                    : "text-muted-foreground hover:text-white"
                 }`}
               >
                 {link.label}
               </Link>
             );
           })}
+          <a
+            href="https://github.com/dineshkorukonda/monix"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground hover:text-white transition-colors"
+          >
+            GitHub
+          </a>
         </nav>
       </div>
     </header>

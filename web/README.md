@@ -1,6 +1,10 @@
-# Monix Web Application
+# Monix Web Engine
 
-Next.js 16 (React 19, TypeScript, Tailwind CSS v4, Bun) web client and API backend.
+> Fast, zero-auth website reconnaissance, security header auditor & SEO directive inspector.
+
+Built with **Next.js 16 (App Router, React 19, TypeScript, Tailwind CSS, Bun)**.
+
+---
 
 ## Quick Start
 
@@ -9,10 +13,26 @@ bun install
 bun run dev
 ```
 
-## Available Scripts
+Open [http://localhost:3000](http://localhost:3000) to inspect any URL.
 
-- `bun run dev`: Start Next.js development server on `localhost:3000`.
-- `bun run build`: Build production Next.js bundle with Turbopack.
-- `bun run test`: Run unit and API tests with Bun test runner.
-- `bun run lint`: Run Biome linter across all TypeScript and React files.
-- `bun run format`: Format code with Biome.
+---
+
+## API Routes
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/scan` | `POST` | Executes full analysis on a URL (5 req/hr per IP rate limit) and returns slug |
+| `/api/r/[slug]` | `GET` | Fetches stored scan results by public slug |
+| `/api/health` | `GET` | System and database health status |
+
+---
+
+## Database Bootstrap
+
+```sql
+\i sql/init.sql
+```
+
+Creates:
+- `public.monix_scans`
+- `public.monix_rate_limits`
