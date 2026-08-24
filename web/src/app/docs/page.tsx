@@ -1,20 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 
 const nav = [
   { id: "overview", title: "Overview" },
-  { id: "public-scanning", title: "Public Scanning & Reports" },
-  { id: "using-the-product", title: "Authenticated Dashboard" },
-  { id: "google-search-console", title: "Google Search Console" },
-  { id: "cloudflare", title: "Cloudflare" },
-  { id: "architecture", title: "Architecture" },
-  { id: "reports-storage", title: "Reports & Persistence" },
+  { id: "public-scanning", title: "Public Inspection Engine" },
+  { id: "inspection-pipeline", title: "Inspection Pipeline" },
   { id: "rate-limiting", title: "Rate Limiting" },
-  { id: "scan-engine", title: "Scan Engine" },
-  { id: "backend-api", title: "API & Data Model" },
+  { id: "reports-persistence", title: "Reports & Persistence" },
   { id: "local-dev", title: "Local Development" },
 ] as const;
 
@@ -47,15 +41,6 @@ export default function DocsPage() {
                   ))}
                 </nav>
               </div>
-
-              <div className="border-t border-border pt-4">
-                <Link
-                  href="/login"
-                  className="text-xs font-mono text-accent hover:opacity-80 transition-opacity"
-                >
-                  Sign in to Monix →
-                </Link>
-              </div>
             </div>
           </aside>
 
@@ -63,15 +48,14 @@ export default function DocsPage() {
           <article className="lg:col-span-9 space-y-16">
             <header className="border-b border-border pb-10 space-y-4">
               <span className="font-mono text-xs text-muted-foreground uppercase tracking-widest">
-                Monix Platform Architecture
+                Monix Technical Reference
               </span>
               <h1 className="font-serif text-4xl sm:text-5xl font-medium tracking-tight text-foreground">
-                How everything fits together
+                Architecture &amp; Inspection Pipeline
               </h1>
               <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-3xl">
-                Monix is a Next.js 16 application running on Bun. It combines
-                instant, unauthenticated public security, SEO, and performance
-                scanning with an authenticated domain portfolio monitor.
+                Monix is a standalone, unauthenticated website diagnostic
+                platform built with Next.js 16, TypeScript, and Bun.
               </p>
             </header>
 
@@ -81,40 +65,17 @@ export default function DocsPage() {
                 Overview
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                Monix operates on a dual-surface model:
+                Monix operates as a direct inspection utility: input any public
+                URL to execute parallel diagnostic checks across Security
+                posture, SEO directives, and performance indicators without any
+                login wall.
               </p>
-              <div className="grid sm:grid-cols-2 gap-4 pt-2">
-                <div className="border border-border bg-card p-6">
-                  <h3 className="font-serif text-lg font-medium text-foreground">
-                    Public Scanner
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                    Zero-auth website intelligence. Anyone can enter a URL on
-                    the landing page, run an analysis, and receive a permanent
-                    shareable report at{" "}
-                    <code className="font-mono bg-secondary px-1 py-0.5 border border-border">
-                      /r/[slug]
-                    </code>
-                    .
-                  </p>
-                </div>
-                <div className="border border-border bg-card p-6">
-                  <h3 className="font-serif text-lg font-medium text-foreground">
-                    Authenticated Dashboard
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                    Monitored sites portfolio. Registered users save target
-                    domains, run recurring automated scans, view trend charts,
-                    and connect Google Search Console and Cloudflare.
-                  </p>
-                </div>
-              </div>
             </section>
 
-            {/* Public Scanning */}
+            {/* Public Inspection Engine */}
             <section id="public-scanning" className="scroll-mt-28 space-y-4">
               <h2 className="font-serif text-2xl font-medium text-foreground">
-                Public Scanning &amp; Reports
+                Public Inspection Engine
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                 The public scanner endpoint is available at{" "}
@@ -125,163 +86,71 @@ export default function DocsPage() {
                 <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
                   url
                 </code>{" "}
-                string, normalizes the domain, runs the full analysis pipeline,
-                and assigns a 12-character URL-safe nanoid slug.
+                parameter:
               </p>
+              <div className="border border-border bg-card p-4 font-mono text-xs text-foreground overflow-x-auto">
+                <pre>{`curl -X POST https://monix.dineshkorukonda.in/api/scan \\
+  -H "Content-Type: application/json" \\
+  -d '{"url": "https://example.com"}'`}</pre>
+              </div>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                Reports are permanently accessible at{" "}
+                Upon completion, the engine returns a JSON payload containing
+                the diagnostic scores and a 12-character URL-safe nanoid slug
+                for permanent public viewing at{" "}
                 <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
                   /r/[slug]
-                </code>{" "}
-                without authentication. Each report renders flat diagnostic
-                panels for Security, SEO, and Performance with expandable check
-                lists.
+                </code>
+                .
               </p>
             </section>
 
-            {/* Authenticated Dashboard */}
-            <section id="using-the-product" className="scroll-mt-28 space-y-4">
-              <h2 className="font-serif text-2xl font-medium text-foreground">
-                Authenticated Dashboard
-              </h2>
-              <ul className="space-y-3 text-sm text-muted-foreground leading-relaxed list-disc list-outside ml-5">
-                <li>
-                  <strong className="text-foreground">Authentication</strong>:
-                  Email/password or Google Sign-In with local JWTs verified on
-                  server route handlers.
-                </li>
-                <li>
-                  <strong className="text-foreground">Sites Management</strong>:
-                  Add monitored target domains to track health score trends over
-                  time.
-                </li>
-                <li>
-                  <strong className="text-foreground">Scan History</strong>:
-                  View past runs, inspect detailed score distributions, and
-                  trigger manual re-scans.
-                </li>
-                <li>
-                  <strong className="text-foreground">
-                    Settings &amp; Integrations
-                  </strong>
-                  : Manage account preferences, API credentials, and connect
-                  optional third-party integrations.
-                </li>
-              </ul>
-            </section>
-
-            {/* Google Search Console */}
+            {/* Inspection Pipeline */}
             <section
-              id="google-search-console"
+              id="inspection-pipeline"
               className="scroll-mt-28 space-y-4"
             >
               <h2 className="font-serif text-2xl font-medium text-foreground">
-                Google Search Console Integration
+                Inspection Pipeline
               </h2>
-              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                Google Search Console integration is managed under{" "}
-                <strong className="text-foreground">
-                  Dashboard → Settings → Connected Integrations
-                </strong>
-                . Monix requests read-only search analytics permissions,
-                securely stores encrypted refresh tokens in PostgreSQL, and maps
-                search queries and CTR directly to your monitored target sites.
-              </p>
-            </section>
-
-            {/* Cloudflare */}
-            <section id="cloudflare" className="scroll-mt-28 space-y-4">
-              <h2 className="font-serif text-2xl font-medium text-foreground">
-                Cloudflare Integration
-              </h2>
-              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                Connect Cloudflare via a read-only API token with{" "}
-                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
-                  Zone.Analytics:Read
-                </code>{" "}
-                permissions. Monix matches monitored domains with your DNS zones
-                and pulls edge request volumes, cache hit ratios, and threat
-                mitigation logs.
-              </p>
-            </section>
-
-            {/* Architecture */}
-            <section id="architecture" className="scroll-mt-28 space-y-4">
-              <h2 className="font-serif text-2xl font-medium text-foreground">
-                Architecture Diagram
-              </h2>
-              <div className="border border-border bg-card p-6 font-mono text-xs text-foreground overflow-x-auto">
-                <pre>{`Browser (Next.js 16 UI)
-  │
-  ├─► Public Flow:
-  │     POST /api/scan  ──► Rate Limiter (5 req/hr/IP) ──► Analysis Engine ──► INSERT monix_scans
-  │     GET /r/[slug]   ──► GET /api/r/[slug] ──► SELECT monix_scans (Public Report)
-  │
-  └─► Authenticated Flow:
-        Authorization: Bearer <JWT>
-        POST /api/targets
-        GET /api/scans
-        GET /api/gsc/* & /api/cloudflare/*`}</pre>
-              </div>
-            </section>
-
-            {/* Reports & Persistence */}
-            <section id="reports-storage" className="scroll-mt-28 space-y-4">
-              <h2 className="font-serif text-2xl font-medium text-foreground">
-                Reports &amp; Persistence
-              </h2>
-              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                All scans are recorded in the{" "}
-                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
-                  public.monix_scans
-                </code>{" "}
-                table:
-              </p>
-              <div className="border border-border bg-card p-4 overflow-x-auto text-xs font-mono">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-border text-foreground">
-                      <th className="pb-2">Column</th>
-                      <th className="pb-2">Type</th>
-                      <th className="pb-2">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border text-muted-foreground">
-                    <tr>
-                      <td className="py-2 text-foreground">id</td>
-                      <td>bigserial</td>
-                      <td>Primary Key</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-foreground">public_slug</td>
-                      <td>text unique</td>
-                      <td>12-char URL nanoid for /r/[slug]</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-foreground">trigger</td>
-                      <td>text</td>
-                      <td>
-                        &apos;anonymous&apos; or &apos;authenticated&apos;
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-foreground">target_id</td>
-                      <td>uuid nullable</td>
-                      <td>Target site ID if run by authenticated user</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-foreground">score</td>
-                      <td>smallint</td>
-                      <td>Composite evaluation score (0-100)</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-foreground">results</td>
-                      <td>jsonb</td>
-                      <td>Full security, SEO, and perf payload</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <ul className="space-y-3 text-sm text-muted-foreground leading-relaxed list-disc list-outside ml-5">
+                <li>
+                  <strong className="text-foreground">Security Lens</strong>:
+                  TLS certificate validity, expiration date, issuer
+                  verification, and security headers (
+                  <code className="font-mono bg-secondary px-1 py-0.5 border border-border">
+                    HSTS
+                  </code>
+                  ,{" "}
+                  <code className="font-mono bg-secondary px-1 py-0.5 border border-border">
+                    CSP
+                  </code>
+                  ,{" "}
+                  <code className="font-mono bg-secondary px-1 py-0.5 border border-border">
+                    X-Frame-Options
+                  </code>
+                  ,{" "}
+                  <code className="font-mono bg-secondary px-1 py-0.5 border border-border">
+                    X-Content-Type-Options
+                  </code>
+                  ,{" "}
+                  <code className="font-mono bg-secondary px-1 py-0.5 border border-border">
+                    Referrer-Policy
+                  </code>
+                  ).
+                </li>
+                <li>
+                  <strong className="text-foreground">SEO Lens</strong>: Title
+                  tag length and presence, meta descriptions, Open Graph preview
+                  tags, robots.txt accessibility, XML sitemap discovery, and
+                  heading hierarchy.
+                </li>
+                <li>
+                  <strong className="text-foreground">Performance Lens</strong>:
+                  Largest Contentful Paint (LCP), Cumulative Layout Shift (CLS),
+                  Total Blocking Time, and Google PageSpeed Insights lab
+                  metrics.
+                </li>
+              </ul>
             </section>
 
             {/* Rate Limiting */}
@@ -299,7 +168,7 @@ export default function DocsPage() {
                 <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
                   HTTP 429 Too Many Requests
                 </code>{" "}
-                response with a standard{" "}
+                response with a{" "}
                 <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
                   Retry-After
                 </code>{" "}
@@ -307,20 +176,25 @@ export default function DocsPage() {
               </p>
             </section>
 
-            {/* Scan Engine */}
-            <section id="scan-engine" className="scroll-mt-28 space-y-4">
+            {/* Reports & Persistence */}
+            <section
+              id="reports-persistence"
+              className="scroll-mt-28 space-y-4"
+            >
               <h2 className="font-serif text-2xl font-medium text-foreground">
-                Scan Engine
+                Reports &amp; Persistence
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                The TypeScript scan pipeline lives under{" "}
+                All scans are stored in PostgreSQL table{" "}
                 <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
-                  web/src/server/analysis/
+                  public.monix_scans
+                </code>{" "}
+                and retrieved via{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  GET /api/r/[slug]
                 </code>
-                . It executes asynchronous checks for TLS certificates, HTTP
-                response headers, meta directives, robots.txt, XML sitemaps, DNS
-                entries, server geolocation, and Google PageSpeed Insights
-                metrics.
+                . Reports remain permanently accessible through their dedicated
+                slug URL.
               </p>
             </section>
 
@@ -333,10 +207,10 @@ export default function DocsPage() {
                 <p className="text-muted-foreground"># Install dependencies</p>
                 <p className="text-foreground">bun install</p>
                 <p className="text-muted-foreground">
-                  # Run development server
+                  # Start development server
                 </p>
                 <p className="text-foreground">bun run dev</p>
-                <p className="text-muted-foreground"># Run tests</p>
+                <p className="text-muted-foreground"># Run test suite</p>
                 <p className="text-foreground">bun test</p>
                 <p className="text-muted-foreground"># Run linter</p>
                 <p className="text-foreground">bun run lint</p>

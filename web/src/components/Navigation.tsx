@@ -7,7 +7,7 @@ export default function Navigation() {
   const pathname = usePathname();
 
   const links = [
-    { href: "/", label: "Home" },
+    { href: "/", label: "Inspector" },
     { href: "/docs", label: "Docs" },
   ] as const;
 
@@ -16,20 +16,20 @@ export default function Navigation() {
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6 md:h-16">
         <Link
           href="/"
-          className="font-mono text-sm font-semibold tracking-[0.2em] text-foreground"
+          className="font-mono text-sm font-semibold tracking-[0.2em] text-foreground hover:opacity-80 transition-opacity"
         >
           MONIX
         </Link>
-        <nav className="flex items-center gap-2 sm:gap-3">
+        <nav className="flex items-center gap-2 sm:gap-4">
           {links.map((link) => {
             const active = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-3 py-1.5 text-xs font-medium tracking-wide transition-colors sm:text-sm ${
+                className={`font-mono px-2.5 py-1 text-xs tracking-wide transition-colors ${
                   active
-                    ? "text-foreground font-semibold"
+                    ? "text-foreground font-semibold border-b border-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -37,12 +37,6 @@ export default function Navigation() {
               </Link>
             );
           })}
-          <Link
-            href="/login"
-            className="ml-2 border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary sm:text-sm"
-          >
-            Sign in
-          </Link>
         </nav>
       </div>
     </header>

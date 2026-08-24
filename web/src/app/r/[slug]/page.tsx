@@ -487,20 +487,6 @@ export default function PublicReportPage({
             </div>
           )}
         </div>
-
-        {/* Non-blocking Soft Monitoring Nudge */}
-        <div className="border border-border bg-secondary/30 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-muted-foreground">
-          <span>
-            [TIP] Need automated recurring health scans and Search Console
-            tracking?
-          </span>
-          <Link
-            href="/login"
-            className="text-foreground hover:text-accent font-semibold underline underline-offset-2 shrink-0"
-          >
-            Sign in to save site →
-          </Link>
-        </div>
       </main>
 
       <Footer />

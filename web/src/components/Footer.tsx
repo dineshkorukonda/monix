@@ -2,34 +2,33 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-border bg-background py-10">
+    <footer className="border-t border-border bg-background py-8 font-mono text-xs text-muted-foreground">
       <div className="mx-auto max-w-5xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground">
-          <span className="font-mono font-medium text-foreground">Monix</span>
+        <div className="flex items-center gap-3">
+          <span className="font-semibold text-foreground tracking-wider">
+            MONIX
+          </span>
           <span>·</span>
-          <span>Open website intelligence</span>
+          <span>Open Website Diagnostic Tool</span>
         </div>
 
-        <div className="flex items-center gap-6 text-xs sm:text-sm">
-          <Link
-            href="https://github.com/dineshkorukonda"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            GitHub
+        <div className="flex items-center gap-6">
+          <Link href="/" className="hover:text-foreground transition-colors">
+            Inspector
           </Link>
           <Link
             href="/docs"
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="hover:text-foreground transition-colors"
           >
             Docs
           </Link>
           <Link
-            href="/login"
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            href="https://github.com/dineshkorukonda/monix"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground transition-colors"
           >
-            Sign in
+            GitHub
           </Link>
         </div>
       </div>
