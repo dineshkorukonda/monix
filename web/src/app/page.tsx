@@ -1,588 +1,347 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
 import {
+  AlertCircle,
   ArrowRight,
-  BookOpen,
-  Cloud,
+  CheckCircle2,
   Gauge,
-  Globe2,
-  LayoutDashboard,
   Search,
   Shield,
-  TrendingUp,
-  Workflow,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
-import WorldMap from "@/components/WorldMap";
-
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 28 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 280, damping: 30 },
-  },
-};
 
 const pillars = [
   {
     icon: Shield,
     title: "Security",
     description:
-      "TLS chain validation, security headers, DNS and host intelligence, exposure checks, and technology fingerprinting with clear scoring.",
-    bullets: [
-      "Certificates and modern TLS posture",
-      "HSTS, CSP, framing, and cookie flags",
-      "Ports, redirects, and geo / IP context",
+      "TLS certificate chain validation, strict security headers (HSTS, CSP, framing), DNS intelligence, and technology exposure checks.",
+    checks: [
+      "Certificates & TLS posture",
+      "HSTS, CSP & Cookie security",
+      "DNS records & host intelligence",
     ],
   },
   {
     icon: Search,
     title: "SEO",
     description:
-      "On-page signals that affect discoverability: metadata, structured hints, crawl rules, and content structure checks. Optionally connect Google Search Console to layer real search performance on top.",
-    bullets: [
-      "Title, description, Open Graph",
-      "robots.txt, sitemap, canonical",
-      "H1 and heading hygiene",
-      "Optional: GSC clicks, impressions, queries (verified properties)",
-      "Optional: Cloudflare edge requests & cache ratio (matched zones)",
+      "On-page discoverability signals: title tags, meta descriptions, Open Graph preview integrity, robots.txt directives, and sitemap accessibility.",
+    checks: [
+      "Title & Open Graph metadata",
+      "robots.txt & XML sitemap",
+      "Heading hierarchy & hygiene",
     ],
   },
   {
     icon: Gauge,
     title: "Performance",
     description:
-      "When configured, PageSpeed Insights brings Core Web Vitals, lab data, and accessibility / best-practice signals into the same report.",
-    bullets: [
-      "Core Web Vitals and performance score",
-      "Accessibility and best-practices",
-      "Actionable metrics next to your URL analysis",
+      "Core Web Vitals, lab metrics, and web performance indicators to evaluate speed, responsiveness, and layout stability.",
+    checks: [
+      "Largest Contentful Paint (LCP)",
+      "Cumulative Layout Shift (CLS)",
+      "Speed Index & Total Blocking Time",
     ],
   },
 ] as const;
 
-const workflow = [
+const steps = [
   {
-    step: "01",
-    title: "Sign in",
-    body: "Access the workspace with your account—run analyses against monitored sites, and keep a history of scans and reports.",
+    num: "01",
+    title: "Input any public URL",
+    body: "Enter any domain or URL into the scanner. No sign-up, session, or account required.",
   },
   {
-    step: "02",
-    title: "Score by category",
-    body: "Security, SEO, and performance each feed category scores and an overall score so you can compare and track over time.",
+    num: "02",
+    title: "Multidimensional evaluation",
+    body: "Monix evaluates security configurations, SEO hygiene, and performance signals in parallel.",
   },
   {
-    step: "03",
-    title: "Reports that stay",
-    body: "Persisted, shareable reports plus dashboard views for targets, scans, and trends—everything in one place after you sign in.",
-  },
-  {
-    step: "04",
-    title: "Integrations (optional)",
-    body: "Connect Google Search Console for queries and clicks, and Cloudflare with an API token for edge traffic, cache ratio, and security signals. Monix matches verified GSC properties and Cloudflare zones to your monitored sites; manage connections under Dashboard → Integrations.",
+    num: "03",
+    title: "Permanent, shareable report",
+    body: "Receive a permanent report at a dedicated public link. Revisit or share it anytime.",
   },
 ] as const;
 
+const SCAN_STAGES = [
+  "Resolving DNS & infrastructure...",
+  "Validating TLS certificates & security headers...",
+  "Analyzing SEO metadata & crawl directives...",
+  "Evaluating performance signals...",
+  "Compiling report...",
+];
+
 export default function Home() {
+  const router = useRouter();
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [stageIndex, setStageIndex] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleScan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUrl = url.trim();
+    if (!cleanUrl) return;
+
+    setLoading(true);
+    setError(null);
+    setStageIndex(0);
+
+    const interval = setInterval(() => {
+      setStageIndex((prev) =>
+        prev < SCAN_STAGES.length - 1 ? prev + 1 : prev,
+      );
+    }, 1200);
+
+    try {
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: cleanUrl }),
+      });
+
+      const data = await res.json();
+      clearInterval(interval);
+
+      if (!res.ok) {
+        setError(
+          data.error ||
+            "Failed to analyze URL. Please check the URL and try again.",
+        );
+        setLoading(false);
+        return;
+      }
+
+      const slug = data.slug || data.public_slug;
+      if (slug) {
+        router.push(`/r/${slug}`);
+      } else {
+        setError("Report generated without an identifier.");
+        setLoading(false);
+      }
+    } catch {
+      clearInterval(interval);
+      setError("An unexpected network error occurred. Please try again.");
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black font-sans">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-[#E8E6E1] selection:text-foreground">
       <Navigation />
 
-      <main className="relative">
-        {/* Hero — split layout, grid texture, abstract score motif */}
-        <section className="relative min-h-[88vh] overflow-hidden px-6 pt-28 pb-16 md:pt-36">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[64px_64px] mask-[linear-gradient(180deg,black,transparent_85%)]"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -top-32 right-[-20%] h-[520px] w-[520px] rounded-[40%] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.09),transparent_65%)] blur-3xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute bottom-0 left-[-10%] h-[380px] w-[380px] bg-[radial-gradient(circle_at_center,rgba(120,120,255,0.06),transparent_70%)] blur-3xl"
-          />
-
-          <div className="relative z-10 mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_minmax(260px,340px)] lg:items-center lg:gap-16">
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="show"
-            >
-              <motion.p
-                variants={itemVariants}
-                className="font-mono text-[11px] uppercase tracking-[0.35em] text-white/40"
-              >
-                Monix · analysis workspace
-              </motion.p>
-              <motion.h1
-                variants={itemVariants}
-                className="mt-6 text-[2.35rem] font-bold leading-[1.05] tracking-tight text-white sm:text-5xl md:text-6xl lg:text-[3.5rem]"
-              >
-                One URL.
-                <br />
-                <span className="text-white/75">Three lenses.</span>
-                <br />
-                Zero guesswork.
-              </motion.h1>
-              <motion.p
-                variants={itemVariants}
-                className="mt-8 max-w-xl text-base leading-relaxed text-white/50 md:text-lg"
-              >
-                Category scores for security, SEO, and performance—plus
-                persisted reports, monitored sites, and optional Google Search
-                Console and Cloudflare metrics when you connect accounts. Sign
-                in to run analyses and keep everything organized.
-              </motion.p>
-              <motion.div
-                variants={itemVariants}
-                className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center"
-              >
-                <Link
-                  href="/login"
-                  className="inline-flex items-center justify-center gap-2 border border-white bg-white px-8 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-neutral-200"
-                >
-                  Sign in to Monix
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  href="/docs"
-                  className="inline-flex items-center justify-center px-6 py-3.5 text-sm font-medium text-white/60 underline decoration-white/25 decoration-1 underline-offset-4 transition-colors hover:text-white hover:decoration-white/50"
-                >
-                  Read documentation
-                </Link>
-              </motion.div>
-            </motion.div>
-
-            {/* Abstract “scores” panel — not a pill, sharp geometry */}
-            <motion.div
-              initial={{ opacity: 0, x: 32 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{
-                delay: 0.35,
-                duration: 0.65,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="relative border border-white/15 bg-linear-to-br from-white/[0.06] to-transparent p-6 md:p-8"
-            >
-              <div className="absolute top-0 left-0 h-8 w-8 border-t-2 border-l-2 border-white/30" />
-              <div className="absolute right-0 bottom-0 h-8 w-8 border-r-2 border-b-2 border-white/30" />
-              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/35">
-                Report snapshot
-              </p>
-              <div className="mt-8 space-y-6">
-                {[
-                  { label: "Security", width: "82%" },
-                  { label: "SEO", width: "68%" },
-                  { label: "Performance", width: "74%" },
-                ].map((row) => (
-                  <div key={row.label}>
-                    <div className="flex justify-between text-xs font-medium text-white/50">
-                      <span>{row.label}</span>
-                      <span className="font-mono text-white/35">—</span>
-                    </div>
-                    <div className="mt-2 h-1.5 w-full bg-white/10">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: row.width }}
-                        transition={{
-                          delay: 0.6,
-                          duration: 1,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                        className="h-full bg-white/70"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-10 border-t border-white/10 pt-6 text-xs leading-relaxed text-white/35">
-                Illustrative bars—your real scores appear after you run an
-                analysis in the app.
-              </p>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Facts — vertical rules, no chips */}
-        <section className="border-y border-white/10 bg-zinc-950/40 px-6 py-16 md:py-20">
-          <div className="mx-auto grid max-w-6xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                kicker: "Scoring",
-                line: "Category weights roll up into one overall score you can track.",
-              },
-              {
-                kicker: "Reports",
-                line: "Persisted output you can reopen and share when you need it.",
-              },
-              {
-                kicker: "Workspace",
-                line: "Projects, targets, and scan history after you authenticate.",
-              },
-              {
-                kicker: "Search & edge",
-                line: "Optional Search Console for clicks and queries; optional Cloudflare for edge requests and threats when zones match your sites.",
-              },
-            ].map((block) => (
-              <div
-                key={block.kicker}
-                className="border border-white/10 bg-black/30 px-6 py-8"
-              >
-                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/35">
-                  {block.kicker}
-                </p>
-                <p className="mt-3 text-sm leading-relaxed text-white/60 md:text-[15px]">
-                  {block.line}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Three pillars */}
-        <section id="pillars" className="mx-auto max-w-6xl px-6 py-24 md:py-32">
-          <motion.div
-            initial={{ opacity: 0, y: 28 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.5 }}
-            className="mb-16 md:mb-24"
-          >
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/35">
-              Coverage
+      <main className="flex-1">
+        {/* Hero Section */}
+        <section className="pt-32 pb-20 md:pt-40 md:pb-28 px-6 max-w-5xl mx-auto">
+          <div className="max-w-3xl space-y-6">
+            <p className="font-mono text-xs text-muted-foreground uppercase tracking-[0.25em]">
+              Instant Website Intelligence
             </p>
-            <h2 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-white md:text-4xl">
-              What we evaluate
-            </h2>
-            <p className="mt-4 max-w-2xl text-base text-white/50 md:text-lg">
-              Three lenses on the same URL—a TypeScript scan pipeline in Next.js
-              for analysis and scoring, Supabase Postgres for persistence, and
-              the same app for the dashboard and authenticated APIs.
+            <h1 className="font-serif text-4xl sm:text-6xl md:text-7xl font-medium tracking-tight text-foreground leading-[1.08]">
+              One URL. Three lenses. Zero guesswork.
+            </h1>
+            <p className="text-muted-foreground text-lg sm:text-xl font-normal leading-relaxed max-w-2xl">
+              Comprehensive security, SEO, and performance evaluation in a
+              single instant scan.
             </p>
-          </motion.div>
-          <div className="grid gap-px bg-white/10 md:grid-cols-3">
-            {pillars.map((pillar, i) => (
-              <motion.article
-                key={pillar.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.06, duration: 0.45 }}
-                className="bg-black p-8 md:p-10"
-              >
-                <pillar.icon
-                  className="h-7 w-7 text-white/90"
-                  strokeWidth={1.25}
+
+            {/* URL Input Hero Form */}
+            <form onSubmit={handleScan} className="pt-4 space-y-3">
+              <div className="flex flex-col sm:flex-row items-stretch gap-2 sm:gap-0 border border-border bg-card p-1.5 sm:p-2 focus-within:border-foreground/40 transition-colors">
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  disabled={loading}
+                  placeholder="Enter a website URL, e.g. github.com"
+                  className="flex-1 px-4 py-3 bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-base font-sans"
                 />
-                <h3 className="mt-8 text-xl font-semibold text-white">
-                  {pillar.title}
-                </h3>
-                <p className="mt-4 text-sm leading-relaxed text-white/45">
-                  {pillar.description}
-                </p>
-                <ul className="mt-8 space-y-3 border-t border-white/10 pt-8 text-sm text-white/40">
-                  {pillar.bullets.map((line) => (
-                    <li key={line} className="flex gap-3">
-                      <span className="font-mono text-white/25">—</span>
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
-              </motion.article>
-            ))}
-          </div>
-        </section>
+                <button
+                  type="submit"
+                  disabled={loading || !url.trim()}
+                  className="px-8 py-3 bg-accent text-accent-foreground font-medium text-sm transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                      Analyzing
+                    </span>
+                  ) : (
+                    <>
+                      Analyze <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
 
-        {/* Google Search Console */}
-        <section className="border-t border-white/10 px-6 py-16 md:py-24">
-          <div className="mx-auto max-w-6xl">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="border border-white/10 bg-linear-to-br from-emerald-500/[0.06] to-transparent p-8 md:p-10"
-            >
-              <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between md:gap-12">
-                <div className="max-w-xl">
-                  <div className="flex items-center gap-3 text-emerald-400/90">
-                    <TrendingUp className="h-6 w-6" strokeWidth={1.25} />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
-                      Google Search Console
+              {/* Error Display */}
+              {error && (
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-destructive font-mono pt-1">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Calm Progress State */}
+              {loading && (
+                <div className="border border-border bg-secondary/50 p-4 space-y-2.5 transition-all">
+                  <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
+                    <span className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
+                      {SCAN_STAGES[stageIndex]}
+                    </span>
+                    <span>
+                      {stageIndex + 1} / {SCAN_STAGES.length}
                     </span>
                   </div>
-                  <h2 className="mt-4 text-2xl font-bold text-white md:text-3xl">
-                    Real search performance next to your scans
-                  </h2>
-                  <p className="mt-4 text-sm leading-relaxed text-white/50 md:text-base">
-                    Connect Search Console from Integrations or while setting up
-                    a site. Monix stores OAuth tokens server-side, matches each
-                    target URL to a verified property, and syncs summary metrics
-                    plus top queries. Overview and Analytics show clicks,
-                    impressions, CTR, and average position when data is
-                    available—without replacing on-page SEO checks from the
-                    scan.
-                  </p>
-                </div>
-                <div className="shrink-0 md:max-w-xs md:text-right">
-                  <p className="text-xs leading-relaxed text-white/40">
-                    Requires Google Cloud OAuth credentials and a redirect URI
-                    that hits the Next.js GSC callback. Details are in the
-                    documentation.
-                  </p>
-                  <Link
-                    href="/docs#google-search-console"
-                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-white/80 underline decoration-white/25 underline-offset-4 transition-colors hover:text-white hover:decoration-white/50"
-                  >
-                    Read the GSC setup guide
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Cloudflare */}
-        <section className="border-t border-white/10 px-6 py-16 md:py-24">
-          <div className="mx-auto max-w-6xl">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="border border-white/10 bg-linear-to-br from-orange-500/[0.07] to-transparent p-8 md:p-10"
-            >
-              <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between md:gap-12">
-                <div className="max-w-xl">
-                  <div className="flex items-center gap-3 text-orange-400/90">
-                    <Cloud className="h-6 w-6" strokeWidth={1.25} />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
-                      Cloudflare
-                    </span>
+                  <div className="h-1 w-full bg-border overflow-hidden">
+                    <div
+                      className="h-full bg-accent transition-all duration-700 ease-out"
+                      style={{
+                        width: `${((stageIndex + 1) / SCAN_STAGES.length) * 100}%`,
+                      }}
+                    />
                   </div>
-                  <h2 className="mt-4 text-2xl font-bold text-white md:text-3xl">
-                    Edge traffic next to your scans
-                  </h2>
-                  <p className="mt-4 text-sm leading-relaxed text-white/50 md:text-base">
-                    Add an API token with zone read and analytics read. Monix
-                    stores it encrypted on the server, lists your zones, and
-                    pulls HTTP request series from Cloudflare&apos;s APIs. When
-                    a monitored site&apos;s hostname matches a zone, Overview,
-                    Sites, Analytics, and Issues show requests, cache ratio,
-                    threats, and country breakdowns alongside scan results.
-                  </p>
                 </div>
-                <div className="shrink-0 md:max-w-xs md:text-right">
-                  <p className="text-xs leading-relaxed text-white/40">
-                    Tokens are created in the Cloudflare dashboard; no worker
-                    deployment is required for this integration.
-                  </p>
-                  <Link
-                    href="/docs#cloudflare"
-                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-white/80 underline decoration-white/25 underline-offset-4 transition-colors hover:text-white hover:decoration-white/50"
-                  >
-                    Read the Cloudflare setup
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </section>
+              )}
+            </form>
 
-        {/* Map */}
-        <section className="border-t border-white/10 px-6 py-16 md:py-24">
-          <div className="mx-auto max-w-6xl">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="mb-12 md:flex md:items-end md:justify-between md:gap-12"
-            >
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/35">
-                  Infrastructure
-                </p>
-                <h2 className="mt-4 text-2xl font-bold text-white md:text-3xl">
-                  Geo and hosting context
-                </h2>
-              </div>
-              <p className="mt-6 max-w-md text-sm leading-relaxed text-white/45 md:mt-0 md:text-right">
-                Reports show where resolved infrastructure sits alongside DNS,
-                TLS, and headers. The map is illustrative—not a live threat
-                feed.
-              </p>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.55 }}
-              className="relative overflow-hidden border border-white/10"
-              style={{ height: "min(480px, 65vh)" }}
-            >
-              <WorldMap />
-              <div className="pointer-events-none absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/90 to-transparent px-6 py-4">
-                <p className="text-center font-mono text-[10px] text-white/30">
-                  MapLibre · Carto Dark
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* Workflow — vertical step line */}
-        <section className="border-t border-white/10 bg-zinc-950/30 px-6 py-24 md:py-32">
-          <div className="mx-auto max-w-6xl">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="mb-16 md:mb-20"
-            >
-              <div className="flex items-center gap-3 text-white/35">
-                <Workflow className="h-5 w-5" />
-                <span className="font-mono text-[10px] uppercase tracking-[0.3em]">
-                  Flow
-                </span>
-              </div>
-              <h2 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
-                How it works
-              </h2>
-            </motion.div>
-            <div className="relative">
-              <div className="absolute top-0 bottom-0 left-[15px] w-px bg-white/15 md:left-[19px]" />
-              <div className="space-y-12 md:space-y-16">
-                {workflow.map((w, i) => (
-                  <motion.div
-                    key={w.step}
-                    initial={{ opacity: 0, x: -12 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: i * 0.08, duration: 0.45 }}
-                    className="relative flex gap-8 pl-10 md:gap-12 md:pl-14"
-                  >
-                    <span className="absolute top-0 left-0 flex h-8 w-8 items-center justify-center border border-white/20 bg-black font-mono text-xs text-white/50 md:h-10 md:w-10">
-                      {w.step}
-                    </span>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white md:text-xl">
-                        {w.title}
-                      </h3>
-                      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/45">
-                        {w.body}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 text-xs font-mono text-muted-foreground">
+              <span>✓ No sign-up required</span>
+              <span>✓ Free public reports</span>
+              <span>✓ 5 scans/hour per IP</span>
             </div>
           </div>
         </section>
 
-        {/* Workspace + docs */}
-        <section className="mx-auto max-w-6xl px-6 py-24 md:py-32">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mb-14"
-          >
-            <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-              Get into the workspace
-            </h2>
-            <p className="mt-4 max-w-xl text-white/50">
-              Sign in to run analyses and manage sites. Documentation covers
-              architecture, Supabase auth, Search Console and Cloudflare, how
-              reports are stored, environment variables, and local development
-              if you are integrating or self-hosting.
-            </p>
-          </motion.div>
-          <div className="grid gap-6 md:grid-cols-2">
-            <Link
-              href="/login"
-              className="group border border-white/15 bg-linear-to-br from-white/[0.05] to-transparent p-10 transition-colors hover:border-white/30"
-            >
-              <LayoutDashboard
-                className="h-8 w-8 text-white/80"
-                strokeWidth={1.25}
-              />
-              <h3 className="mt-8 text-xl font-semibold text-white">
-                Sign in to the app
-              </h3>
-              <p className="mt-4 text-sm leading-relaxed text-white/45">
-                Dashboard, sites, integrations, and scan history—everything
-                gated behind authentication the way you run Monix today.
+        {/* Evaluation Pillars Section */}
+        <section className="border-t border-border bg-card py-20 px-6">
+          <div className="max-w-5xl mx-auto space-y-12">
+            <div className="max-w-xl space-y-3">
+              <p className="font-mono text-xs text-muted-foreground uppercase tracking-widest">
+                Coverage
               </p>
-              <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white">
-                Continue to login
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </span>
-            </Link>
-            <Link
-              href="/docs"
-              className="group border border-white/15 bg-black p-10 transition-colors hover:border-white/30 hover:bg-white/[0.02]"
-            >
-              <BookOpen className="h-8 w-8 text-white/80" strokeWidth={1.25} />
-              <h3 className="mt-8 text-xl font-semibold text-white">
-                Documentation
-              </h3>
-              <p className="mt-4 text-sm leading-relaxed text-white/45">
-                Next.js APIs, Supabase-backed persistence, Search Console and
-                Cloudflare, environment variables, and local development—spelled
-                out in one place.
+              <h2 className="font-serif text-3xl md:text-4xl font-medium tracking-tight">
+                What we evaluate
+              </h2>
+              <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
+                Three independent lenses deliver structured diagnostic scores
+                and actionable insights.
               </p>
-              <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-white/80 group-hover:text-white">
-                Open docs
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </span>
-            </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {pillars.map((pillar) => {
+                const Icon = pillar.icon;
+                return (
+                  <div
+                    key={pillar.title}
+                    className="border border-border p-6 sm:p-8 space-y-5 bg-background flex flex-col justify-between"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Icon className="w-5 h-5 text-accent" />
+                        <span className="font-mono text-xs text-muted-foreground uppercase">
+                          Lens
+                        </span>
+                      </div>
+                      <h3 className="font-serif text-2xl font-medium">
+                        {pillar.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {pillar.description}
+                      </p>
+                    </div>
+
+                    <ul className="space-y-2.5 border-t border-border pt-5 text-xs text-muted-foreground font-mono">
+                      {pillar.checks.map((check) => (
+                        <li key={check} className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                          <span>{check}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 
-        {/* Closing CTA */}
-        <section className="border-t border-white/10 px-6 pb-28 pt-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mx-auto max-w-3xl border border-white/15 bg-zinc-950/50 px-8 py-16 text-center md:px-12"
-          >
-            <Globe2
-              className="mx-auto h-10 w-10 text-white/30"
-              strokeWidth={1}
-            />
-            <h2 className="mt-8 text-2xl font-bold text-white md:text-3xl">
-              Ready when you are
-            </h2>
-            <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/45">
-              Sign in to start analyzing URLs and keeping reports under your
-              account.
-            </p>
-            <Link
-              href="/login"
-              className="mt-10 inline-flex items-center justify-center gap-2 border border-white bg-white px-10 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-neutral-200"
-            >
-              Sign in
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </motion.div>
+        {/* How It Works Section */}
+        <section className="border-t border-border py-20 px-6">
+          <div className="max-w-5xl mx-auto space-y-12">
+            <div className="max-w-xl space-y-3">
+              <p className="font-mono text-xs text-muted-foreground uppercase tracking-widest">
+                Process
+              </p>
+              <h2 className="font-serif text-3xl md:text-4xl font-medium tracking-tight">
+                How it works
+              </h2>
+              <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
+                From domain lookup to shareable diagnostic metrics in seconds.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {steps.map((step) => (
+                <div
+                  key={step.num}
+                  className="space-y-4 border-l border-border pl-6"
+                >
+                  <span className="font-mono text-xs text-accent font-semibold">
+                    {step.num}
+                  </span>
+                  <h3 className="font-serif text-xl font-medium">
+                    {step.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {step.body}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Documentation & Workspace Callout */}
+        <section className="border-t border-border bg-secondary/30 py-16 px-6">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="space-y-2 max-w-xl">
+              <h3 className="font-serif text-2xl font-medium">
+                Looking for ongoing monitoring?
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Sign in to save sites, track historical trend lines, and
+                configure Search Console or Cloudflare integrations.
+              </p>
+            </div>
+            <div className="flex items-center gap-4 shrink-0">
+              <Link
+                href="/docs"
+                className="text-sm font-medium underline decoration-border hover:decoration-foreground transition-colors"
+              >
+                Documentation
+              </Link>
+              <Link
+                href="/login"
+                className="px-5 py-2.5 border border-border bg-card text-foreground text-sm font-medium hover:bg-secondary transition-colors"
+              >
+                Sign in
+              </Link>
+            </div>
+          </div>
         </section>
       </main>
+
       <Footer />
     </div>
   );
