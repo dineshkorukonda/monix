@@ -19,6 +19,12 @@ export function extractRootDomain(hostnameOrUrl: string): string {
   return cleaned;
 }
 
+/**
+ * Discover passive subdomains across multiple intelligence feeds:
+ * 1. crt.sh (Certificate Transparency logs)
+ * 2. HackerTarget (hostsearch API)
+ * 3. AlienVault OTX (Passive DNS API)
+ */
 export async function discoverPassiveSubdomains(
   domain: string,
   customFetch = fetch,
@@ -27,42 +33,117 @@ export async function discoverPassiveSubdomains(
   if (!root) return [];
 
   const subdomains = new Set<string>();
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const res = await customFetch(
-      `https://crt.sh/?q=%.${encodeURIComponent(root)}&output=json`,
-      {
-        headers: {
-          "User-Agent": "Monix-Subdomains/1.0",
+
+  // 1. crt.sh
+  const fetchCrtSh = async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await customFetch(
+        `https://crt.sh/?q=%.${encodeURIComponent(root)}&output=json`,
+        {
+          headers: { "User-Agent": "Monix-Subdomains/1.0" },
+          signal: controller.signal,
         },
-        signal: controller.signal,
-      },
-    );
-    clearTimeout(timeoutId);
+      );
+      clearTimeout(timeoutId);
 
-    if (res.ok) {
-      const entries = (await res.json()) as Array<{
-        name_value?: string;
-        common_name?: string;
-      }>;
-
-      for (const entry of entries) {
-        const names = [
-          ...(entry.name_value ? entry.name_value.split("\n") : []),
-          ...(entry.common_name ? [entry.common_name] : []),
-        ];
-        for (const rawName of names) {
-          const name = rawName.trim().toLowerCase().replace(/^\*\./, "");
-          if (name && (name === root || name.endsWith(`.${root}`))) {
-            subdomains.add(name);
+      if (res.ok) {
+        const entries = (await res.json()) as Array<{
+          name_value?: string;
+          common_name?: string;
+        }>;
+        for (const entry of entries) {
+          const names = [
+            ...(entry.name_value ? entry.name_value.split("\n") : []),
+            ...(entry.common_name ? [entry.common_name] : []),
+          ];
+          for (const rawName of names) {
+            const name = rawName.trim().toLowerCase().replace(/^\*\./, "");
+            if (name && (name === root || name.endsWith(`.${root}`))) {
+              subdomains.add(name);
+            }
           }
         }
       }
+    } catch {
+      // ignore
     }
-  } catch {
-    // Passive search fallback
-  }
+  };
+
+  // 2. HackerTarget hostsearch
+  const fetchHackerTarget = async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const res = await customFetch(
+        `https://api.hackertarget.com/hostsearch/?q=${encodeURIComponent(root)}`,
+        {
+          headers: { "User-Agent": "Monix-Subdomains/1.0" },
+          signal: controller.signal,
+        },
+      );
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const text = await res.text();
+        if (
+          !text.includes("error check your search") &&
+          !text.includes("API count exceeded")
+        ) {
+          const lines = text.split("\n");
+          for (const line of lines) {
+            const host = line.split(",")[0]?.trim().toLowerCase();
+            if (host && (host === root || host.endsWith(`.${root}`))) {
+              subdomains.add(host);
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // 3. AlienVault OTX
+  const fetchAlienVault = async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const res = await customFetch(
+        `https://otx.alienvault.com/api/v1/indicators/domain/${encodeURIComponent(root)}/passive_dns`,
+        {
+          headers: { "User-Agent": "Monix-Subdomains/1.0" },
+          signal: controller.signal,
+        },
+      );
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = (await res.json()) as {
+          passive_dns?: Array<{ hostname?: string }>;
+        };
+        for (const record of data.passive_dns || []) {
+          const host = record.hostname
+            ?.trim()
+            .toLowerCase()
+            .replace(/^\*\./, "");
+          if (host && (host === root || host.endsWith(`.${root}`))) {
+            subdomains.add(host);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // Query sources in parallel
+  await Promise.allSettled([
+    fetchCrtSh(),
+    fetchHackerTarget(),
+    fetchAlienVault(),
+  ]);
 
   subdomains.add(root);
   return Array.from(subdomains);
@@ -111,14 +192,14 @@ export async function resolveAndProbeSubdomain(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
     const res = await customFetch(`https://${subdomain}`, {
       method: "HEAD",
       headers: { "User-Agent": "Monix-Liveness/1.0" },
       signal: controller.signal,
     }).catch(async () => {
       const retryController = new AbortController();
-      const retryTimeout = setTimeout(() => retryController.abort(), 4000);
+      const retryTimeout = setTimeout(() => retryController.abort(), 3000);
       return customFetch(`http://${subdomain}`, {
         method: "HEAD",
         headers: { "User-Agent": "Monix-Liveness/1.0" },

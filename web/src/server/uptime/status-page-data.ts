@@ -73,7 +73,115 @@ export async function getStatusPageData(
     [slugOrId],
   );
 
-  if (!site) return null;
+  if (!site) {
+    // If not in database, check if slugOrId is a domain or URL to provide an instant live status probe instead of a 404
+    const cleanHost = slugOrId
+      .replace(/^https?:\/\//, "")
+      .split("/")[0]
+      ?.trim();
+    const isDomainLike =
+      cleanHost?.includes(".") && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(cleanHost);
+
+    if (isDomainLike) {
+      const probeUrl = slugOrId.startsWith("http")
+        ? slugOrId
+        : `https://${cleanHost}`;
+      try {
+        const start = Date.now();
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(probeUrl, {
+          method: "GET",
+          headers: { "User-Agent": "Monix-StatusProbe/1.0" },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        const latency = Date.now() - start;
+        const isUp = res.status < 500;
+
+        let certDays: number | null = null;
+        let certIssuer: string | null = null;
+        try {
+          const { checkCertificateExpiry } = await import(
+            "@/server/uptime/cert-checker"
+          );
+          const certInfo = await checkCertificateExpiry(cleanHost);
+          certDays = certInfo.daysRemaining;
+          certIssuer = certInfo.issuer;
+        } catch {
+          // ignore cert check failure
+        }
+
+        return {
+          site: {
+            id: `ad-hoc-${cleanHost}`,
+            name: cleanHost,
+            url: probeUrl,
+            status: isUp ? "up" : "down",
+            currentResponseTimeMs: latency,
+            currentStatusCode: res.status,
+            lastCheckedAt: new Date().toISOString(),
+            uptimePercentage24h: isUp ? 100 : 0,
+            uptimePercentage30d: isUp ? 100 : 0,
+            certificateExpiryAt: null,
+            certIssuer,
+            certDaysRemaining: certDays,
+            certWarning: certDays != null && certDays <= 14,
+          },
+          responseTimeHistory24h: [
+            {
+              timestamp: new Date().toISOString(),
+              responseTimeMs: latency,
+              status: isUp ? "up" : "down",
+            },
+          ],
+          incidents: isUp
+            ? []
+            : [
+                {
+                  id: "live-incident-1",
+                  startedAt: new Date().toISOString(),
+                  endedAt: null,
+                  durationSeconds: null,
+                  cause: `HTTP ${res.status} error detected on probe`,
+                  status: "ongoing",
+                },
+              ],
+        };
+      } catch {
+        return {
+          site: {
+            id: `ad-hoc-${cleanHost}`,
+            name: cleanHost,
+            url: probeUrl,
+            status: "down",
+            currentResponseTimeMs: null,
+            currentStatusCode: null,
+            lastCheckedAt: new Date().toISOString(),
+            uptimePercentage24h: 0,
+            uptimePercentage30d: 0,
+            certificateExpiryAt: null,
+            certIssuer: null,
+            certDaysRemaining: null,
+            certWarning: false,
+          },
+          responseTimeHistory24h: [],
+          incidents: [
+            {
+              id: "live-incident-1",
+              startedAt: new Date().toISOString(),
+              endedAt: null,
+              durationSeconds: null,
+              cause: "Connection failed or host unreachable",
+              status: "ongoing",
+            },
+          ],
+        };
+      }
+    }
+
+    return null;
+  }
 
   // 1. Latest check
   const latestCheck = await dbQueryMaybeOne<{
