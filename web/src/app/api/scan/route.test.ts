@@ -25,4 +25,29 @@ describe("POST /api/scan", () => {
     const json = await res.json();
     expect(json.status).toBe("error");
   });
+
+  it("returns 429 with Retry-After when rate limit is exceeded", async () => {
+    const testIp = `rate-limit-route-test-${Date.now()}`;
+    for (let i = 0; i < 5; i++) {
+      const req = new NextRequest("http://localhost:3000/api/scan", {
+        method: "POST",
+        body: "invalid",
+        headers: { "x-forwarded-for": testIp },
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+    }
+
+    const blockedReq = new NextRequest("http://localhost:3000/api/scan", {
+      method: "POST",
+      body: "invalid",
+      headers: { "x-forwarded-for": testIp },
+    });
+    const blockedRes = await POST(blockedReq);
+    expect(blockedRes.status).toBe(429);
+    expect(blockedRes.headers.get("Retry-After")).toBeDefined();
+    const json = await blockedRes.json();
+    expect(json.status).toBe("error");
+    expect(json.error).toContain("Rate limit exceeded");
+  });
 });
