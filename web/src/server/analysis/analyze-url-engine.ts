@@ -587,8 +587,15 @@ export async function runFullUrlAnalysis(opts: {
   Object.assign(security, scores);
   if (opts.persist) {
     const reportId = randomUUID();
+    const { generatePublicSlug } = await import("@/server/db/slug");
+    const publicSlug = generatePublicSlug();
+    const trigger = opts.targetId ? "authenticated" : "anonymous";
     security.report_id = reportId;
+    security.public_slug = publicSlug;
+    security.slug = publicSlug;
+    security.trigger = trigger;
     security.report_url = `/dashboard/report/${reportId}`;
+    security.public_url = `/r/${publicSlug}`;
     const { queryRows } = await import("@/server/db/postgres");
     const { syncTargetSearchConsole } = await import(
       "@/server/integrations/gsc-api"
@@ -601,13 +608,15 @@ export async function runFullUrlAnalysis(opts: {
     await queryRows(
       `
         insert into monix_scans (
-          target_id, report_id, url, score, results, is_expired, expires_at
+          target_id, report_id, public_slug, trigger, url, score, results, is_expired, expires_at
         )
-        values ($1::uuid, $2::uuid, $3, $4, $5::jsonb, false, $6::timestamptz)
+        values ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::jsonb, false, $8::timestamptz)
       `,
       [
         opts.targetId,
         reportId,
+        publicSlug,
+        trigger,
         u,
         scores.overall,
         JSON.stringify(security),

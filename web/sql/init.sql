@@ -38,6 +38,8 @@ create table if not exists public.monix_scans (
   id bigserial primary key,
   target_id uuid references public.monix_targets (id) on delete set null,
   report_id uuid not null unique,
+  public_slug text unique,
+  trigger text not null default 'anonymous',
   url text not null,
   score smallint not null check (score >= 0 and score <= 100),
   results jsonb not null,
@@ -47,6 +49,7 @@ create table if not exists public.monix_scans (
 );
 
 create index if not exists monix_scans_report_id_idx on public.monix_scans (report_id);
+create index if not exists monix_scans_public_slug_idx on public.monix_scans (public_slug);
 
 create table if not exists public.monix_gsc_credentials (
   user_id uuid primary key references public.monix_users (id) on delete cascade,

@@ -409,6 +409,48 @@ export async function getReportEnvelopePublic(
   };
 }
 
+export async function getReportByPublicSlug(
+  publicSlug: string,
+): Promise<Record<string, unknown>> {
+  const row = await queryMaybeOne<{
+    report_id: string;
+    public_slug: string;
+    trigger: string;
+    url: string;
+    score: number;
+    results: unknown;
+    created_at: string;
+    expires_at: string;
+    is_expired: boolean;
+  }>(
+    `
+      select report_id, public_slug, trigger, url, score, results, created_at, expires_at, is_expired
+      from monix_scans
+      where public_slug = $1
+      limit 1
+    `,
+    [publicSlug],
+  );
+  if (!row) {
+    throw Object.assign(new Error("Report not found."), { status: 404 });
+  }
+  const expired =
+    row.is_expired || new Date(row.expires_at).getTime() <= Date.now();
+  if (expired) {
+    throw Object.assign(new Error("Report not found."), { status: 404 });
+  }
+  return {
+    report_id: row.report_id,
+    public_slug: row.public_slug,
+    trigger: row.trigger,
+    url: row.url,
+    score: row.score,
+    created_at: row.created_at,
+    expires_at: row.expires_at,
+    results: row.results,
+  };
+}
+
 export async function getReportEnvelopeForUser(
   reportId: string,
   userId: string,
