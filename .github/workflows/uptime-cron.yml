@@ -1,0 +1,16 @@
+name: Uptime Ping Cron
+
+on:
+  schedule:
+    # Runs every 5 minutes automatically
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  uptime-ping:
+    name: Trigger 5-Min Uptime Ping
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Uptime Worker
+        run: |
+          curl -s -X POST "https://monix.dineshkorukonda.in/api/cron/uptime" || true
