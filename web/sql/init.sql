@@ -67,3 +67,13 @@ create table if not exists public.monix_cloudflare_credentials (
   zones_count integer not null default 0 check (zones_count >= 0),
   updated_at timestamptz not null default now()
 );
+
+create table if not exists public.monix_rate_limits (
+  id bigserial primary key,
+  ip_address text not null,
+  window_start timestamptz not null default now(),
+  request_count integer not null default 1
+);
+
+create index if not exists monix_rate_limits_ip_window_idx on public.monix_rate_limits (ip_address, window_start);
+
