@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { requireMonixAuth, requireUserSub } from "@/server/auth/policy";
+import { requireMonixAuth } from "@/server/auth/policy";
 import { queryRows } from "@/server/db/postgres";
 import { enumerateSubdomainsForTarget } from "@/server/subdomains/subdomain-enumerator";
 import { handleRouteError } from "@/server/transport/http";
@@ -11,8 +11,7 @@ export async function GET(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { token } = await requireMonixAuth(request);
-    const sub = await requireUserSub(token);
+    const { sub } = await requireMonixAuth(request);
     const { id } = await ctx.params;
 
     const target = await queryRows<{
@@ -54,8 +53,7 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { token } = await requireMonixAuth(request);
-    const sub = await requireUserSub(token);
+    const { sub } = await requireMonixAuth(request);
     const { id } = await ctx.params;
 
     const target = await queryRows<{

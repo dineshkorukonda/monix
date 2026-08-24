@@ -1,10 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { requireMonixAuth } from "@/server/auth/policy";
-import {
-  deleteTargetForUser,
-  getTargetDetail,
-  requireUserSub,
-} from "@/server/db/monix-data";
+import { deleteTargetForUser, getTargetDetail } from "@/server/db/monix-data";
 import { handleRouteError } from "@/server/transport/http";
 
 export async function GET(
@@ -12,8 +8,7 @@ export async function GET(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { token } = await requireMonixAuth(request);
-    const sub = await requireUserSub(token);
+    const { sub } = await requireMonixAuth(request);
     const { id } = await ctx.params;
     const data = await getTargetDetail(sub, id);
     return NextResponse.json(data);
@@ -27,8 +22,7 @@ export async function DELETE(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { token } = await requireMonixAuth(request);
-    const sub = await requireUserSub(token);
+    const { sub } = await requireMonixAuth(request);
     const { id } = await ctx.params;
     await deleteTargetForUser(sub, id);
     return NextResponse.json({ ok: true });
@@ -42,8 +36,7 @@ export async function PATCH(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { token } = await requireMonixAuth(request);
-    const sub = await requireUserSub(token);
+    const { sub } = await requireMonixAuth(request);
     const { id } = await ctx.params;
     const body = (await request.json().catch(() => ({}))) as {
       public_status_page?: boolean;

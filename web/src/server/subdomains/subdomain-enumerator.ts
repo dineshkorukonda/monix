@@ -68,9 +68,11 @@ export async function discoverPassiveSubdomains(
   return Array.from(subdomains);
 }
 
+export type Resolve4Function = (hostname: string) => Promise<string[]>;
+
 export async function detectWildcardDns(
   domain: string,
-  resolve4Fn = dns.resolve4,
+  resolve4Fn: Resolve4Function = dns.resolve4,
 ): Promise<string[] | null> {
   const root = extractRootDomain(domain);
   const randomSub = `monix-wildcard-test-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${root}`;
@@ -85,7 +87,7 @@ export async function detectWildcardDns(
 export async function resolveAndProbeSubdomain(
   subdomain: string,
   wildcardIps: string[] | null = null,
-  resolve4Fn = dns.resolve4,
+  resolve4Fn: Resolve4Function = dns.resolve4,
   customFetch = fetch,
 ): Promise<DiscoveredSubdomain | null> {
   let ips: string[] = [];
@@ -147,7 +149,7 @@ export async function enumerateSubdomainsForTarget(
   dbQueryRows = queryRows,
   options: {
     customFetch?: typeof fetch;
-    resolve4Fn?: (hostname: string) => Promise<string[]>;
+    resolve4Fn?: Resolve4Function;
   } = {},
 ): Promise<DiscoveredSubdomain[]> {
   const rootDomain = extractRootDomain(targetUrl);

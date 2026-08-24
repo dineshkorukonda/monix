@@ -82,7 +82,7 @@ export async function pingUrl(
 
 export async function processSiteUptimeCheck(
   siteId: string,
-  _url: string,
+  url: string,
   pingResult: {
     status: "up" | "down";
     statusCode: number | null;

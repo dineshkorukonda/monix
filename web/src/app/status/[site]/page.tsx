@@ -191,6 +191,9 @@ export default function PublicStatusPage({
     );
   }
 
+  const { site } = statusData;
+  const isUp = site.status === "up";
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-mono text-xs selection:bg-[#00ff66] selection:text-black">
       <Navigation />
