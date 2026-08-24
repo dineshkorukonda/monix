@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  Activity,
   ArrowLeft,
+  ArrowRight,
   Check,
   ChevronDown,
   ChevronRight,
@@ -305,9 +307,9 @@ export default function PublicReportPage({
                   report.url.replace(/^https?:\/\//, "").split("/")[0] ||
                     report.url,
                 )}`}
-                className="inline-flex items-center gap-1 px-2.5 py-1 border border-border bg-[#18181b] hover:border-[#00ff66] hover:text-[#00ff66] text-[11px] rounded transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1 border border-[#00ff66]/40 bg-[#00ff66]/10 text-[#00ff66] hover:bg-[#00ff66] hover:text-black font-semibold text-[11px] rounded transition-colors"
               >
-                STATUS
+                <Activity className="w-3.5 h-3.5" /> STATUS &amp; UPTIME
               </Link>
               <Link
                 href="/inspector"
@@ -526,14 +528,94 @@ export default function PublicReportPage({
           )}
         </div>
 
-        {/* Section 5: Raw Inspection Data (Toggleable) */}
+        {/* Section 5: Uptime Monitoring & Continuous Health */}
+        <div className="border border-border bg-[#0d0d0f] rounded overflow-hidden">
+          <div className="border-b border-border bg-[#18181b] px-4 py-2.5 font-semibold text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[#00ff66]" />
+              <span>[05] UPTIME MONITORING &amp; STATUS DASHBOARD</span>
+            </div>
+            <Link
+              href={`/status/${encodeURIComponent(
+                report.url.replace(/^https?:\/\//, "").split("/")[0] ||
+                  report.url,
+              )}`}
+              className="text-[#00ff66] hover:underline text-[11px] flex items-center gap-1 font-mono"
+            >
+              LIVE STATUS PAGE <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="border border-border bg-[#18181b] p-3 rounded space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  HEARTBEAT FREQUENCY
+                </span>
+                <p className="text-sm font-bold text-white">Every 5 minutes</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Automated Vercel Cron
+                </p>
+              </div>
+              <div className="border border-border bg-[#18181b] p-3 rounded space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  INCIDENT THRESHOLD
+                </span>
+                <p className="text-sm font-bold text-white">
+                  2 Consecutive Fails
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  Zero false alarm policy
+                </p>
+              </div>
+              <div className="border border-border bg-[#18181b] p-3 rounded space-y-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  WEBHOOK DISPATCH
+                </span>
+                <p className="text-sm font-bold text-[#00ff66]">
+                  Active / 1x Retry
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  JSON event notifications
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-border text-[11px] text-muted-foreground">
+              <span>
+                Target Host:{" "}
+                <strong className="text-white font-mono">
+                  {report.url.replace(/^https?:\/\//, "").split("/")[0]}
+                </strong>
+              </span>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/docs/webhooks"
+                  className="text-muted-foreground hover:text-white transition-colors"
+                >
+                  Webhook Specs →
+                </Link>
+                <Link
+                  href={`/status/${encodeURIComponent(
+                    report.url.replace(/^https?:\/\//, "").split("/")[0] ||
+                      report.url,
+                  )}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#00ff66] text-black font-semibold rounded hover:opacity-90 transition-opacity"
+                >
+                  <Activity className="w-3.5 h-3.5" /> View Status Page
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 6: Raw Inspection Data (Toggleable) */}
         <div className="border border-border bg-[#0d0d0f] rounded overflow-hidden">
           <button
             type="button"
             onClick={() => setShowRawJson(!showRawJson)}
             className="w-full border-b border-border bg-[#18181b] px-4 py-2 font-semibold text-white flex items-center justify-between cursor-pointer hover:bg-secondary transition-colors"
           >
-            <span>[05] RAW INSPECTION PAYLOAD</span>
+            <span>[06] RAW INSPECTION PAYLOAD</span>
             <span className="text-muted-foreground flex items-center gap-1 text-[11px]">
               {showRawJson ? (
                 <ChevronDown className="w-3.5 h-3.5" />
