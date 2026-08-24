@@ -143,6 +143,27 @@ export async function processSiteUptimeCheck(
         [activeIncident.id],
       );
       incidentResolved = true;
+
+      // Dispatch webhook for incident.resolved if configured
+      const target = await dbQueryMaybeOne<{ webhook_url: string | null }>(
+        `select webhook_url from public.monix_targets where id = $1::uuid limit 1`,
+        [siteId],
+      );
+      if (target?.webhook_url) {
+        const { dispatchWebhook } = await import(
+          "@/server/alerts/webhook-dispatcher"
+        );
+        await dispatchWebhook(target.webhook_url, {
+          event: "incident.resolved",
+          site: { id: siteId, url },
+          timestamp: new Date().toISOString(),
+          details: {
+            incidentId: activeIncident.id,
+            startedAt: activeIncident.started_at,
+            resolvedAt: new Date().toISOString(),
+          },
+        }).catch((err) => console.error("Webhook dispatch error:", err));
+      }
     }
   } else {
     // pingResult.status === "down"
@@ -167,14 +188,41 @@ export async function processSiteUptimeCheck(
         recentChecks.every((c) => c.status === "down");
 
       if (allFailed) {
-        await dbQueryRows(
+        const cause = pingResult.error
+          ? pingResult.error
+          : pingResult.statusCode
+            ? `HTTP ${pingResult.statusCode}`
+            : "Unknown downtime";
+
+        const newInc = await dbQueryMaybeOne<{ id: string }>(
           `
             insert into public.incidents (site_id, started_at, cause)
             values ($1::uuid, now(), $2)
+            returning id
           `,
-          [siteId, pingResult.error || "Service unavailable"],
+          [siteId, cause],
         );
         incidentCreated = true;
+
+        // Dispatch webhook for incident.started if configured
+        const target = await dbQueryMaybeOne<{ webhook_url: string | null }>(
+          `select webhook_url from public.monix_targets where id = $1::uuid limit 1`,
+          [siteId],
+        );
+        if (target?.webhook_url) {
+          const { dispatchWebhook } = await import(
+            "@/server/alerts/webhook-dispatcher"
+          );
+          await dispatchWebhook(target.webhook_url, {
+            event: "incident.started",
+            site: { id: siteId, url },
+            timestamp: new Date().toISOString(),
+            details: {
+              incidentId: newInc?.id,
+              cause,
+            },
+          }).catch((err) => console.error("Webhook dispatch error:", err));
+        }
       }
     }
   }

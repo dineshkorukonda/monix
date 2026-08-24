@@ -102,7 +102,13 @@ describe("uptime-checker", () => {
         return [] as unknown as T[];
       };
 
-      const mockQueryMaybeOne = async () => null;
+      const mockQueryMaybeOne = async <T>(text: string): Promise<T | null> => {
+        if (text.includes("insert into public.incidents")) {
+          incidentInserted = true;
+          return { id: "10" } as unknown as T;
+        }
+        return null;
+      };
 
       const res = await processSiteUptimeCheck(
         siteId,

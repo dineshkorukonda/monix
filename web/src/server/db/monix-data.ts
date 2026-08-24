@@ -120,7 +120,7 @@ export async function getTargetDetail(
     `
       select id, url, environment, gsc_property_url, gsc_analytics,
         gsc_synced_at, gsc_sync_error, public_status_page, status_slug,
-        certificate_expiry_at, cert_issuer, cert_warning_days, created_at
+        certificate_expiry_at, cert_issuer, cert_warning_days, webhook_url, created_at
       from monix_targets
       where id = $1::uuid and owner_id = $2::uuid
       limit 1
@@ -173,6 +173,7 @@ export async function getTargetDetail(
     cert_warning_days: Number(row.cert_warning_days ?? 14),
     cert_days_remaining: certDaysRemaining,
     cert_warning: certWarning,
+    webhook_url: row.webhook_url || null,
     created_at: row.created_at,
     scan_count: cntMap.get(targetId) ?? 0,
     gsc_property_url: row.gsc_property_url || null,
@@ -189,6 +190,7 @@ export async function updateTargetSettings(
     public_status_page?: boolean;
     status_slug?: string | null;
     cert_warning_days?: number;
+    webhook_url?: string | null;
   },
 ): Promise<Record<string, unknown>> {
   const updates: string[] = [];
@@ -208,6 +210,11 @@ export async function updateTargetSettings(
   if (settings.cert_warning_days !== undefined) {
     updates.push(`cert_warning_days = $${paramIdx++}`);
     params.push(Math.max(1, Number(settings.cert_warning_days)));
+  }
+
+  if (settings.webhook_url !== undefined) {
+    updates.push(`webhook_url = $${paramIdx++}`);
+    params.push(settings.webhook_url?.trim() || null);
   }
 
   if (updates.length > 0) {

@@ -119,8 +119,9 @@ export async function runCertificateExpiryChecks(dbQueryRows = queryRows) {
     id: string;
     url: string;
     cert_warning_days: number;
+    webhook_url: string | null;
   }>(`
-    select id, url, coalesce(cert_warning_days, 14) as cert_warning_days
+    select id, url, coalesce(cert_warning_days, 14) as cert_warning_days, webhook_url
     from public.monix_targets
     where owner_id is not null
   `);
@@ -145,6 +146,24 @@ export async function runCertificateExpiryChecks(dbQueryRows = queryRows) {
         `,
         [cert.expiryAt.toISOString(), cert.issuer, site.id],
       );
+
+      // Dispatch webhook for certificate warning if configured
+      if (cert.isWarning && site.webhook_url) {
+        const { dispatchWebhook } = await import(
+          "@/server/alerts/webhook-dispatcher"
+        );
+        await dispatchWebhook(site.webhook_url, {
+          event: "certificate.expiry_warning",
+          site: { id: site.id, url: site.url },
+          timestamp: new Date().toISOString(),
+          details: {
+            issuer: cert.issuer,
+            expiryAt: cert.expiryAt.toISOString(),
+            daysRemaining: cert.daysRemaining,
+            warningDaysThreshold: site.cert_warning_days,
+          },
+        }).catch((err) => console.error("Webhook dispatch error:", err));
+      }
     }
 
     results.push({

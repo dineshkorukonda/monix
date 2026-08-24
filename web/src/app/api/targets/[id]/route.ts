@@ -48,6 +48,8 @@ export async function PATCH(
     const body = (await request.json().catch(() => ({}))) as {
       public_status_page?: boolean;
       status_slug?: string | null;
+      cert_warning_days?: number;
+      webhook_url?: string | null;
     };
     const { updateTargetSettings } = await import("@/server/db/monix-data");
     const updated = await updateTargetSettings(sub, id, body);
