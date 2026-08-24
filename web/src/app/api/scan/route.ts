@@ -1,9 +1,32 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { runFullUrlAnalysis } from "@/server/analysis/analyze-url-engine";
 import { normalizeAndValidateScanUrl } from "@/server/analysis/url-validator";
+import { checkRateLimit, getClientIp } from "@/server/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request.headers);
+    const rateLimit = await checkRateLimit(ip);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          status: "error",
+          error: "Rate limit exceeded. Maximum 5 scans per hour.",
+          retry_after: rateLimit.resetSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.resetSeconds),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": String(rateLimit.remaining),
+            "X-RateLimit-Reset": String(rateLimit.resetSeconds),
+          },
+        },
+      );
+    }
+
     let body: Record<string, unknown> = {};
     try {
       body = (await request.json()) as Record<string, unknown>;
