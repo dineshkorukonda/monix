@@ -1,19 +1,13 @@
 "use client";
 
 import {
-  AlertTriangle,
   ArrowLeft,
-  ArrowRight,
   Check,
-  CheckCircle2,
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
   Copy,
   ExternalLink,
-  Gauge,
-  Search,
-  Shield,
-  XCircle,
+  Terminal,
 } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
@@ -25,12 +19,13 @@ import {
   type StoredReportResults,
 } from "@/lib/api";
 
-type CheckStatus = "pass" | "warn" | "fail";
-interface CheckItem {
-  name: string;
-  status: CheckStatus;
-  detail: string;
-  value?: string;
+type StatusType = "PASS" | "WARN" | "FAIL";
+
+interface DiagnosticRow {
+  check: string;
+  status: StatusType;
+  value: string;
+  note?: string;
 }
 
 export default function PublicReportPage({
@@ -45,11 +40,7 @@ export default function PublicReportPage({
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  // Accordion state for the 3 panels (default open)
-  const [expandedSecurity, setExpandedSecurity] = useState(true);
-  const [expandedSeo, setExpandedSeo] = useState(true);
-  const [expandedPerformance, setExpandedPerformance] = useState(true);
+  const [showRawJson, setShowRawJson] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -61,18 +52,8 @@ export default function PublicReportPage({
           setReport(data);
           setNotFound(false);
         }
-      } catch (err: unknown) {
-        if (isMounted) {
-          const status =
-            err && typeof err === "object" && "status" in err
-              ? (err as { status: number }).status
-              : 500;
-          if (status === 404) {
-            setNotFound(true);
-          } else {
-            setNotFound(true);
-          }
-        }
+      } catch {
+        if (isMounted) setNotFound(true);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -95,17 +76,17 @@ export default function PublicReportPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
+      <div className="min-h-screen bg-background text-foreground flex flex-col font-mono text-xs">
         <Navigation />
-        <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-32 pb-20 space-y-6">
-          <div className="h-6 w-32 bg-secondary animate-pulse rounded" />
-          <div className="h-14 w-3/4 bg-secondary animate-pulse rounded" />
-          <div className="h-32 w-full border border-border bg-card animate-pulse rounded" />
-          <div className="space-y-4 pt-6">
-            <div className="h-28 w-full border border-border bg-card animate-pulse rounded" />
-            <div className="h-28 w-full border border-border bg-card animate-pulse rounded" />
-            <div className="h-28 w-full border border-border bg-card animate-pulse rounded" />
+        <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-32 pb-20 space-y-4">
+          <div className="border border-border p-4 bg-secondary animate-pulse h-24" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="border border-border p-4 bg-secondary animate-pulse h-16" />
+            <div className="border border-border p-4 bg-secondary animate-pulse h-16" />
+            <div className="border border-border p-4 bg-secondary animate-pulse h-16" />
+            <div className="border border-border p-4 bg-secondary animate-pulse h-16" />
           </div>
+          <div className="border border-border p-6 bg-secondary animate-pulse h-64" />
         </main>
         <Footer />
       </div>
@@ -114,24 +95,28 @@ export default function PublicReportPage({
 
   if (notFound || !report) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
+      <div className="min-h-screen bg-background text-foreground flex flex-col font-mono">
         <Navigation />
         <main className="flex-1 max-w-2xl mx-auto w-full px-6 pt-40 pb-20 text-center space-y-6">
-          <p className="font-mono text-xs text-muted-foreground uppercase tracking-widest">
-            404 · Not Found
+          <p className="text-xs text-destructive uppercase tracking-widest">
+            [404_NOT_FOUND]
           </p>
-          <h1 className="font-serif text-4xl md:text-5xl font-medium tracking-tight">
+          <h1 className="font-serif text-3xl font-medium tracking-tight">
             Report Not Found
           </h1>
-          <p className="text-muted-foreground text-base leading-relaxed">
-            The requested scan report does not exist or may have expired.
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            The scan identifier{" "}
+            <code className="bg-secondary px-1 border border-border">
+              {slug}
+            </code>{" "}
+            does not exist or has expired.
           </p>
           <div className="pt-4">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-accent text-accent-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground text-xs font-mono font-medium hover:opacity-90"
             >
-              <ArrowLeft className="w-4 h-4" /> Run a New Scan
+              <ArrowLeft className="w-3.5 h-3.5" /> Return to Inspector
             </Link>
           </div>
         </main>
@@ -146,22 +131,22 @@ export default function PublicReportPage({
   const seoScore = results.scores?.seo ?? 0;
   const perfScore = results.scores?.performance ?? null;
 
-  // Build Security Checks
-  const secChecks: CheckItem[] = [];
+  // Build Security Rows
+  const securityRows: DiagnosticRow[] = [];
   const ssl = results.ssl_certificate;
   if (ssl) {
-    const issuerName =
+    const issuer =
       typeof ssl.issuer === "string"
         ? ssl.issuer
         : ssl.issuer?.O || ssl.issuer?.CN || "Trusted CA";
-    secChecks.push({
-      name: "TLS Certificate",
-      status: ssl.valid ? "pass" : "fail",
-      detail: ssl.valid
-        ? `Valid cert issued by ${issuerName}`
-        : `Invalid SSL/TLS certificate: ${ssl.error || "failed"}`,
-      value: ssl.expires
-        ? `Expires ${new Date(ssl.expires).toLocaleDateString()}`
+    securityRows.push({
+      check: "TLS Certificate",
+      status: ssl.valid ? "PASS" : "FAIL",
+      value: ssl.valid
+        ? `Valid (${issuer})`
+        : `Invalid: ${ssl.error || "failed"}`,
+      note: ssl.expires
+        ? `Expires ${new Date(ssl.expires).toISOString().split("T")[0]}`
         : undefined,
     });
   }
@@ -173,24 +158,12 @@ export default function PublicReportPage({
   const headerKeys = [
     {
       key: "strict-transport-security",
-      name: "HSTS Header",
-      desc: "Forces secure HTTPS connections",
+      name: "Strict-Transport-Security (HSTS)",
     },
-    {
-      key: "content-security-policy",
-      name: "Content-Security-Policy (CSP)",
-      desc: "Mitigates XSS and injection attacks",
-    },
-    {
-      key: "x-frame-options",
-      name: "X-Frame-Options",
-      desc: "Protects against clickjacking",
-    },
-    {
-      key: "x-content-type-options",
-      name: "X-Content-Type-Options",
-      desc: "Prevents MIME-sniffing",
-    },
+    { key: "content-security-policy", name: "Content-Security-Policy (CSP)" },
+    { key: "x-frame-options", name: "X-Frame-Options" },
+    { key: "x-content-type-options", name: "X-Content-Type-Options" },
+    { key: "referrer-policy", name: "Referrer-Policy" },
   ];
   for (const h of headerKeys) {
     const entry = (secHeaders as Record<string, unknown>)[h.key];
@@ -204,123 +177,137 @@ export default function PublicReportPage({
         : typeof entry === "string"
           ? entry
           : null;
-    secChecks.push({
-      name: h.name,
-      status: isPresent ? "pass" : "warn",
-      detail:
-        isPresent && val ? String(val) : `Missing ${h.key} header (${h.desc})`,
+    securityRows.push({
+      check: h.name,
+      status: isPresent ? "PASS" : "WARN",
+      value: isPresent && val ? String(val) : "NOT CONFIGURED",
+      note: isPresent ? "Active" : "Recommended",
     });
   }
 
-  // Build SEO Checks
-  const seoChecks: CheckItem[] = [];
-  const seoChecksMap = results.seo?.checks || {};
-  const entries = Object.entries(seoChecksMap);
-  if (entries.length > 0) {
-    for (const [key, check] of entries) {
-      const formattedName = key
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-      seoChecks.push({
-        name: formattedName,
-        status: check.status,
-        detail: check.detail,
+  // Build SEO Rows
+  const seoRows: DiagnosticRow[] = [];
+  const seoMap = results.seo?.checks || {};
+  const seoEntries = Object.entries(seoMap);
+  if (seoEntries.length > 0) {
+    for (const [key, check] of seoEntries) {
+      const formatted = key.replace(/_/g, " ").toUpperCase();
+      seoRows.push({
+        check: formatted,
+        status:
+          check.status === "pass"
+            ? "PASS"
+            : check.status === "warn"
+              ? "WARN"
+              : "FAIL",
+        value: check.detail,
       });
     }
   } else {
-    seoChecks.push({
-      name: "SEO Evaluation",
-      status: "pass",
-      detail: `On-page SEO signals evaluated with score ${seoScore}/100`,
+    seoRows.push({
+      check: "ON-PAGE SEO DIRECTIVES",
+      status: "PASS",
+      value: `SEO criteria passed with score ${seoScore}/100`,
     });
   }
 
-  // Build Performance Checks
-  const perfChecks: CheckItem[] = [];
+  // Build Performance Rows
+  const perfRows: DiagnosticRow[] = [];
   const mobile = results.performance?.mobile;
   if (mobile && mobile.performance_score != null) {
-    perfChecks.push({
-      name: "Mobile Performance Score",
+    perfRows.push({
+      check: "LIGHTHOUSE SCORE",
       status:
         mobile.performance_score >= 75
-          ? "pass"
+          ? "PASS"
           : mobile.performance_score >= 50
-            ? "warn"
-            : "fail",
-      detail: `Lighthouse performance: ${mobile.performance_score}/100`,
+            ? "WARN"
+            : "FAIL",
+      value: `${mobile.performance_score} / 100`,
     });
     if (mobile.lcp) {
-      perfChecks.push({
-        name: "Largest Contentful Paint (LCP)",
-        status: "pass",
-        detail: `Render timing: ${mobile.lcp}`,
+      perfRows.push({
+        check: "LARGEST CONTENTFUL PAINT (LCP)",
+        status: "PASS",
+        value: mobile.lcp,
       });
     }
     if (mobile.cls) {
-      perfChecks.push({
-        name: "Cumulative Layout Shift (CLS)",
-        status: "pass",
-        detail: `Visual stability: ${mobile.cls}`,
+      perfRows.push({
+        check: "CUMULATIVE LAYOUT SHIFT (CLS)",
+        status: "PASS",
+        value: mobile.cls,
       });
     }
     if (mobile.accessibility_score != null) {
-      perfChecks.push({
-        name: "Accessibility",
-        status: mobile.accessibility_score >= 80 ? "pass" : "warn",
-        detail: `Score: ${mobile.accessibility_score}/100`,
+      perfRows.push({
+        check: "ACCESSIBILITY",
+        status: mobile.accessibility_score >= 80 ? "PASS" : "WARN",
+        value: `${mobile.accessibility_score} / 100`,
       });
     }
   } else {
-    perfChecks.push({
-      name: "Fast Scan Mode",
-      status: "warn",
-      detail:
-        "Full PageSpeed Insights lab metrics were skipped on this fast pass.",
+    perfRows.push({
+      check: "LAB METRICS",
+      status: "WARN",
+      value: "Standard fast inspection pass (PageSpeed API bypassed)",
     });
   }
 
-  const renderStatusIcon = (status: CheckStatus) => {
-    if (status === "pass")
-      return <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />;
-    if (status === "warn")
-      return <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />;
-    return <XCircle className="w-4 h-4 text-destructive shrink-0" />;
+  const renderStatusBadge = (status: StatusType) => {
+    if (status === "PASS") {
+      return <span className="text-emerald-700 font-semibold">[PASS]</span>;
+    }
+    if (status === "WARN") {
+      return <span className="text-amber-700 font-semibold">[WARN]</span>;
+    }
+    return <span className="text-destructive font-semibold">[FAIL]</span>;
   };
 
-  const formattedDate = report.created_at
-    ? new Date(report.created_at).toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "";
+  const isoTimestamp = report.created_at
+    ? new Date(report.created_at).toISOString()
+    : new Date().toISOString();
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-[#E8E6E1] selection:text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-mono text-xs selection:bg-[#E8E6E1] selection:text-foreground">
       <Navigation />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-28 pb-20 space-y-10">
-        {/* Top Breadcrumb / Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-6 pt-24 pb-20 space-y-6">
+        {/* Terminal Inspection Header */}
+        <div className="border border-border bg-card p-4 space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+            <div className="flex items-center gap-2 text-foreground font-semibold">
+              <Terminal className="w-4 h-4 text-accent" />
+              <span>MONIX INSPECTION REPORT</span>
+              <span className="text-muted-foreground font-normal">
+                :: {slug}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-border bg-secondary hover:bg-border transition-colors text-[11px] cursor-pointer"
+              >
+                {copied ? (
+                  <Check className="w-3 h-3 text-accent" />
+                ) : (
+                  <Copy className="w-3 h-3" />
+                )}
+                {copied ? "COPIED" : "COPY LINK"}
+              </button>
               <Link
                 href="/"
-                className="hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-accent text-accent-foreground text-[11px] hover:opacity-90 transition-opacity"
               >
-                Monix
+                NEW SCAN
               </Link>
-              <span>/</span>
-              <span>Report</span>
-              <span>/</span>
-              <span className="text-foreground">{slug}</span>
             </div>
-            <div className="flex items-center gap-3">
-              <h1 className="font-mono text-xl sm:text-2xl font-semibold tracking-tight text-foreground break-all">
-                {report.url}
-              </h1>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 text-muted-foreground pt-1">
+            <div className="flex items-center gap-2">
+              <span>TARGET_URL:</span>
               <a
                 href={
                   report.url.startsWith("http")
@@ -329,266 +316,189 @@ export default function PublicReportPage({
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                className="text-foreground hover:underline inline-flex items-center gap-1"
               >
-                <ExternalLink className="w-4 h-4" />
+                {report.url}
+                <ExternalLink className="w-3 h-3" />
               </a>
             </div>
-            {formattedDate && (
-              <p className="text-xs font-mono text-muted-foreground">
-                Scanned on {formattedDate}
-              </p>
-            )}
+            <div className="flex items-center gap-2">
+              <span>TIMESTAMP :</span>
+              <span className="text-foreground">{isoTimestamp}</span>
+            </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="inline-flex items-center gap-2 px-3.5 py-2 border border-border bg-card text-xs font-mono text-foreground hover:bg-secondary transition-colors"
-            >
-              {copied ? (
-                <Check className="w-3.5 h-3.5 text-accent" />
+        {/* Dense Score Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="border border-border bg-card p-3 flex flex-col justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase">
+              OVERALL SCORE
+            </span>
+            <div className="text-xl font-bold text-foreground mt-1">
+              {overallScore}{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                / 100
+              </span>
+            </div>
+          </div>
+          <div className="border border-border bg-card p-3 flex flex-col justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase">
+              SECURITY
+            </span>
+            <div className="text-xl font-bold text-foreground mt-1">
+              {secScore}{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                / 100
+              </span>
+            </div>
+          </div>
+          <div className="border border-border bg-card p-3 flex flex-col justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase">
+              SEO HYGIENE
+            </span>
+            <div className="text-xl font-bold text-foreground mt-1">
+              {seoScore}{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                / 100
+              </span>
+            </div>
+          </div>
+          <div className="border border-border bg-card p-3 flex flex-col justify-between">
+            <span className="text-[10px] text-muted-foreground uppercase">
+              PERFORMANCE
+            </span>
+            <div className="text-xl font-bold text-foreground mt-1">
+              {perfScore != null ? perfScore : "FAST"}{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                / 100
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 1: Security Posture */}
+        <div className="border border-border bg-card">
+          <div className="border-b border-border bg-secondary/50 px-4 py-2 font-semibold text-foreground flex items-center justify-between">
+            <span>[01] SECURITY &amp; HEADERS DIAGNOSTICS</span>
+            <span>SCORE: {secScore}/100</span>
+          </div>
+          <div className="divide-y divide-border">
+            {securityRows.map((row) => (
+              <div
+                key={row.check}
+                className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+              >
+                <div className="flex items-start sm:items-center gap-3">
+                  {renderStatusBadge(row.status)}
+                  <span className="font-semibold text-foreground">
+                    {row.check}
+                  </span>
+                </div>
+                <div className="text-muted-foreground text-right overflow-x-auto max-w-xl truncate">
+                  <span className="text-foreground">{row.value}</span>
+                  {row.note && (
+                    <span className="text-muted-foreground ml-2">
+                      ({row.note})
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 2: SEO & Discoverability */}
+        <div className="border border-border bg-card">
+          <div className="border-b border-border bg-secondary/50 px-4 py-2 font-semibold text-foreground flex items-center justify-between">
+            <span>[02] SEO DIRECTIVES &amp; DISCOVERABILITY</span>
+            <span>SCORE: {seoScore}/100</span>
+          </div>
+          <div className="divide-y divide-border">
+            {seoRows.map((row) => (
+              <div
+                key={row.check}
+                className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+              >
+                <div className="flex items-start sm:items-center gap-3">
+                  {renderStatusBadge(row.status)}
+                  <span className="font-semibold text-foreground">
+                    {row.check}
+                  </span>
+                </div>
+                <div className="text-muted-foreground text-right overflow-x-auto max-w-xl truncate">
+                  <span className="text-foreground">{row.value}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 3: Performance & Core Web Vitals */}
+        <div className="border border-border bg-card">
+          <div className="border-b border-border bg-secondary/50 px-4 py-2 font-semibold text-foreground flex items-center justify-between">
+            <span>[03] PERFORMANCE &amp; CORE WEB VITALS</span>
+            <span>
+              SCORE: {perfScore != null ? `${perfScore}/100` : "FAST PASS"}
+            </span>
+          </div>
+          <div className="divide-y divide-border">
+            {perfRows.map((row) => (
+              <div
+                key={row.check}
+                className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+              >
+                <div className="flex items-start sm:items-center gap-3">
+                  {renderStatusBadge(row.status)}
+                  <span className="font-semibold text-foreground">
+                    {row.check}
+                  </span>
+                </div>
+                <div className="text-muted-foreground text-right">
+                  <span className="text-foreground">{row.value}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 4: Raw Inspection Data (Toggleable) */}
+        <div className="border border-border bg-card">
+          <button
+            type="button"
+            onClick={() => setShowRawJson(!showRawJson)}
+            className="w-full border-b border-border bg-secondary/50 px-4 py-2 font-semibold text-foreground flex items-center justify-between cursor-pointer hover:bg-secondary transition-colors"
+          >
+            <span>[04] RAW INSPECTION PAYLOAD</span>
+            <span className="text-muted-foreground flex items-center gap-1">
+              {showRawJson ? (
+                <ChevronDown className="w-3.5 h-3.5" />
               ) : (
-                <Copy className="w-3.5 h-3.5" />
+                <ChevronRight className="w-3.5 h-3.5" />
               )}
-              {copied ? "Link Copied" : "Share Report"}
-            </button>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-accent text-accent-foreground text-xs font-mono hover:opacity-90 transition-opacity"
-            >
-              New Scan
-            </Link>
-          </div>
+              {showRawJson ? "COLLAPSE" : "EXPAND JSON"}
+            </span>
+          </button>
+          {showRawJson && (
+            <div className="p-4 bg-background overflow-x-auto max-h-96 text-[11px] leading-relaxed">
+              <pre className="text-muted-foreground">
+                {JSON.stringify(results, null, 2)}
+              </pre>
+            </div>
+          )}
         </div>
 
-        {/* Overall Score Highlight */}
-        <div className="border border-border bg-card p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <span className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-              Overall Evaluation
-            </span>
-            <h2 className="font-serif text-3xl font-medium">
-              Diagnostic Summary
-            </h2>
-            <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
-              Calculated across security compliance, search discoverability
-              signals, and baseline performance metrics.
-            </p>
-          </div>
-          <div className="flex items-baseline gap-2 bg-secondary px-6 py-4 border border-border">
-            <span className="font-mono text-4xl sm:text-5xl font-bold tracking-tight text-foreground">
-              {overallScore}
-            </span>
-            <span className="font-mono text-sm text-muted-foreground">
-              / 100
-            </span>
-          </div>
-        </div>
-
-        {/* 3 Flat Scored Panels */}
-        <div className="space-y-6">
-          {/* 1. Security Panel */}
-          <div className="border border-border bg-card">
-            <button
-              type="button"
-              onClick={() => setExpandedSecurity(!expandedSecurity)}
-              className="w-full p-6 flex items-center justify-between hover:bg-secondary/40 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5 text-accent" />
-                <div>
-                  <h3 className="font-serif text-xl font-medium">
-                    Security Posture
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    TLS chain, security headers, host exposures
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="font-mono text-lg font-semibold">
-                  {secScore}/100
-                </span>
-                {expandedSecurity ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </div>
-            </button>
-
-            {expandedSecurity && (
-              <div className="border-t border-border p-6 bg-background">
-                <div className="divide-y divide-border">
-                  {secChecks.map((c) => (
-                    <div
-                      key={c.name}
-                      className="py-3 flex items-start justify-between gap-4 text-sm"
-                    >
-                      <div className="flex items-start gap-2.5">
-                        {renderStatusIcon(c.status)}
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {c.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                            {c.detail}
-                          </p>
-                        </div>
-                      </div>
-                      {c.value && (
-                        <span className="font-mono text-xs text-muted-foreground shrink-0">
-                          {c.value}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 2. SEO Panel */}
-          <div className="border border-border bg-card">
-            <button
-              type="button"
-              onClick={() => setExpandedSeo(!expandedSeo)}
-              className="w-full p-6 flex items-center justify-between hover:bg-secondary/40 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3">
-                <Search className="w-5 h-5 text-accent" />
-                <div>
-                  <h3 className="font-serif text-xl font-medium">
-                    SEO & Discoverability
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Meta hygiene, structured directives, crawlability
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="font-mono text-lg font-semibold">
-                  {seoScore}/100
-                </span>
-                {expandedSeo ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </div>
-            </button>
-
-            {expandedSeo && (
-              <div className="border-t border-border p-6 bg-background">
-                <div className="divide-y divide-border">
-                  {seoChecks.map((c) => (
-                    <div
-                      key={c.name}
-                      className="py-3 flex items-start justify-between gap-4 text-sm"
-                    >
-                      <div className="flex items-start gap-2.5">
-                        {renderStatusIcon(c.status)}
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {c.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                            {c.detail}
-                          </p>
-                        </div>
-                      </div>
-                      {c.value && (
-                        <span className="font-mono text-xs text-muted-foreground shrink-0">
-                          {c.value}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 3. Performance Panel */}
-          <div className="border border-border bg-card">
-            <button
-              type="button"
-              onClick={() => setExpandedPerformance(!expandedPerformance)}
-              className="w-full p-6 flex items-center justify-between hover:bg-secondary/40 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3">
-                <Gauge className="w-5 h-5 text-accent" />
-                <div>
-                  <h3 className="font-serif text-xl font-medium">
-                    Performance Signals
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Core Web Vitals and speed indicators
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="font-mono text-lg font-semibold">
-                  {perfScore != null ? `${perfScore}/100` : "Fast Scan"}
-                </span>
-                {expandedPerformance ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </div>
-            </button>
-
-            {expandedPerformance && (
-              <div className="border-t border-border p-6 bg-background">
-                <div className="divide-y divide-border">
-                  {perfChecks.map((c) => (
-                    <div
-                      key={c.name}
-                      className="py-3 flex items-start justify-between gap-4 text-sm"
-                    >
-                      <div className="flex items-start gap-2.5">
-                        {renderStatusIcon(c.status)}
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {c.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                            {c.detail}
-                          </p>
-                        </div>
-                      </div>
-                      {c.value && (
-                        <span className="font-mono text-xs text-muted-foreground shrink-0">
-                          {c.value}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Soft, Non-Blocking Sign-In Prompt */}
-        <div className="border border-border bg-secondary/40 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <p className="font-serif text-lg font-medium text-foreground">
-              Track this site over time
-            </p>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Sign in to save this URL to your dashboard, monitor recurring
-              scans, and view historical trend graphs.
-            </p>
-          </div>
+        {/* Non-blocking Soft Monitoring Nudge */}
+        <div className="border border-border bg-secondary/30 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-muted-foreground">
+          <span>
+            [TIP] Need automated recurring health scans and Search Console
+            tracking?
+          </span>
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-card text-xs font-mono font-medium text-foreground hover:bg-secondary transition-colors shrink-0"
+            className="text-foreground hover:text-accent font-semibold underline underline-offset-2 shrink-0"
           >
-            Sign in <ArrowRight className="w-3.5 h-3.5" />
+            Sign in to save site →
           </Link>
         </div>
       </main>
