@@ -548,6 +548,40 @@ export async function getReport(
 }
 
 /**
+ * Get a public report by its public_slug without authentication.
+ */
+export async function getReportBySlug(
+  slug: string,
+  options?: CachedRequestOptions,
+): Promise<ScanReport> {
+  return cachedRequest(
+    `public_report:${slug}`,
+    async () => {
+      const response = await fetch(
+        `${monixApiBase()}/api/r/${encodeURIComponent(slug)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ApiError(
+          errorData.error || `Failed to fetch report: ${response.statusText}`,
+          response.status,
+        );
+      }
+
+      return response.json();
+    },
+    { ttlMs: 30_000, ...options },
+  );
+}
+
+/**
  * Check API health status.
  */
 export async function checkHealth(): Promise<{
