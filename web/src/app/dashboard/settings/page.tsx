@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronRight, Plug } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
@@ -96,6 +98,48 @@ export default function SettingsPage() {
                   <option>English (UK)</option>
                   <option>Spanish (ES)</option>
                 </select>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Integrations Block */}
+        <div className="grid gap-4">
+          <Card className="bg-card border-border shadow-sm">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Plug className="w-5 h-5 text-accent" />
+                  Connected Integrations
+                </CardTitle>
+                <Button asChild size="sm" variant="outline" className="text-xs">
+                  <Link href="/dashboard/integrations">
+                    Manage Integrations{" "}
+                    <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Integrations are optional enhancements. Once you have added
+                monitored sites to your account, connect Google Search Console
+                for search query analytics and Cloudflare for edge traffic
+                metrics.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Link
+                  href="/dashboard/integrations"
+                  className="px-3.5 py-2 rounded-md border border-border bg-secondary/50 text-xs font-medium hover:bg-secondary transition-colors"
+                >
+                  Google Search Console
+                </Link>
+                <Link
+                  href="/dashboard/integrations/cloudflare"
+                  className="px-3.5 py-2 rounded-md border border-border bg-secondary/50 text-xs font-medium hover:bg-secondary transition-colors"
+                >
+                  Cloudflare API
+                </Link>
               </div>
             </CardContent>
           </Card>
