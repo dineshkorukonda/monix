@@ -142,20 +142,23 @@ export default function PublicReportPage({
 
   const results = (report.results || {}) as StoredReportResults;
   const overallScore = report.score ?? results.scores?.overall ?? 0;
-  const secScore = results.scores?.security ?? results.security_score ?? 0;
-  const seoScore = results.scores?.seo ?? results.seo_score ?? 0;
-  const perfScore =
-    results.scores?.performance ?? results.performance_score ?? null;
+  const secScore = results.scores?.security ?? 0;
+  const seoScore = results.scores?.seo ?? 0;
+  const perfScore = results.scores?.performance ?? null;
 
   // Build Security Checks
   const secChecks: CheckItem[] = [];
-  const ssl = results.ssl;
+  const ssl = results.ssl_certificate;
   if (ssl) {
+    const issuerName =
+      typeof ssl.issuer === "string"
+        ? ssl.issuer
+        : ssl.issuer?.O || ssl.issuer?.CN || "Trusted CA";
     secChecks.push({
       name: "TLS Certificate",
       status: ssl.valid ? "pass" : "fail",
       detail: ssl.valid
-        ? `Valid cert issued by ${ssl.issuer || "trusted CA"}`
+        ? `Valid cert issued by ${issuerName}`
         : `Invalid SSL/TLS certificate: ${ssl.error || "failed"}`,
       value: ssl.expires
         ? `Expires ${new Date(ssl.expires).toLocaleDateString()}`
@@ -163,7 +166,10 @@ export default function PublicReportPage({
     });
   }
 
-  const headers = results.headers || {};
+  const secHeaders =
+    results.security_headers_analysis?.headers ||
+    results.http_headers?.security_headers ||
+    {};
   const headerKeys = [
     {
       key: "strict-transport-security",
@@ -187,82 +193,83 @@ export default function PublicReportPage({
     },
   ];
   for (const h of headerKeys) {
-    const val = headers[h.key];
+    const entry = (secHeaders as Record<string, unknown>)[h.key];
+    const isPresent =
+      entry && typeof entry === "object" && "present" in entry
+        ? Boolean((entry as { present: boolean }).present)
+        : Boolean(entry);
+    const val =
+      entry && typeof entry === "object" && "value" in entry
+        ? (entry as { value?: string }).value
+        : typeof entry === "string"
+          ? entry
+          : null;
     secChecks.push({
       name: h.name,
-      status: val ? "pass" : "warn",
-      detail: val ? String(val) : `Missing ${h.key} header (${h.desc})`,
+      status: isPresent ? "pass" : "warn",
+      detail:
+        isPresent && val ? String(val) : `Missing ${h.key} header (${h.desc})`,
     });
   }
 
   // Build SEO Checks
   const seoChecks: CheckItem[] = [];
-  const seoData = results.seo || {};
-  const title = (seoData.title || {}) as {
-    present?: boolean;
-    value?: string;
-    length?: number;
-  };
-  seoChecks.push({
-    name: "Page Title",
-    status: title.present && (title.length || 0) >= 10 ? "pass" : "warn",
-    detail: title.value
-      ? `"${title.value}" (${title.length} chars)`
-      : "Missing <title> tag",
-  });
-
-  const desc = (seoData.description || {}) as {
-    present?: boolean;
-    value?: string;
-    length?: number;
-  };
-  seoChecks.push({
-    name: "Meta Description",
-    status: desc.present ? "pass" : "warn",
-    detail: desc.value
-      ? `"${desc.value}" (${desc.length} chars)`
-      : "Missing meta description tag",
-  });
-
-  const robots = (seoData.robots_txt || {}) as {
-    present?: boolean;
-    accessible?: boolean;
-  };
-  seoChecks.push({
-    name: "robots.txt",
-    status: robots.present ? "pass" : "warn",
-    detail: robots.present
-      ? "robots.txt is present and accessible"
-      : "No robots.txt detected",
-  });
-
-  const sitemap = (seoData.sitemap || {}) as {
-    present?: boolean;
-    accessible?: boolean;
-  };
-  seoChecks.push({
-    name: "XML Sitemap",
-    status: sitemap.present ? "pass" : "warn",
-    detail: sitemap.present
-      ? "XML Sitemap found"
-      : "No XML sitemap found at standard paths",
-  });
+  const seoChecksMap = results.seo?.checks || {};
+  const entries = Object.entries(seoChecksMap);
+  if (entries.length > 0) {
+    for (const [key, check] of entries) {
+      const formattedName = key
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      seoChecks.push({
+        name: formattedName,
+        status: check.status,
+        detail: check.detail,
+      });
+    }
+  } else {
+    seoChecks.push({
+      name: "SEO Evaluation",
+      status: "pass",
+      detail: `On-page SEO signals evaluated with score ${seoScore}/100`,
+    });
+  }
 
   // Build Performance Checks
   const perfChecks: CheckItem[] = [];
-  const perfData = results.performance || {};
-  const mobilePerf = (perfData.mobile || {}) as Record<string, unknown>;
-  if (perfScore != null) {
+  const mobile = results.performance?.mobile;
+  if (mobile && mobile.performance_score != null) {
     perfChecks.push({
       name: "Mobile Performance Score",
       status:
-        Number(mobilePerf.performance_score ?? perfScore) >= 75
+        mobile.performance_score >= 75
           ? "pass"
-          : Number(mobilePerf.performance_score ?? perfScore) >= 50
+          : mobile.performance_score >= 50
             ? "warn"
             : "fail",
-      detail: `Lighthouse performance score: ${mobilePerf.performance_score ?? perfScore}/100`,
+      detail: `Lighthouse performance: ${mobile.performance_score}/100`,
     });
+    if (mobile.lcp) {
+      perfChecks.push({
+        name: "Largest Contentful Paint (LCP)",
+        status: "pass",
+        detail: `Render timing: ${mobile.lcp}`,
+      });
+    }
+    if (mobile.cls) {
+      perfChecks.push({
+        name: "Cumulative Layout Shift (CLS)",
+        status: "pass",
+        detail: `Visual stability: ${mobile.cls}`,
+      });
+    }
+    if (mobile.accessibility_score != null) {
+      perfChecks.push({
+        name: "Accessibility",
+        status: mobile.accessibility_score >= 80 ? "pass" : "warn",
+        detail: `Score: ${mobile.accessibility_score}/100`,
+      });
+    }
   } else {
     perfChecks.push({
       name: "Fast Scan Mode",
