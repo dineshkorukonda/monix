@@ -239,6 +239,12 @@ export interface WebSecurityAnalysis {
   scores?: ScoreBreakdown;
   seo?: SeoResults;
   performance?: PerformanceResults;
+  subdomains?: Array<{
+    subdomain: string;
+    ips: string[];
+    isLive: boolean;
+    httpStatus: number | null;
+  }>;
   /** Present when the scan was persisted (Flask `save_scan`). */
   report_id?: string;
   report_url?: string;

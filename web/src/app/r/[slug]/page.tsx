@@ -460,14 +460,71 @@ export default function PublicReportPage({
           </div>
         </div>
 
-        {/* Section 4: Raw Inspection Data (Toggleable) */}
+        {/* Section 4: Subdomains Discovery */}
+        <div className="border border-border bg-[#0d0d0f] rounded overflow-hidden">
+          <div className="border-b border-border bg-[#18181b] px-4 py-2 font-semibold text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>[04] SUBDOMAINS DISCOVERY</span>
+              <span className="text-[10px] text-muted-foreground font-normal">
+                (Powered by subchk)
+              </span>
+            </div>
+            <span className="text-[#00ff66]">
+              {results.subdomains?.length ?? 0} FOUND
+            </span>
+          </div>
+          {!results.subdomains || results.subdomains.length === 0 ? (
+            <div className="p-4 text-muted-foreground text-xs">
+              No public subdomains enumerated for this host.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {results.subdomains.map((sub) => (
+                <div
+                  key={sub.subdomain}
+                  className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                >
+                  <div className="flex items-start sm:items-center gap-3">
+                    {sub.isLive ? (
+                      <span className="text-[#00ff66] font-semibold font-mono">
+                        [LIVE]
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground font-semibold font-mono">
+                        [DNS]
+                      </span>
+                    )}
+                    <span className="font-medium text-white">
+                      {sub.subdomain}
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground sm:text-right flex items-center gap-3">
+                    {sub.ips && sub.ips.length > 0 && (
+                      <span className="text-[11px] font-mono">
+                        {sub.ips.slice(0, 2).join(", ")}
+                        {sub.ips.length > 2 ? "..." : ""}
+                      </span>
+                    )}
+                    {sub.httpStatus != null && (
+                      <span className="px-1.5 py-0.5 border border-border bg-[#18181b] rounded text-[10px] text-foreground font-mono">
+                        HTTP {sub.httpStatus}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Section 5: Raw Inspection Data (Toggleable) */}
         <div className="border border-border bg-[#0d0d0f] rounded overflow-hidden">
           <button
             type="button"
             onClick={() => setShowRawJson(!showRawJson)}
             className="w-full border-b border-border bg-[#18181b] px-4 py-2 font-semibold text-white flex items-center justify-between cursor-pointer hover:bg-secondary transition-colors"
           >
-            <span>[04] RAW INSPECTION PAYLOAD</span>
+            <span>[05] RAW INSPECTION PAYLOAD</span>
             <span className="text-muted-foreground flex items-center gap-1 text-[11px]">
               {showRawJson ? (
                 <ChevronDown className="w-3.5 h-3.5" />
