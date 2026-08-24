@@ -57,11 +57,13 @@ export default function DocsPage() {
                 Monix Technical Reference
               </span>
               <h1 className="font-serif text-4xl sm:text-5xl font-medium tracking-tight text-foreground">
-                Architecture &amp; Inspection Pipeline
+                Architecture & Documentation
               </h1>
               <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-3xl">
-                Monix is a standalone, unauthenticated website diagnostic
-                platform built with Next.js 16, TypeScript, and Bun.
+                Monix is an open website diagnostic platform built with Next.js
+                16, TypeScript, and Bun. It combines a public inspection engine,
+                uptime monitoring, status pages, TLS certificate tracking,
+                webhook alerting, and native subdomain enumeration.
               </p>
             </header>
 
@@ -71,10 +73,11 @@ export default function DocsPage() {
                 Overview
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                Monix operates as a direct inspection utility: input any public
-                URL to execute parallel diagnostic checks across Security
-                posture, SEO directives, and performance indicators without any
-                login wall.
+                Monix works as a direct inspection and monitoring utility. Scan
+                any public URL instantly — no login wall, no account required.
+                For registered targets, Monix continuously monitors uptime,
+                tracks TLS certificate expiry, discovers subdomains, and fires
+                webhook alerts when incidents occur.
               </p>
             </section>
 
@@ -480,7 +483,7 @@ Authorization: Bearer <token>`}</pre>
                 Database Setup
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                All Phase 2 features require new tables and columns. Run these
+                Monix uses PostgreSQL for all persistence. Run the following
                 migrations in order via your Supabase SQL Editor or{" "}
                 <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
                   psql
@@ -488,7 +491,8 @@ Authorization: Bearer <token>`}</pre>
                 :
               </p>
               <div className="border border-border bg-card p-4 font-mono text-xs text-foreground overflow-x-auto">
-                <pre>{`psql $DATABASE_URL -f web/sql/003_uptime_and_incidents.sql
+                <pre>{`psql $DATABASE_URL -f web/sql/init.sql
+psql $DATABASE_URL -f web/sql/003_uptime_and_incidents.sql
 psql $DATABASE_URL -f web/sql/004_status_page_toggle.sql
 psql $DATABASE_URL -f web/sql/005_certificate_expiry.sql
 psql $DATABASE_URL -f web/sql/006_webhook_alerts.sql
