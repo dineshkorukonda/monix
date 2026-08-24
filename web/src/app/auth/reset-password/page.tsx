@@ -8,7 +8,7 @@ import { confirmPasswordReset } from "@/lib/api";
 import { describeAuthError } from "@/lib/auth-errors";
 
 const fieldClassName =
-  "w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
+  "w-full rounded-sm border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none transition-colors";
 
 /**
  * Landing page for Monix password recovery links.
@@ -49,14 +49,14 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthShell>
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold tracking-tight text-white">
+      <div className="space-y-1.5">
+        <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight text-foreground">
           Set a new password
         </h1>
-        <p className="text-sm text-zinc-500">
+        <p className="text-xs sm:text-sm text-muted-foreground">
           {ready
             ? "Choose a new password for your account."
-            : "Open the reset link from your email on this device. If you already did, wait a moment."}
+            : "Open the reset link from your email on this device."}
         </p>
       </div>
 
@@ -75,7 +75,7 @@ export default function ResetPasswordPage() {
         />
 
         {error ? (
-          <p className="rounded-md border border-red-900/50 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+          <p className="rounded-sm border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive font-mono">
             {error}
           </p>
         ) : null}
@@ -83,16 +83,16 @@ export default function ResetPasswordPage() {
         <button
           type="submit"
           disabled={!ready || submitting}
-          className="w-full rounded-md bg-white py-2.5 text-sm font-medium text-zinc-950 shadow-sm hover:bg-zinc-100 transition-colors disabled:opacity-50"
+          className="w-full rounded-sm bg-accent py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-50 cursor-pointer"
         >
           {submitting ? "Saving…" : "Update password"}
         </button>
       </form>
 
-      <p className="text-center text-sm text-zinc-500">
+      <p className="text-center text-xs sm:text-sm text-muted-foreground pt-2 border-t border-border">
         <Link
           href="/login"
-          className="font-medium text-zinc-300 hover:text-white transition-colors"
+          className="font-medium text-foreground hover:text-accent transition-colors"
         >
           Back to sign in
         </Link>
