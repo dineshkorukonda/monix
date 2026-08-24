@@ -119,7 +119,7 @@ export async function getTargetDetail(
   const row = await queryMaybeOne<Record<string, unknown>>(
     `
       select id, url, environment, gsc_property_url, gsc_analytics,
-        gsc_synced_at, gsc_sync_error, created_at
+        gsc_synced_at, gsc_sync_error, public_status_page, status_slug, created_at
       from monix_targets
       where id = $1::uuid and owner_id = $2::uuid
       limit 1
@@ -155,6 +155,8 @@ export async function getTargetDetail(
       : null,
     score,
     latest_report_id: latest?.report_id ? String(latest.report_id) : null,
+    public_status_page: Boolean(row.public_status_page),
+    status_slug: row.status_slug || null,
     created_at: row.created_at,
     scan_count: cntMap.get(targetId) ?? 0,
     gsc_property_url: row.gsc_property_url || null,
@@ -162,6 +164,42 @@ export async function getTargetDetail(
     gsc_synced_at: row.gsc_synced_at ?? null,
     gsc_sync_error: row.gsc_sync_error || null,
   };
+}
+
+export async function updateTargetSettings(
+  userId: string,
+  targetId: string,
+  settings: {
+    public_status_page?: boolean;
+    status_slug?: string | null;
+  },
+): Promise<Record<string, unknown>> {
+  const updates: string[] = [];
+  const params: unknown[] = [targetId, userId];
+  let paramIdx = 3;
+
+  if (settings.public_status_page !== undefined) {
+    updates.push(`public_status_page = $${paramIdx++}`);
+    params.push(settings.public_status_page);
+  }
+
+  if (settings.status_slug !== undefined) {
+    updates.push(`status_slug = $${paramIdx++}`);
+    params.push(settings.status_slug?.trim() || null);
+  }
+
+  if (updates.length > 0) {
+    await queryRows(
+      `
+        update monix_targets
+        set ${updates.join(", ")}
+        where id = $1::uuid and owner_id = $2::uuid
+      `,
+      params,
+    );
+  }
+
+  return getTargetDetail(userId, targetId);
 }
 
 export async function createTargetForUser(

@@ -36,3 +36,23 @@ export async function DELETE(
     return handleRouteError(error);
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { token } = await requireMonixAuth(request);
+    const sub = await requireUserSub(token);
+    const { id } = await ctx.params;
+    const body = (await request.json().catch(() => ({}))) as {
+      public_status_page?: boolean;
+      status_slug?: string | null;
+    };
+    const { updateTargetSettings } = await import("@/server/db/monix-data");
+    const updated = await updateTargetSettings(sub, id, body);
+    return NextResponse.json(updated);
+  } catch (error) {
+    return handleRouteError(error);
+  }
+}
