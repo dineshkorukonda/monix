@@ -9,6 +9,12 @@ const nav = [
   { id: "inspection-pipeline", title: "Inspection Pipeline" },
   { id: "rate-limiting", title: "Rate Limiting" },
   { id: "reports-persistence", title: "Reports & Persistence" },
+  { id: "uptime-monitoring", title: "Uptime Monitoring" },
+  { id: "status-pages", title: "Public Status Pages" },
+  { id: "certificate-tracking", title: "Certificate Tracking" },
+  { id: "webhooks", title: "Webhook Alerting" },
+  { id: "subdomain-enumeration", title: "Subdomain Enumeration" },
+  { id: "database-setup", title: "Database Setup" },
   { id: "local-dev", title: "Local Development" },
 ] as const;
 
@@ -215,6 +221,286 @@ export default function DocsPage() {
                 <p className="text-muted-foreground"># Run linter</p>
                 <p className="text-foreground">bun run lint</p>
               </div>
+            </section>
+
+            {/* Uptime Monitoring */}
+            <section id="uptime-monitoring" className="scroll-mt-28 space-y-4">
+              <h2 className="font-serif text-2xl font-medium text-foreground">
+                Uptime Monitoring
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                Monix automatically pings all registered targets via{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  POST /api/cron/uptime
+                </code>
+                . Configure this as a Vercel Cron Job running{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  */5 * * * *
+                </code>{" "}
+                (every 5 minutes).
+              </p>
+              <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed list-disc list-outside ml-5">
+                <li>
+                  <strong className="text-foreground">
+                    2 consecutive failure threshold
+                  </strong>
+                  : A single failed check does not trigger an incident. Two
+                  back-to-back failures open a new incident record.
+                </li>
+                <li>
+                  <strong className="text-foreground">Auto-resolution</strong>:
+                  When a target returns healthy, the active incident is
+                  automatically closed with a duration timestamp.
+                </li>
+                <li>
+                  Data is stored in{" "}
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    public.uptime_checks
+                  </code>{" "}
+                  and{" "}
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    public.incidents
+                  </code>{" "}
+                  — apply migration{" "}
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    003_uptime_and_incidents.sql
+                  </code>
+                  .
+                </li>
+              </ul>
+            </section>
+
+            {/* Public Status Pages */}
+            <section id="status-pages" className="scroll-mt-28 space-y-4">
+              <h2 className="font-serif text-2xl font-medium text-foreground">
+                Public Status Pages
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                Each target can have a public status page at{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  /status/[slug]
+                </code>
+                . Enable it by sending a{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  PATCH
+                </code>{" "}
+                request:
+              </p>
+              <div className="border border-border bg-card p-4 font-mono text-xs text-foreground overflow-x-auto">
+                <pre>{`PATCH /api/targets/<target-id>
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "public_status_page": true,
+  "status_slug": "my-api"
+}`}</pre>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                The status page is publicly accessible — no login required.
+                Setting{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  public_status_page: false
+                </code>{" "}
+                returns a 404 to all visitors. Requires migration{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  004_status_page_toggle.sql
+                </code>
+                .
+              </p>
+            </section>
+
+            {/* Certificate Tracking */}
+            <section
+              id="certificate-tracking"
+              className="scroll-mt-28 space-y-4"
+            >
+              <h2 className="font-serif text-2xl font-medium text-foreground">
+                Certificate Tracking
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                A nightly cron at{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  POST /api/cron/certificates
+                </code>{" "}
+                (schedule:{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  0 2 * * *
+                </code>
+                ) inspects TLS certificates for all HTTPS targets. It records
+                the expiry date, issuer name, and fires a webhook alert when
+                within the warning window.
+              </p>
+              <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed list-disc list-outside ml-5">
+                <li>
+                  Default warning threshold:{" "}
+                  <strong className="text-foreground">14 days</strong> before
+                  expiry. Configurable per target via{" "}
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    cert_warning_days
+                  </code>
+                  .
+                </li>
+                <li>
+                  Requires migration{" "}
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    005_certificate_expiry.sql
+                  </code>
+                  .
+                </li>
+              </ul>
+            </section>
+
+            {/* Webhook Alerting */}
+            <section id="webhooks" className="scroll-mt-28 space-y-4">
+              <h2 className="font-serif text-2xl font-medium text-foreground">
+                Webhook Alerting
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                Set a webhook URL on any target and Monix will POST a JSON
+                payload when critical events occur. Configure via{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  PATCH /api/targets/&lt;id&gt;
+                </code>{" "}
+                with{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  {`{ "webhook_url": "https://..." }`}
+                </code>
+                .
+              </p>
+              <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed list-disc list-outside ml-5">
+                <li>
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    incident.started
+                  </code>{" "}
+                  — fired when 2 consecutive checks fail.
+                </li>
+                <li>
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    incident.resolved
+                  </code>{" "}
+                  — fired when a downed target returns healthy.
+                </li>
+                <li>
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    certificate.expiry_warning
+                  </code>{" "}
+                  — fired when cert enters the expiry warning window.
+                </li>
+                <li>
+                  5-second timeout, automatic 1× retry on non-2xx or connection
+                  failure. Full payload reference at{" "}
+                  <a
+                    href="/docs/webhooks"
+                    className="text-[#00ff66] hover:underline font-mono"
+                  >
+                    /docs/webhooks
+                  </a>
+                  .
+                </li>
+              </ul>
+              <p className="text-sm text-muted-foreground">
+                Requires migration{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  006_webhook_alerts.sql
+                </code>
+                .
+              </p>
+            </section>
+
+            {/* Subdomain Enumeration */}
+            <section
+              id="subdomain-enumeration"
+              className="scroll-mt-28 space-y-4"
+            >
+              <h2 className="font-serif text-2xl font-medium text-foreground">
+                Subdomain Enumeration
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                Monix discovers subdomains for any target using a native
+                TypeScript pipeline — no external binaries required.
+              </p>
+              <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed list-disc list-outside ml-5">
+                <li>
+                  <strong className="text-foreground">
+                    Passive CT log lookup
+                  </strong>
+                  : Queries{" "}
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    crt.sh
+                  </code>{" "}
+                  Certificate Transparency logs to find all registered
+                  subdomains.
+                </li>
+                <li>
+                  <strong className="text-foreground">
+                    Wildcard DNS detection
+                  </strong>
+                  : Tests a random non-existent subdomain to detect wildcard
+                  DNS, preventing false positives.
+                </li>
+                <li>
+                  <strong className="text-foreground">
+                    Active liveness probing
+                  </strong>
+                  : Resolves IPv4 via{" "}
+                  <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                    node:dns
+                  </code>{" "}
+                  and issues HTTP HEAD requests to determine live status and
+                  HTTP status code.
+                </li>
+              </ul>
+              <div className="border border-border bg-card p-4 font-mono text-xs text-foreground overflow-x-auto">
+                <pre>{`# Trigger a scan
+POST /api/targets/<target-id>/subdomains
+Authorization: Bearer <token>
+
+# List stored results
+GET /api/targets/<target-id>/subdomains
+Authorization: Bearer <token>`}</pre>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Results are displayed on the public report page at{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  /r/[slug]
+                </code>{" "}
+                with live/DNS badges, IP addresses, and HTTP status codes.
+                Requires migration{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  007_subdomains.sql
+                </code>
+                .
+              </p>
+            </section>
+
+            {/* Database Setup */}
+            <section id="database-setup" className="scroll-mt-28 space-y-4">
+              <h2 className="font-serif text-2xl font-medium text-foreground">
+                Database Setup
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                All Phase 2 features require new tables and columns. Run these
+                migrations in order via your Supabase SQL Editor or{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  psql
+                </code>
+                :
+              </p>
+              <div className="border border-border bg-card p-4 font-mono text-xs text-foreground overflow-x-auto">
+                <pre>{`psql $DATABASE_URL -f web/sql/003_uptime_and_incidents.sql
+psql $DATABASE_URL -f web/sql/004_status_page_toggle.sql
+psql $DATABASE_URL -f web/sql/005_certificate_expiry.sql
+psql $DATABASE_URL -f web/sql/006_webhook_alerts.sql
+psql $DATABASE_URL -f web/sql/007_subdomains.sql`}</pre>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                All migrations use{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  IF NOT EXISTS
+                </code>{" "}
+                guards — safe to re-run.
+              </p>
             </section>
           </article>
         </div>
