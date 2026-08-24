@@ -119,7 +119,8 @@ export async function getTargetDetail(
   const row = await queryMaybeOne<Record<string, unknown>>(
     `
       select id, url, environment, gsc_property_url, gsc_analytics,
-        gsc_synced_at, gsc_sync_error, public_status_page, status_slug, created_at
+        gsc_synced_at, gsc_sync_error, public_status_page, status_slug,
+        certificate_expiry_at, cert_issuer, cert_warning_days, created_at
       from monix_targets
       where id = $1::uuid and owner_id = $2::uuid
       limit 1
@@ -140,6 +141,16 @@ export async function getTargetDetail(
   );
   const score = latest?.score != null ? Number(latest.score) : null;
   const cntMap = await scanCountByTarget([targetId]);
+
+  let certDaysRemaining: number | null = null;
+  let certWarning = false;
+  if (row.certificate_expiry_at) {
+    const exp = new Date(String(row.certificate_expiry_at)).getTime();
+    const now = Date.now();
+    certDaysRemaining = Math.floor((exp - now) / (1000 * 60 * 60 * 24));
+    certWarning = certDaysRemaining <= Number(row.cert_warning_days ?? 14);
+  }
+
   return {
     id: String(row.id),
     name: displayHost(String(row.url)),
@@ -157,6 +168,11 @@ export async function getTargetDetail(
     latest_report_id: latest?.report_id ? String(latest.report_id) : null,
     public_status_page: Boolean(row.public_status_page),
     status_slug: row.status_slug || null,
+    certificate_expiry_at: row.certificate_expiry_at ?? null,
+    cert_issuer: row.cert_issuer || null,
+    cert_warning_days: Number(row.cert_warning_days ?? 14),
+    cert_days_remaining: certDaysRemaining,
+    cert_warning: certWarning,
     created_at: row.created_at,
     scan_count: cntMap.get(targetId) ?? 0,
     gsc_property_url: row.gsc_property_url || null,
@@ -172,6 +188,7 @@ export async function updateTargetSettings(
   settings: {
     public_status_page?: boolean;
     status_slug?: string | null;
+    cert_warning_days?: number;
   },
 ): Promise<Record<string, unknown>> {
   const updates: string[] = [];
@@ -186,6 +203,11 @@ export async function updateTargetSettings(
   if (settings.status_slug !== undefined) {
     updates.push(`status_slug = $${paramIdx++}`);
     params.push(settings.status_slug?.trim() || null);
+  }
+
+  if (settings.cert_warning_days !== undefined) {
+    updates.push(`cert_warning_days = $${paramIdx++}`);
+    params.push(Math.max(1, Number(settings.cert_warning_days)));
   }
 
   if (updates.length > 0) {

@@ -238,7 +238,7 @@ export default function PublicStatusPage({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           <div className="border border-border bg-[#0d0d0f] p-3.5 rounded">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
               UPTIME (24H)
@@ -271,6 +271,20 @@ export default function PublicStatusPage({
             </p>
             <p className="text-lg font-bold text-foreground mt-1">
               {site.currentStatusCode ?? "--"}
+            </p>
+          </div>
+          <div className="border border-border bg-[#0d0d0f] p-3.5 rounded">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              SSL CERTIFICATE
+            </p>
+            <p
+              className={`text-lg font-bold mt-1 ${
+                site.certWarning ? "text-destructive" : "text-foreground"
+              }`}
+            >
+              {site.certDaysRemaining != null
+                ? `${site.certDaysRemaining}d left`
+                : "--"}
             </p>
           </div>
         </div>

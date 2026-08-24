@@ -11,6 +11,10 @@ export interface StatusPageData {
     lastCheckedAt: string | null;
     uptimePercentage24h: number;
     uptimePercentage30d: number;
+    certificateExpiryAt: string | null;
+    certIssuer: string | null;
+    certDaysRemaining: number | null;
+    certWarning: boolean;
   };
   responseTimeHistory24h: Array<{
     timestamp: string;
@@ -47,16 +51,21 @@ export async function getStatusPageData(
     url: string;
     public_status_page: boolean;
     status_slug: string | null;
+    certificate_expiry_at: string | null;
+    cert_issuer: string | null;
+    cert_warning_days: number | null;
   }>(
     isUuid
       ? `
-          select id, url, public_status_page, status_slug
+          select id, url, public_status_page, status_slug,
+                 certificate_expiry_at, cert_issuer, cert_warning_days
           from public.monix_targets
           where id = $1::uuid and public_status_page = true
           limit 1
         `
       : `
-          select id, url, public_status_page, status_slug
+          select id, url, public_status_page, status_slug,
+                 certificate_expiry_at, cert_issuer, cert_warning_days
           from public.monix_targets
           where status_slug = $1 and public_status_page = true
           limit 1
@@ -162,6 +171,15 @@ export async function getStatusPageData(
     };
   });
 
+  let certDaysRemaining: number | null = null;
+  let certWarning = false;
+  if (site.certificate_expiry_at) {
+    const exp = new Date(site.certificate_expiry_at).getTime();
+    const now = Date.now();
+    certDaysRemaining = Math.floor((exp - now) / (1000 * 60 * 60 * 24));
+    certWarning = certDaysRemaining <= (site.cert_warning_days ?? 14);
+  }
+
   return {
     site: {
       id: site.id,
@@ -173,6 +191,10 @@ export async function getStatusPageData(
       lastCheckedAt: latestCheck?.checked_at ?? null,
       uptimePercentage24h: uptime24h,
       uptimePercentage30d: uptime30d,
+      certificateExpiryAt: site.certificate_expiry_at ?? null,
+      certIssuer: site.cert_issuer ?? null,
+      certDaysRemaining,
+      certWarning,
     },
     responseTimeHistory24h: checks24h.map((c) => ({
       timestamp: c.checked_at,
