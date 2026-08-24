@@ -18,7 +18,7 @@ export default function Footer() {
           <span>Open Website Diagnostic Tool</span>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
           <Link href="/" className="hover:text-[#00ff66] transition-colors">
             Home
           </Link>
@@ -28,8 +28,20 @@ export default function Footer() {
           >
             Inspector
           </Link>
+          <Link
+            href="/status"
+            className="hover:text-[#00ff66] transition-colors"
+          >
+            Status
+          </Link>
           <Link href="/docs" className="hover:text-[#00ff66] transition-colors">
             Docs
+          </Link>
+          <Link
+            href="/docs/webhooks"
+            className="hover:text-[#00ff66] transition-colors"
+          >
+            Webhooks
           </Link>
           <a
             href="https://github.com/dineshkorukonda/monix"

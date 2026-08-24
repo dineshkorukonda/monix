@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Footer from "@/components/Footer";
@@ -164,6 +165,94 @@ export default function InspectorPage() {
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-[#00ff66]" />
             <span>5 scans / hour / IP</span>
+          </div>
+        </section>
+
+        {/* Phase 2 Diagnostic Toolkit */}
+        <section className="space-y-4 pt-4 border-t border-border/80">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-white">
+              Connected Diagnostic Capabilities
+            </h2>
+            <span className="font-mono text-xs text-[#00ff66]">
+              [PHASE 2 ENGINE]
+            </span>
+          </div>
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            Every inspection report integrates with Monix&apos;s background
+            monitoring, subdomain discovery, and alert dispatcher services:
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            {/* Status & Uptime */}
+            <Link
+              href="/status"
+              className="border border-border bg-[#0d0d0f] hover:border-[#00ff66] p-5 rounded space-y-2.5 transition-colors group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-semibold text-white group-hover:text-[#00ff66] transition-colors">
+                  [01] Uptime &amp; Status Pages
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-[#00ff66] transition-colors" />
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                5-minute background heartbeat checks, 2-failure incident
+                detection, and public status pages at{" "}
+                <code className="text-[#00ff66]">/status/[site]</code>.
+              </p>
+            </Link>
+
+            {/* Subdomain Discovery */}
+            <div className="border border-border bg-[#0d0d0f] p-5 rounded space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-semibold text-white">
+                  [02] Subdomain Enumeration
+                </span>
+                <span className="text-[10px] font-mono text-[#00ff66] border border-[#00ff66]/30 px-1.5 py-0.5 rounded bg-[#00ff66]/10">
+                  INSPECTOR REPORT
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Passive Certificate Transparency logs lookup, wildcard DNS
+                filtering, and active HTTP liveness probing embedded in every
+                scan report.
+              </p>
+            </div>
+
+            {/* TLS Certificate Tracker */}
+            <div className="border border-border bg-[#0d0d0f] p-5 rounded space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-semibold text-white">
+                  [03] Certificate Expiry Tracker
+                </span>
+                <span className="text-[10px] font-mono text-muted-foreground border border-border px-1.5 py-0.5 rounded">
+                  DAILY CRON
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Nightly TLS certificate validation across HTTPS endpoints with
+                14-day advance expiry warning alerts.
+              </p>
+            </div>
+
+            {/* Webhook Alerting */}
+            <Link
+              href="/docs/webhooks"
+              className="border border-border bg-[#0d0d0f] hover:border-[#00ff66] p-5 rounded space-y-2.5 transition-colors group"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs font-semibold text-white group-hover:text-[#00ff66] transition-colors">
+                  [04] Webhook Alert Dispatcher
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-[#00ff66] transition-colors" />
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Real-time JSON webhook delivery for{" "}
+                <code className="text-[#00ff66]">incident.started</code>,{" "}
+                <code className="text-[#00ff66]">incident.resolved</code>, and
+                cert warnings.
+              </p>
+            </Link>
           </div>
         </section>
       </main>

@@ -301,6 +301,15 @@ export default function PublicReportPage({
                 {copied ? "COPIED" : "COPY LINK"}
               </button>
               <Link
+                href={`/status/${encodeURIComponent(
+                  report.url.replace(/^https?:\/\//, "").split("/")[0] ||
+                    report.url,
+                )}`}
+                className="inline-flex items-center gap-1 px-2.5 py-1 border border-border bg-[#18181b] hover:border-[#00ff66] hover:text-[#00ff66] text-[11px] rounded transition-colors"
+              >
+                STATUS
+              </Link>
+              <Link
                 href="/inspector"
                 className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#00ff66] text-black font-semibold text-[11px] rounded hover:opacity-90 transition-opacity"
               >

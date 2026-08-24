@@ -339,6 +339,27 @@ export async function analyzeWebSecurity(
     security_txt_present: Boolean((results.security_txt as JsonRecord).present),
   };
 
+  results.subdomains = [] as Array<Record<string, unknown>>;
+  try {
+    const {
+      discoverPassiveSubdomains,
+      detectWildcardDns,
+      resolveAndProbeSubdomain,
+    } = await import("@/server/subdomains/subdomain-enumerator");
+    const subList = await discoverPassiveSubdomains(domain);
+    const wildcardIps = await detectWildcardDns(domain);
+    const discovered: Array<Record<string, unknown>> = [];
+    for (const sub of subList.slice(0, 10)) {
+      const probed = await resolveAndProbeSubdomain(sub, wildcardIps);
+      if (probed) {
+        discovered.push(probed as unknown as Record<string, unknown>);
+      }
+    }
+    results.subdomains = discovered;
+  } catch {
+    results.subdomains = [];
+  }
+
   return results;
 }
 

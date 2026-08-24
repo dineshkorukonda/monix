@@ -9,6 +9,7 @@ export default function Navigation() {
   const links = [
     { href: "/", label: "Home" },
     { href: "/inspector", label: "Inspector" },
+    { href: "/status", label: "Status" },
     { href: "/docs", label: "Docs" },
   ] as const;
 
