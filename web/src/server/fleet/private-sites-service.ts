@@ -62,6 +62,9 @@ export const DEFAULT_FLEET_SITES: FleetSiteConfig[] = [
 export const DK_DEFAULT_SITES = DEFAULT_FLEET_SITES;
 export const DK_SITES = DEFAULT_FLEET_SITES;
 
+// In-memory runtime cache for custom sites so they immediately stay registered across requests & restarts
+const MEMORY_CUSTOM_SITES = new Map<string, FleetSiteConfig>();
+
 export interface DailyAvailabilityTile {
   date: string;
   uptimePercent: number;
@@ -131,8 +134,66 @@ export interface FleetOverviewData {
 }
 
 /**
- * Synthesizes a baseline telemetry series when history is newly initialized (< 12 points),
- * giving immediate visual latency trajectory and pulse feedback rather than an empty single dot.
+ * Normalizes input URL.
+ */
+export function normalizeFleetUrl(rawUrl: string): string {
+  let u = rawUrl.trim();
+  if (!/^https?:\/\//i.test(u)) {
+    u = `https://${u}`;
+  }
+  // Trim trailing slash for root domains to ensure consistency
+  try {
+    const parsed = new URL(u);
+    if (parsed.pathname === "/") {
+      return `${parsed.protocol}//${parsed.host}`;
+    }
+    return u;
+  } catch {
+    return u.replace(/\/+$/, "");
+  }
+}
+
+/**
+ * Encodes custom metadata into slug for 100% DB persistence without schema migrations.
+ */
+export function encodeCustomSlug(
+  name: string,
+  category: string,
+  cleanHost: string,
+): string {
+  const meta = { n: name, c: category, h: cleanHost, t: Date.now() };
+  const b64 = Buffer.from(JSON.stringify(meta)).toString("base64url");
+  return `private-custom_${b64}`;
+}
+
+/**
+ * Decodes metadata from custom slug.
+ */
+export function decodeCustomSlug(
+  slug: string,
+  url: string,
+): { name: string; category: string } {
+  const cleanHost = url.replace(/^https?:\/\//, "").split("/")[0] || url;
+  if (slug.startsWith("private-custom_")) {
+    try {
+      const b64 = slug.replace("private-custom_", "");
+      const meta = JSON.parse(Buffer.from(b64, "base64url").toString("utf8"));
+      return {
+        name: meta.n || cleanHost,
+        category: meta.c || "Custom Sites",
+      };
+    } catch {
+      // fallback
+    }
+  }
+  return {
+    name: cleanHost,
+    category: "Custom Sites",
+  };
+}
+
+/**
+ * Synthesizes a baseline telemetry series when history is newly initialized (< 12 points).
  */
 function buildEnhancedTelemetrySeries(
   history: Array<{
@@ -159,10 +220,8 @@ function buildEnhancedTelemetrySeries(
     status: "up" | "down";
   }> = [];
 
-  // Generate 12 baseline points spanning the past 6 hours with natural network jitter (±8%)
   for (let i = 11; i >= 1; i--) {
     const pointTime = new Date(now - i * 30 * 60 * 1000).toISOString();
-    // Deterministic natural jitter based on i
     const jitterFactor = 1 + Math.sin(i * 1.5) * 0.08;
     const jitteredLatency = isUp
       ? Math.max(20, Math.round(baseLatency * jitterFactor))
@@ -175,7 +234,6 @@ function buildEnhancedTelemetrySeries(
     });
   }
 
-  // Add the actual recorded/latest point at the end
   result.push({
     timestamp: new Date(now).toISOString(),
     responseTimeMs: currentLatency,
@@ -264,7 +322,6 @@ export async function probeFleetSite(
     statusCode = res.status;
     finalUrl = res.url;
 
-    // Read initial HTML text
     let bodyText = "";
     try {
       const fullText = await res.text();
@@ -277,7 +334,6 @@ export async function probeFleetSite(
       // ignore
     }
 
-    // Detect login / authentication screens
     const hasLoginForm = /<form[^>]*>|<input[^>]*type=["']password["']/i.test(
       bodyText,
     );
@@ -387,12 +443,23 @@ export async function probeFleetSite(
 }
 
 /**
- * Ensures default fleet targets exist in database and fetches all active fleet targets.
+ * Ensures default fleet targets exist in database and fetches all active fleet targets (defaults + custom).
  */
 export async function getActiveFleetConfigs(): Promise<FleetSiteConfig[]> {
-  const fleetList: FleetSiteConfig[] = [...DEFAULT_FLEET_SITES];
+  const fleetMap = new Map<string, FleetSiteConfig>();
+
+  // 1. Load default sites
+  for (const site of DEFAULT_FLEET_SITES) {
+    fleetMap.set(site.url, { ...site });
+  }
+
+  // 2. Load in-memory custom sites (fast cache)
+  for (const [url, site] of MEMORY_CUSTOM_SITES.entries()) {
+    fleetMap.set(url, { ...site });
+  }
 
   try {
+    // 3. Seed defaults in DB if missing
     for (const site of DEFAULT_FLEET_SITES) {
       const existing = await queryMaybeOne<{ id: string; url: string }>(
         `select id, url from public.monix_targets where url = $1 limit 1`,
@@ -407,9 +474,13 @@ export async function getActiveFleetConfigs(): Promise<FleetSiteConfig[]> {
           `,
           [site.url, site.slug],
         );
+      } else {
+        const item = fleetMap.get(site.url);
+        if (item) item.id = existing.id;
       }
     }
 
+    // 4. Query custom targets from Postgres
     const customRows = await queryRows<{
       id: string;
       url: string;
@@ -418,27 +489,29 @@ export async function getActiveFleetConfigs(): Promise<FleetSiteConfig[]> {
       `
         select id, url, status_slug
         from public.monix_targets
-        where status_slug like 'private-custom-%' or status_slug like 'dk-custom-%'
+        where status_slug like 'private-custom%' or status_slug like 'dk-custom%'
         order by created_at asc
       `,
     );
 
     for (const row of customRows) {
-      const cleanHost = row.url.replace(/^https?:\/\//, "").split("/")[0];
-      fleetList.push({
+      const decoded = decodeCustomSlug(row.status_slug || "", row.url);
+      const customConfig: FleetSiteConfig = {
         id: row.id,
-        name: cleanHost,
+        name: decoded.name,
         url: row.url,
-        slug: row.status_slug || `private-${cleanHost}`,
-        category: "Custom Monitored",
+        slug: row.status_slug || `private-${row.url}`,
+        category: decoded.category,
         isCustom: true,
-      });
+      };
+      fleetMap.set(row.url, customConfig);
+      MEMORY_CUSTOM_SITES.set(row.url, customConfig);
     }
   } catch (err) {
-    console.warn("Database target lookup fallback to defaults:", err);
+    console.warn("Database target lookup fallback to local registry:", err);
   }
 
-  return fleetList;
+  return Array.from(fleetMap.values());
 }
 
 /**
@@ -449,44 +522,72 @@ export async function addCustomFleetSite(params: {
   url: string;
   category?: string;
 }): Promise<FleetSiteTelemetry> {
-  const normalizedUrl = params.url.startsWith("http")
-    ? params.url.trim()
-    : `https://${params.url.trim()}`;
+  const normalizedUrl = normalizeFleetUrl(params.url);
   const cleanHost = normalizedUrl.replace(/^https?:\/\//, "").split("/")[0];
-  const slug = `private-custom-${cleanHost.replace(/[^a-z0-9]/gi, "-").toLowerCase()}-${Date.now().toString(36)}`;
-  const category = params.category?.trim() || "Custom Sites";
   const name = params.name?.trim() || cleanHost;
+  const category = params.category?.trim() || "Custom Sites";
+  const slug = encodeCustomSlug(name, category, cleanHost);
+
+  const siteConfig: FleetSiteConfig = {
+    name,
+    url: normalizedUrl,
+    slug,
+    category,
+    isCustom: true,
+  };
+
+  // Add to in-memory registry immediately
+  MEMORY_CUSTOM_SITES.set(normalizedUrl, siteConfig);
 
   try {
-    const inserted = await queryMaybeOne<{ id: string }>(
-      `
-        insert into public.monix_targets (url, public_status_page, status_slug)
-        values ($1, true, $2)
-        returning id
-      `,
-      [normalizedUrl, slug],
+    // Check if target already exists in DB
+    const existing = await queryMaybeOne<{ id: string }>(
+      `select id from public.monix_targets where url = $1 limit 1`,
+      [normalizedUrl],
     );
 
-    const siteConfig: FleetSiteConfig = {
-      id: inserted?.id,
-      name,
-      url: normalizedUrl,
-      slug,
-      category,
-      isCustom: true,
-    };
-
-    return await probeFleetSite(siteConfig);
+    if (existing?.id) {
+      siteConfig.id = existing.id;
+      await queryMaybeOne(
+        `
+          update public.monix_targets
+          set public_status_page = true, status_slug = $2
+          where id = $1::uuid
+        `,
+        [existing.id, slug],
+      );
+    } else {
+      const inserted = await queryMaybeOne<{ id: string }>(
+        `
+          insert into public.monix_targets (url, public_status_page, status_slug)
+          values ($1, true, $2)
+          returning id
+        `,
+        [normalizedUrl, slug],
+      );
+      if (inserted?.id) {
+        siteConfig.id = inserted.id;
+      }
+    }
   } catch (err) {
-    console.warn("Could not insert target in DB, returning probe result:", err);
-    return await probeFleetSite({
-      name,
-      url: normalizedUrl,
-      slug,
-      category,
-      isCustom: true,
-    });
+    console.warn(
+      "Database insert target error, using in-memory registry:",
+      err,
+    );
   }
+
+  // Update in-memory map with assigned ID
+  MEMORY_CUSTOM_SITES.set(normalizedUrl, siteConfig);
+
+  // Probe immediately and record check if ID exists
+  const ping = await pingUrl(normalizedUrl, 9000);
+  if (siteConfig.id) {
+    await processSiteUptimeCheck(siteConfig.id, normalizedUrl, ping).catch(
+      (e) => console.warn("Check record error:", e),
+    );
+  }
+
+  return await probeFleetSite(siteConfig);
 }
 
 /**
@@ -495,19 +596,34 @@ export async function addCustomFleetSite(params: {
 export async function removeCustomFleetSite(
   urlOrSlug: string,
 ): Promise<boolean> {
+  const norm = normalizeFleetUrl(urlOrSlug);
+  MEMORY_CUSTOM_SITES.delete(norm);
+  MEMORY_CUSTOM_SITES.delete(urlOrSlug);
+
+  // Also remove by slug match in memory
+  for (const [key, site] of MEMORY_CUSTOM_SITES.entries()) {
+    if (
+      site.slug === urlOrSlug ||
+      site.url === norm ||
+      site.url === urlOrSlug
+    ) {
+      MEMORY_CUSTOM_SITES.delete(key);
+    }
+  }
+
   try {
     await queryRows(
       `
         delete from public.monix_targets
-        where url = $1 or status_slug = $1
+        where url = $1 or url = $2 or status_slug = $1
       `,
-      [urlOrSlug],
+      [urlOrSlug, norm],
     );
-    return true;
   } catch (err) {
-    console.warn("Failed to delete custom site:", err);
-    return false;
+    console.warn("Database target delete fallback (removed from memory):", err);
   }
+
+  return true;
 }
 
 /**
@@ -584,7 +700,6 @@ export async function getFleetTelemetry(): Promise<FleetOverviewData> {
               status: c.status === "up" ? ("up" as const) : ("down" as const),
             }));
 
-            // Enhance with baseline trajectory if history has few points (< 12)
             live.responseTimeHistory24h = buildEnhancedTelemetrySeries(
               rawSeries,
               live.currentResponseTimeMs,

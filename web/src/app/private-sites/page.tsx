@@ -385,6 +385,7 @@ export default function PrivateSitesMonitoringPage() {
   const [newSiteUrl, setNewSiteUrl] = useState("");
   const [newSiteCategory, setNewSiteCategory] = useState("Custom Sites");
   const [addingSite, setAddingSite] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const fetchFleetData = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -418,6 +419,8 @@ export default function PrivateSitesMonitoringPage() {
       const json: FleetOverviewData = await res.json();
       setData(json);
       setCountdown(refreshInterval);
+      setSuccessMessage("Live fleet health check complete for all targets.");
+      setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error triggering probe");
     } finally {
@@ -431,15 +434,19 @@ export default function PrivateSitesMonitoringPage() {
 
     setAddingSite(true);
     setError(null);
+    const targetUrl = newSiteUrl.trim();
+    const targetName = newSiteName.trim();
+    const targetCat = newSiteCategory.trim() || "Custom Sites";
+
     try {
       const res = await fetch("/api/private-sites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "add_site",
-          name: newSiteName.trim() || undefined,
-          url: newSiteUrl.trim(),
-          category: newSiteCategory.trim() || "Custom Sites",
+          name: targetName || undefined,
+          url: targetUrl,
+          category: targetCat,
         }),
       });
 
@@ -450,9 +457,14 @@ export default function PrivateSitesMonitoringPage() {
 
       const updated: FleetOverviewData = await res.json();
       setData(updated);
+      setActiveCategory("All");
       setShowAddModal(false);
       setNewSiteName("");
       setNewSiteUrl("");
+      setSuccessMessage(
+        `Added & probed "${targetName || targetUrl}" successfully!`,
+      );
+      setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error adding new target");
     } finally {
@@ -478,6 +490,8 @@ export default function PrivateSitesMonitoringPage() {
       if (!res.ok) throw new Error("Failed to delete target");
       const updated: FleetOverviewData = await res.json();
       setData(updated);
+      setSuccessMessage(`Site "${url}" removed from monitoring.`);
+      setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Error deleting site");
     }
@@ -589,6 +603,21 @@ export default function PrivateSitesMonitoringPage() {
             </div>
           </div>
         </header>
+
+        {successMessage && (
+          <div className="p-3.5 border border-[#00ff66]/40 bg-[#00ff66]/10 text-[#00ff66] rounded text-xs font-mono flex items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[#00ff66] shrink-0" />
+              <span>{successMessage}</span>
+            </div>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              className="text-zinc-400 hover:text-white p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="p-4 border border-red-500/30 bg-red-950/20 text-red-400 rounded text-xs font-mono flex items-center gap-3">

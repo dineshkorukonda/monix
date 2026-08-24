@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { DEFAULT_FLEET_SITES, probeFleetSite } from "./private-sites-service";
+import {
+  addCustomFleetSite,
+  DEFAULT_FLEET_SITES,
+  getActiveFleetConfigs,
+  normalizeFleetUrl,
+  probeFleetSite,
+  removeCustomFleetSite,
+} from "./private-sites-service";
 
 describe("private-sites-service", () => {
   it("defines the exact 7 requested fleet domains", () => {
@@ -14,6 +21,42 @@ describe("private-sites-service", () => {
     expect(urls).toContain("https://dev.iskconcommunity.com");
   });
 
+  it("normalizes various URL formats correctly", () => {
+    expect(normalizeFleetUrl("example.com")).toBe("https://example.com");
+    expect(normalizeFleetUrl("http://test.org/")).toBe("http://test.org");
+    expect(normalizeFleetUrl("https://sub.domain.com/app/path")).toBe(
+      "https://sub.domain.com/app/path",
+    );
+  });
+
+  it("adds, retains, and removes custom monitored sites", async () => {
+    const custom = await addCustomFleetSite({
+      name: "Custom Test Site",
+      url: "example.com",
+      category: "Test Cluster",
+    });
+
+    expect(custom.name).toBe("Custom Test Site");
+    expect(custom.url).toBe("https://example.com");
+    expect(custom.category).toBe("Test Cluster");
+    expect(custom.isCustom).toBe(true);
+
+    const active = await getActiveFleetConfigs();
+    const found = active.find((s) => s.url === "https://example.com");
+    expect(found).toBeDefined();
+    expect(found?.name).toBe("Custom Test Site");
+    expect(found?.category).toBe("Test Cluster");
+
+    // Remove
+    const removed = await removeCustomFleetSite("https://example.com");
+    expect(removed).toBe(true);
+
+    const afterRemove = await getActiveFleetConfigs();
+    expect(
+      afterRemove.find((s) => s.url === "https://example.com"),
+    ).toBeUndefined();
+  });
+
   it("probes a fleet site and generates enhanced baseline telemetry waveform for newly initialized sites", async () => {
     const site = DEFAULT_FLEET_SITES[0];
     const telemetry = await probeFleetSite(site);
@@ -24,7 +67,6 @@ describe("private-sites-service", () => {
     expect(telemetry.category).toBe(site.category);
     expect(["up", "down", "degraded", "unknown"]).toContain(telemetry.status);
     expect(Array.isArray(telemetry.responseTimeHistory24h)).toBe(true);
-    // Baseline points ensure it's not a lonely single dot
     expect(telemetry.responseTimeHistory24h.length).toBeGreaterThanOrEqual(10);
     expect(Array.isArray(telemetry.dailyAvailability30d)).toBe(true);
     expect(telemetry.dailyAvailability30d.length).toBe(30);
