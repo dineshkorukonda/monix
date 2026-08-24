@@ -112,7 +112,7 @@ export default function PublicReportPage({
           </p>
           <div className="pt-4">
             <Link
-              href="/"
+              href="/inspector"
               className="inline-flex items-center gap-2 px-4 py-2 bg-[#00ff66] text-black text-xs font-mono font-semibold rounded hover:opacity-90 transition-opacity"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Return to Inspector
@@ -282,7 +282,6 @@ export default function PublicReportPage({
         <div className="border border-border bg-[#0d0d0f] p-4 rounded space-y-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
             <div className="flex items-center gap-2 text-white font-semibold text-sm">
-              <span className="text-[#00ff66]">&gt;</span>
               <span>monix inspection report</span>
               <span className="text-muted-foreground font-normal text-xs">
                 ::{slug}
@@ -302,7 +301,7 @@ export default function PublicReportPage({
                 {copied ? "COPIED" : "COPY LINK"}
               </button>
               <Link
-                href="/"
+                href="/inspector"
                 className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#00ff66] text-black font-semibold text-[11px] rounded hover:opacity-90 transition-opacity"
               >
                 NEW INSPECT

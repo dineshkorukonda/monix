@@ -7,7 +7,8 @@ export default function Navigation() {
   const pathname = usePathname();
 
   const links = [
-    { href: "/", label: "Inspector" },
+    { href: "/", label: "Home" },
+    { href: "/inspector", label: "Inspector" },
     { href: "/docs", label: "Docs" },
   ] as const;
 
@@ -16,10 +17,9 @@ export default function Navigation() {
       <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
         <Link
           href="/"
-          className="font-mono text-sm font-semibold tracking-wider text-white hover:text-[#00ff66] transition-colors flex items-center gap-1.5"
+          className="font-mono text-sm font-semibold tracking-wider text-white hover:text-[#00ff66] transition-colors"
         >
-          <span className="text-[#00ff66]">&gt;</span>
-          <span>monix</span>
+          monix
         </Link>
         <nav className="flex items-center gap-4 sm:gap-6 font-mono text-xs">
           {links.map((link) => {

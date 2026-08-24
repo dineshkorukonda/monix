@@ -14,7 +14,7 @@ const nav = [
 
 export default function DocsPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-[#E8E6E1] selection:text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-[#00ff66] selection:text-black">
       <Navigation />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 pt-28 pb-24">
