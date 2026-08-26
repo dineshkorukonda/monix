@@ -1,4 +1,8 @@
 import { queryMaybeOne, queryRows } from "@/server/db/postgres";
+import {
+  DEFAULT_FLEET_SITES,
+  decodeCustomSlug,
+} from "@/server/fleet/private-sites-service";
 
 export interface StatusPageData {
   site: {
@@ -45,7 +49,7 @@ export async function getStatusPageData(
       slugOrId,
     );
 
-  // Fetch target - must have public_status_page = true
+  // Fetch target - search by ID, status_slug, or direct URL match
   const site = await dbQueryMaybeOne<{
     id: string;
     url: string;
@@ -60,44 +64,77 @@ export async function getStatusPageData(
           select id, url, public_status_page, status_slug,
                  certificate_expiry_at, cert_issuer, cert_warning_days
           from public.monix_targets
-          where id = $1::uuid and public_status_page = true
+          where id = $1::uuid
           limit 1
         `
       : `
           select id, url, public_status_page, status_slug,
                  certificate_expiry_at, cert_issuer, cert_warning_days
           from public.monix_targets
-          where status_slug = $1 and public_status_page = true
+          where status_slug = $1 or url = $1 or url = 'https://' || $1 or url = 'http://' || $1
           limit 1
         `,
     [slugOrId],
   );
 
-  if (!site) {
-    // If not in database, check if slugOrId is a domain or URL to provide an instant live status probe instead of a 404
-    const cleanHost = slugOrId
-      .replace(/^https?:\/\//, "")
-      .split("/")[0]
-      ?.trim();
-    const isDomainLike =
-      cleanHost?.includes(".") && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(cleanHost);
+  // If not found in DB by exact slug, check if slugOrId matches any fleet predefined sites or custom slugs
+  let probeTargetUrl: string | null = null;
+  let targetDisplayName = slugOrId;
 
-    if (isDomainLike) {
-      const probeUrl = slugOrId.startsWith("http")
-        ? slugOrId
-        : `https://${cleanHost}`;
+  if (!site) {
+    const fleetMatch = DEFAULT_FLEET_SITES.find(
+      (s) =>
+        s.slug === slugOrId ||
+        s.url.includes(slugOrId) ||
+        slugOrId.includes(s.slug),
+    );
+
+    if (fleetMatch) {
+      probeTargetUrl = fleetMatch.url;
+      targetDisplayName = fleetMatch.name;
+    } else if (slugOrId.startsWith("private-custom_")) {
+      const decoded = decodeCustomSlug(slugOrId, slugOrId);
+      targetDisplayName = decoded.name;
+    } else {
+      const cleanHost = slugOrId
+        .replace(/^https?:\/\//, "")
+        .split("/")[0]
+        ?.trim();
+      const isDomainLike =
+        cleanHost?.includes(".") && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(cleanHost);
+
+      if (isDomainLike) {
+        probeTargetUrl = slugOrId.startsWith("http")
+          ? slugOrId
+          : `https://${cleanHost}`;
+        targetDisplayName = cleanHost;
+      }
+    }
+
+    if (probeTargetUrl) {
+      const cleanHost = probeTargetUrl
+        .replace(/^https?:\/\//, "")
+        .split("/")[0]
+        ?.trim();
       try {
         const start = Date.now();
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
-        const res = await fetch(probeUrl, {
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(probeTargetUrl, {
           method: "GET",
-          headers: { "User-Agent": "Monix-StatusProbe/1.0" },
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 MonixFleetBot/2.0",
+          },
           signal: controller.signal,
+          redirect: "follow",
         });
         clearTimeout(timeout);
         const latency = Date.now() - start;
-        const isUp = res.status < 500;
+        const isUp =
+          (res.status >= 200 && res.status < 400) ||
+          res.status === 401 ||
+          res.status === 403;
 
         let certDays: number | null = null;
         let certIssuer: string | null = null;
@@ -109,14 +146,14 @@ export async function getStatusPageData(
           certDays = certInfo.daysRemaining;
           certIssuer = certInfo.issuer;
         } catch {
-          // ignore cert check failure
+          // ignore cert failure
         }
 
         return {
           site: {
             id: `ad-hoc-${cleanHost}`,
-            name: cleanHost,
-            url: probeUrl,
+            name: targetDisplayName,
+            url: probeTargetUrl,
             status: isUp ? "up" : "down",
             currentResponseTimeMs: latency,
             currentStatusCode: res.status,
@@ -143,17 +180,17 @@ export async function getStatusPageData(
                   startedAt: new Date().toISOString(),
                   endedAt: null,
                   durationSeconds: null,
-                  cause: `HTTP ${res.status} error detected on probe`,
+                  cause: `HTTP ${res.status} error detected on live health probe`,
                   status: "ongoing",
                 },
               ],
         };
-      } catch {
+      } catch (err: unknown) {
         return {
           site: {
             id: `ad-hoc-${cleanHost}`,
-            name: cleanHost,
-            url: probeUrl,
+            name: targetDisplayName,
+            url: probeTargetUrl,
             status: "down",
             currentResponseTimeMs: null,
             currentStatusCode: null,
@@ -172,7 +209,10 @@ export async function getStatusPageData(
               startedAt: new Date().toISOString(),
               endedAt: null,
               durationSeconds: null,
-              cause: "Connection failed or host unreachable",
+              cause:
+                err instanceof Error
+                  ? err.message
+                  : "Connection failed or host unreachable",
               status: "ongoing",
             },
           ],
@@ -183,7 +223,7 @@ export async function getStatusPageData(
     return null;
   }
 
-  // 1. Latest check
+  // Target exists in DB - fetch check records & incidents
   const latestCheck = await dbQueryMaybeOne<{
     status: "up" | "down";
     response_time_ms: number | null;
@@ -200,48 +240,59 @@ export async function getStatusPageData(
     [site.id],
   );
 
-  // 2. 24h Response Time History & Stats
-  const checks24h = await dbQueryRows<{
-    status: "up" | "down";
-    response_time_ms: number | null;
-    checked_at: string;
+  const stats24h = await dbQueryMaybeOne<{
+    total: string;
+    up_count: string;
   }>(
     `
-      select status, response_time_ms, checked_at
+      select
+        count(*)::text as total,
+        count(*) filter (where status = 'up')::text as up_count
       from public.uptime_checks
-      where site_id = $1::uuid and checked_at >= now() - interval '24 hours'
-      order by checked_at asc
+      where site_id = $1::uuid
+        and checked_at >= now() - interval '24 hours'
     `,
     [site.id],
   );
 
-  const upCount24h = checks24h.filter((c) => c.status === "up").length;
-  const uptime24h =
-    checks24h.length > 0
-      ? Math.round((upCount24h / checks24h.length) * 10000) / 100
-      : 100;
-
-  // 3. 30d Uptime Percentage
   const stats30d = await dbQueryMaybeOne<{
     total: string;
     up_count: string;
   }>(
     `
-      select 
+      select
         count(*)::text as total,
         count(*) filter (where status = 'up')::text as up_count
       from public.uptime_checks
-      where site_id = $1::uuid and checked_at >= now() - interval '30 days'
+      where site_id = $1::uuid
+        and checked_at >= now() - interval '30 days'
     `,
     [site.id],
   );
 
-  const total30d = Number(stats30d?.total || 0);
-  const up30d = Number(stats30d?.up_count || 0);
-  const uptime30d =
-    total30d > 0 ? Math.round((up30d / total30d) * 10000) / 100 : 100;
+  const total24h = Number(stats24h?.total ?? 0);
+  const up24h = Number(stats24h?.up_count ?? 0);
+  const uptime24h = total24h > 0 ? (up24h / total24h) * 100 : 100;
 
-  // 4. Incidents Log (Last 30 days)
+  const total30d = Number(stats30d?.total ?? 0);
+  const up30d = Number(stats30d?.up_count ?? 0);
+  const uptime30d = total30d > 0 ? (up30d / total30d) * 100 : 100;
+
+  const historyRows = await dbQueryRows<{
+    checked_at: string;
+    response_time_ms: number | null;
+    status: "up" | "down";
+  }>(
+    `
+      select checked_at, response_time_ms, status
+      from public.uptime_checks
+      where site_id = $1::uuid
+        and checked_at >= now() - interval '24 hours'
+      order by checked_at asc
+    `,
+    [site.id],
+  );
+
   const incidentRows = await dbQueryRows<{
     id: string;
     started_at: string;
@@ -252,63 +303,61 @@ export async function getStatusPageData(
       select id, started_at, ended_at, cause
       from public.incidents
       where site_id = $1::uuid
+        and started_at >= now() - interval '30 days'
       order by started_at desc
-      limit 50
+      limit 20
     `,
     [site.id],
   );
 
-  const incidents = incidentRows.map((i) => {
-    let durationSeconds: number | null = null;
-    if (i.ended_at) {
-      durationSeconds = Math.max(
-        1,
-        Math.round(
-          (new Date(i.ended_at).getTime() - new Date(i.started_at).getTime()) /
-            1000,
-        ),
-      );
-    }
-    return {
-      id: i.id,
-      startedAt: i.started_at,
-      endedAt: i.ended_at,
-      durationSeconds,
-      cause: i.cause,
-      status: i.ended_at ? ("resolved" as const) : ("ongoing" as const),
-    };
-  });
-
   let certDaysRemaining: number | null = null;
   let certWarning = false;
   if (site.certificate_expiry_at) {
-    const exp = new Date(site.certificate_expiry_at).getTime();
-    const now = Date.now();
-    certDaysRemaining = Math.floor((exp - now) / (1000 * 60 * 60 * 24));
+    const diffMs = new Date(site.certificate_expiry_at).getTime() - Date.now();
+    certDaysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
     certWarning = certDaysRemaining <= (site.cert_warning_days ?? 14);
   }
+
+  const cleanHost = displayHost(site.url);
 
   return {
     site: {
       id: site.id,
-      name: displayHost(site.url),
+      name: cleanHost,
       url: site.url,
-      status: latestCheck ? latestCheck.status : "unknown",
+      status: latestCheck?.status ?? "unknown",
       currentResponseTimeMs: latestCheck?.response_time_ms ?? null,
       currentStatusCode: latestCheck?.status_code ?? null,
       lastCheckedAt: latestCheck?.checked_at ?? null,
-      uptimePercentage24h: uptime24h,
-      uptimePercentage30d: uptime30d,
-      certificateExpiryAt: site.certificate_expiry_at ?? null,
-      certIssuer: site.cert_issuer ?? null,
+      uptimePercentage24h: Math.round(uptime24h * 100) / 100,
+      uptimePercentage30d: Math.round(uptime30d * 100) / 100,
+      certificateExpiryAt: site.certificate_expiry_at,
+      certIssuer: site.cert_issuer,
       certDaysRemaining,
       certWarning,
     },
-    responseTimeHistory24h: checks24h.map((c) => ({
-      timestamp: c.checked_at,
-      responseTimeMs: c.response_time_ms,
-      status: c.status,
+    responseTimeHistory24h: historyRows.map((r) => ({
+      timestamp: r.checked_at,
+      responseTimeMs: r.response_time_ms,
+      status: r.status,
     })),
-    incidents,
+    incidents: incidentRows.map((inc) => {
+      let durationSeconds: number | null = null;
+      if (inc.ended_at) {
+        durationSeconds = Math.round(
+          (new Date(inc.ended_at).getTime() -
+            new Date(inc.started_at).getTime()) /
+            1000,
+        );
+      }
+      return {
+        id: String(inc.id),
+        startedAt: inc.started_at,
+        endedAt: inc.ended_at,
+        durationSeconds,
+        cause: inc.cause,
+        status: inc.ended_at ? ("resolved" as const) : ("ongoing" as const),
+      };
+    }),
   };
 }

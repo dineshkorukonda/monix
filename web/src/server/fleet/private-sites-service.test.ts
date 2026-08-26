@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   addCustomFleetSite,
   DEFAULT_FLEET_SITES,
+  generate24HourlySlots,
   getActiveFleetConfigs,
   normalizeFleetUrl,
   probeFleetSite,
@@ -57,6 +58,31 @@ describe("private-sites-service", () => {
     ).toBeUndefined();
   });
 
+  it("generates 24 discrete hourly slots with status and check metrics", () => {
+    const now = new Date();
+    const mockChecks = [
+      {
+        checked_at: new Date(now.getTime() - 2 * 3600 * 1000).toISOString(),
+        status: "up",
+        response_time_ms: 120,
+        status_code: 200,
+      },
+      {
+        checked_at: new Date(now.getTime() - 2 * 3600 * 1000).toISOString(),
+        status: "down",
+        response_time_ms: null,
+        status_code: 500,
+      },
+    ];
+
+    const slots = generate24HourlySlots(mockChecks, 120, "up");
+    expect(slots.length).toBe(24);
+    expect(slots[0].hourIndex).toBe(0);
+    expect(slots[23].hourIndex).toBe(23);
+    expect(typeof slots[0].timeLabel).toBe("string");
+    expect(typeof slots[0].uptimePercent).toBe("number");
+  });
+
   it("probes a fleet site and generates enhanced baseline telemetry waveform for newly initialized sites", async () => {
     const site = DEFAULT_FLEET_SITES[0];
     const telemetry = await probeFleetSite(site);
@@ -68,6 +94,8 @@ describe("private-sites-service", () => {
     expect(["up", "down", "degraded", "unknown"]).toContain(telemetry.status);
     expect(Array.isArray(telemetry.responseTimeHistory24h)).toBe(true);
     expect(telemetry.responseTimeHistory24h.length).toBeGreaterThanOrEqual(10);
+    expect(Array.isArray(telemetry.hourlySlots24h)).toBe(true);
+    expect(telemetry.hourlySlots24h.length).toBe(24);
     expect(Array.isArray(telemetry.dailyAvailability30d)).toBe(true);
     expect(telemetry.dailyAvailability30d.length).toBe(30);
     expect(typeof telemetry.isLoginProtected).toBe("boolean");

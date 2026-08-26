@@ -37,7 +37,13 @@ describe("status-page-data", () => {
           checked_at: new Date().toISOString(),
         } as unknown as T;
       }
-      if (text.includes("count(*)::text as total")) {
+      if (text.includes("interval '24 hours'")) {
+        return {
+          total: "100",
+          up_count: "100",
+        } as unknown as T;
+      }
+      if (text.includes("interval '30 days'")) {
         return {
           total: "100",
           up_count: "99",
