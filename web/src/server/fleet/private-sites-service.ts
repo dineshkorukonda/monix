@@ -4,6 +4,16 @@ import {
   processSiteUptimeCheck,
 } from "@/server/uptime/uptime-checker";
 
+export interface NightlyDowntimeConfig {
+  enabled: boolean;
+  startHour: number; // 0-23
+  startMinute?: number; // 0-59
+  endHour: number; // 0-23
+  endMinute?: number; // 0-59
+  timezoneOffsetHours?: number; // e.g. +5.5 for IST
+  label: string;
+}
+
 export interface FleetSiteConfig {
   id?: string;
   name: string;
@@ -11,6 +21,7 @@ export interface FleetSiteConfig {
   slug: string;
   category: string;
   isCustom?: boolean;
+  nightlyDowntime?: NightlyDowntimeConfig;
 }
 
 export const DEFAULT_FLEET_SITES: FleetSiteConfig[] = [
@@ -25,12 +36,30 @@ export const DEFAULT_FLEET_SITES: FleetSiteConfig[] = [
     url: "https://newerp.kluniversity.in",
     slug: "newerp-kluniversity",
     category: "KL University",
+    nightlyDowntime: {
+      enabled: true,
+      startHour: 23,
+      startMinute: 30,
+      endHour: 5,
+      endMinute: 30,
+      timezoneOffsetHours: 5.5,
+      label: "Nightly ERP Maintenance & Batch Sync (Offline)",
+    },
   },
   {
     name: "KLU LMS Portal",
     url: "https://lms.kluniversity.in",
     slug: "lms-kluniversity",
     category: "KL University",
+    nightlyDowntime: {
+      enabled: true,
+      startHour: 0,
+      startMinute: 0,
+      endHour: 5,
+      endMinute: 0,
+      timezoneOffsetHours: 5.5,
+      label: "Nightly LMS Batch Backup Window (Offline)",
+    },
   },
   {
     name: "KLEF Main Portal",
@@ -181,8 +210,15 @@ export function encodeCustomSlug(
   name: string,
   category: string,
   cleanHost: string,
+  nightlyDowntime?: NightlyDowntimeConfig,
 ): string {
-  const meta = { n: name, c: category, h: cleanHost, t: Date.now() };
+  const meta = {
+    n: name,
+    c: category,
+    h: cleanHost,
+    d: nightlyDowntime,
+    t: Date.now(),
+  };
   const b64 = Buffer.from(JSON.stringify(meta)).toString("base64url");
   return `private-custom_${b64}`;
 }
@@ -193,7 +229,11 @@ export function encodeCustomSlug(
 export function decodeCustomSlug(
   slug: string,
   url: string,
-): { name: string; category: string } {
+): {
+  name: string;
+  category: string;
+  nightlyDowntime?: NightlyDowntimeConfig;
+} {
   const cleanHost = url.replace(/^https?:\/\//, "").split("/")[0] || url;
   if (slug.startsWith("private-custom_")) {
     try {
@@ -202,6 +242,7 @@ export function decodeCustomSlug(
       return {
         name: meta.n || cleanHost,
         category: meta.c || "Custom Sites",
+        nightlyDowntime: meta.d,
       };
     } catch {
       // fallback
@@ -213,10 +254,39 @@ export function decodeCustomSlug(
   };
 }
 
+export function isTimestampInNightlyDowntime(
+  timestamp: Date | string | number,
+  config?: NightlyDowntimeConfig,
+): boolean {
+  if (!config?.enabled) return false;
+  const d = new Date(timestamp);
+  const offsetMs = (config.timezoneOffsetHours ?? 5.5) * 60 * 60 * 1000;
+  const localDate = new Date(d.getTime() + offsetMs);
+  const hours = localDate.getUTCHours();
+  const minutes = localDate.getUTCMinutes();
+  const currentTotalMinutes = hours * 60 + minutes;
+
+  const startTotalMinutes = config.startHour * 60 + (config.startMinute ?? 0);
+  const endTotalMinutes = config.endHour * 60 + (config.endMinute ?? 0);
+
+  if (startTotalMinutes > endTotalMinutes) {
+    // Crosses midnight (e.g. 23:30 to 05:30)
+    return (
+      currentTotalMinutes >= startTotalMinutes ||
+      currentTotalMinutes < endTotalMinutes
+    );
+  } else {
+    return (
+      currentTotalMinutes >= startTotalMinutes &&
+      currentTotalMinutes < endTotalMinutes
+    );
+  }
+}
+
 /**
  * Synthesizes a baseline telemetry series when history is newly initialized (< 12 points).
  */
-function buildEnhancedTelemetrySeries(
+export function buildEnhancedTelemetrySeries(
   history: Array<{
     timestamp: string;
     responseTimeMs: number | null;
@@ -224,13 +294,27 @@ function buildEnhancedTelemetrySeries(
   }>,
   currentLatency: number | null,
   isUp: boolean,
+  nightlyDowntime?: NightlyDowntimeConfig,
 ): Array<{
   timestamp: string;
   responseTimeMs: number | null;
   status: "up" | "down";
 }> {
   if (history.length >= 12) {
-    return history;
+    return history.map((p) => {
+      const inNightDowntime = isTimestampInNightlyDowntime(
+        p.timestamp,
+        nightlyDowntime,
+      );
+      if (inNightDowntime) {
+        return {
+          timestamp: p.timestamp,
+          responseTimeMs: null,
+          status: "down" as const,
+        };
+      }
+      return p;
+    });
   }
 
   const now = Date.now();
@@ -241,24 +325,43 @@ function buildEnhancedTelemetrySeries(
     status: "up" | "down";
   }> = [];
 
-  for (let i = 11; i >= 1; i--) {
-    const pointTime = new Date(now - i * 30 * 60 * 1000).toISOString();
-    const jitterFactor = 1 + Math.sin(i * 1.5) * 0.08;
-    const jitteredLatency = isUp
-      ? Math.max(20, Math.round(baseLatency * jitterFactor))
-      : 0;
+  for (let i = 23; i >= 1; i--) {
+    const pointTime = new Date(now - i * 60 * 60 * 1000).toISOString();
+    const inNightDowntime = isTimestampInNightlyDowntime(
+      pointTime,
+      nightlyDowntime,
+    );
 
-    result.push({
-      timestamp: pointTime,
-      responseTimeMs: isUp ? jitteredLatency : null,
-      status: isUp ? "up" : "down",
-    });
+    if (inNightDowntime) {
+      result.push({
+        timestamp: pointTime,
+        responseTimeMs: null,
+        status: "down",
+      });
+    } else {
+      const jitterFactor = 1 + Math.sin(i * 1.5) * 0.08;
+      const jitteredLatency = isUp
+        ? Math.max(20, Math.round(baseLatency * jitterFactor))
+        : null;
+
+      result.push({
+        timestamp: pointTime,
+        responseTimeMs: jitteredLatency,
+        status: isUp ? "up" : "down",
+      });
+    }
   }
 
+  const nowIso = new Date(now).toISOString();
+  const currentInDowntime = isTimestampInNightlyDowntime(
+    nowIso,
+    nightlyDowntime,
+  );
+
   result.push({
-    timestamp: new Date(now).toISOString(),
-    responseTimeMs: currentLatency,
-    status: isUp ? "up" : "down",
+    timestamp: nowIso,
+    responseTimeMs: currentInDowntime ? null : currentLatency,
+    status: currentInDowntime ? "down" : isUp ? "up" : "down",
   });
 
   return result;
@@ -276,6 +379,7 @@ export function generate24HourlySlots(
   }>,
   currentLatency: number | null,
   siteStatus: "up" | "down" | "degraded" | "unknown",
+  nightlyDowntime?: NightlyDowntimeConfig,
 ): HourlyUptimeSlot[] {
   const slots: HourlyUptimeSlot[] = [];
   const now = new Date();
@@ -288,12 +392,35 @@ export function generate24HourlySlots(
     const endH = endOfSlot.getHours().toString().padStart(2, "0");
     const timeLabel = `${startH}:00 - ${endH}:00`;
 
+    const inNightDowntime = isTimestampInNightlyDowntime(
+      startOfSlot,
+      nightlyDowntime,
+    );
+
     const slotChecks = recentChecks.filter((c) => {
       const t = new Date(c.checked_at).getTime();
       return t >= startOfSlot.getTime() && t < endOfSlot.getTime();
     });
 
-    if (slotChecks.length > 0) {
+    if (inNightDowntime) {
+      const label =
+        nightlyDowntime?.label ||
+        "Scheduled Nightly Maintenance Window (Offline)";
+      slots.push({
+        hourIndex: 23 - i,
+        timeLabel,
+        isoTimestamp: startOfSlot.toISOString(),
+        uptimePercent: 0,
+        status: "down",
+        totalChecks: slotChecks.length || 1,
+        successfulChecks: 0,
+        failedChecks: slotChecks.length || 1,
+        avgLatencyMs: null,
+        minLatencyMs: null,
+        maxLatencyMs: null,
+        errorMessages: [label],
+      });
+    } else if (slotChecks.length > 0) {
       const total = slotChecks.length;
       const success = slotChecks.filter((c) => c.status === "up").length;
       const failed = total - success;
@@ -375,11 +502,25 @@ export function generate24HourlySlots(
 /**
  * Generate 30 daily availability buckets for timeline display.
  */
-function generate30DayAvailability(
+export function generate30DayAvailability(
   recentChecks: Array<{ checked_at: string; status: string }>,
+  nightlyDowntime?: NightlyDowntimeConfig,
 ): DailyAvailabilityTile[] {
   const tiles: DailyAvailabilityTile[] = [];
   const now = new Date();
+
+  let nightlyDowntimeHours = 0;
+  if (nightlyDowntime?.enabled) {
+    const startTotalMinutes =
+      nightlyDowntime.startHour * 60 + (nightlyDowntime.startMinute ?? 0);
+    const endTotalMinutes =
+      nightlyDowntime.endHour * 60 + (nightlyDowntime.endMinute ?? 0);
+    const diffMinutes =
+      startTotalMinutes > endTotalMinutes
+        ? 24 * 60 - startTotalMinutes + endTotalMinutes
+        : endTotalMinutes - startTotalMinutes;
+    nightlyDowntimeHours = diffMinutes / 60;
+  }
 
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
@@ -390,16 +531,31 @@ function generate30DayAvailability(
     );
 
     if (dayChecks.length === 0) {
+      const defaultUptime =
+        nightlyDowntimeHours > 0
+          ? Math.round(((24 - nightlyDowntimeHours) / 24) * 100)
+          : 100;
       tiles.push({
         date: dateStr,
-        uptimePercent: 100,
+        uptimePercent: defaultUptime,
         checksCount: 0,
-        status: "up",
+        status:
+          defaultUptime >= 99
+            ? "up"
+            : defaultUptime >= 70
+              ? "degraded"
+              : "down",
       });
     } else {
       const upCount = dayChecks.filter((c) => c.status === "up").length;
-      const uptime = Math.round((upCount / dayChecks.length) * 100);
-      const status = uptime >= 99 ? "up" : uptime >= 85 ? "degraded" : "down";
+      let uptime = Math.round((upCount / dayChecks.length) * 100);
+      if (nightlyDowntimeHours > 0) {
+        uptime = Math.min(
+          uptime,
+          Math.round(((24 - nightlyDowntimeHours) / 24) * 100),
+        );
+      }
+      const status = uptime >= 99 ? "up" : uptime >= 70 ? "degraded" : "down";
 
       tiles.push({
         date: dateStr,
@@ -527,29 +683,64 @@ export async function probeFleetSite(
   }
 
   const nowIso = new Date().toISOString();
-  const calculatedStatus: "up" | "degraded" | "down" = isUp
-    ? (responseTimeMs ?? 0) > 1200
-      ? "degraded"
-      : "up"
-    : "down";
+  const inNightlyDowntimeNow = isTimestampInNightlyDowntime(
+    nowIso,
+    site.nightlyDowntime,
+  );
 
-  const enhancedSeries = buildEnhancedTelemetrySeries([], responseTimeMs, isUp);
+  const calculatedStatus: "up" | "degraded" | "down" = inNightlyDowntimeNow
+    ? "down"
+    : isUp
+      ? (responseTimeMs ?? 0) > 1200
+        ? "degraded"
+        : "up"
+      : "down";
+
+  const enhancedSeries = buildEnhancedTelemetrySeries(
+    [],
+    responseTimeMs,
+    isUp,
+    site.nightlyDowntime,
+  );
   const hourlySlots = generate24HourlySlots(
     [],
     responseTimeMs,
     calculatedStatus,
+    site.nightlyDowntime,
   );
 
-  const fallbackIncident: FleetIncidentRecord | null = isUp
-    ? null
-    : {
-        id: "live-outage-1",
-        startedAt: nowIso,
-        endedAt: null,
-        durationMinutes: null,
-        cause: errorMsg || `HTTP ${statusCode || "Error"}`,
-        status: "ongoing",
-      };
+  const totalSlotUptime = hourlySlots.reduce(
+    (acc, s) => acc + s.uptimePercent,
+    0,
+  );
+  const uptime24h =
+    Math.round((totalSlotUptime / hourlySlots.length) * 100) / 100;
+
+  const incidents: FleetIncidentRecord[] = [];
+  if (!isUp) {
+    incidents.push({
+      id: "live-outage-1",
+      startedAt: nowIso,
+      endedAt: null,
+      durationMinutes: null,
+      cause: errorMsg || `HTTP ${statusCode || "Error"}`,
+      status: "ongoing",
+    });
+  }
+
+  if (site.nightlyDowntime?.enabled) {
+    const scheduledDate = new Date(Date.now() - 12 * 3600 * 1000);
+    incidents.push({
+      id: `nightly-schedule-${site.slug}`,
+      startedAt: scheduledDate.toISOString(),
+      endedAt: inNightlyDowntimeNow ? null : nowIso,
+      durationMinutes: inNightlyDowntimeNow ? null : 360,
+      cause:
+        site.nightlyDowntime.label ||
+        "Scheduled Nightly Maintenance & Batch Sync",
+      status: inNightlyDowntimeNow ? "ongoing" : "resolved",
+    });
+  }
 
   return {
     id: site.id || `ad-hoc-${site.slug}`,
@@ -560,18 +751,21 @@ export async function probeFleetSite(
     slug: site.slug,
     category: site.category,
     isCustom: site.isCustom,
+    nightlyDowntime: site.nightlyDowntime,
     status: calculatedStatus,
     isLoginProtected,
-    loginPortalType,
-    statusCode,
-    currentResponseTimeMs: responseTimeMs,
+    loginPortalType: inNightlyDowntimeNow
+      ? "Nightly Maintenance Window Active"
+      : loginPortalType,
+    statusCode: inNightlyDowntimeNow ? 503 : statusCode,
+    currentResponseTimeMs: inNightlyDowntimeNow ? null : responseTimeMs,
     avgResponseTimeMs24h: responseTimeMs,
     minResponseTimeMs24h: responseTimeMs,
     maxResponseTimeMs24h: responseTimeMs,
     lastCheckedAt: nowIso,
-    uptimePercentage24h: isUp ? 100 : 0,
-    uptimePercentage7d: isUp ? 100 : 0,
-    uptimePercentage30d: isUp ? 100 : 0,
+    uptimePercentage24h: uptime24h,
+    uptimePercentage7d: uptime24h,
+    uptimePercentage30d: uptime24h,
     certDaysRemaining: certDays,
     certIssuer,
     certWarning: certDays != null && certDays <= 14,
@@ -579,15 +773,18 @@ export async function probeFleetSite(
     hourlySlots24h: hourlySlots,
     dailyAvailability30d: generate30DayAvailability(
       isUp ? [{ checked_at: nowIso, status: "up" }] : [],
+      site.nightlyDowntime,
     ),
-    incidentsHistory: fallbackIncident ? [fallbackIncident] : [],
-    activeIncidentsCount: isUp ? 0 : 1,
-    latestIncident: isUp
-      ? null
-      : {
-          startedAt: nowIso,
-          cause: errorMsg || `HTTP ${statusCode || "Error"}`,
-        },
+    incidentsHistory: incidents,
+    activeIncidentsCount: incidents.filter((i) => i.status === "ongoing")
+      .length,
+    latestIncident:
+      incidents.length > 0
+        ? {
+            startedAt: incidents[0].startedAt,
+            cause: incidents[0].cause,
+          }
+        : null,
   };
 }
 
@@ -648,6 +845,7 @@ export async function getActiveFleetConfigs(): Promise<FleetSiteConfig[]> {
         slug: row.status_slug || `private-${row.url}`,
         category: decoded.category,
         isCustom: true,
+        nightlyDowntime: decoded.nightlyDowntime,
       };
       fleetMap.set(row.url, customConfig);
       MEMORY_CUSTOM_SITES.set(row.url, customConfig);
@@ -666,12 +864,18 @@ export async function addCustomFleetSite(params: {
   name?: string;
   url: string;
   category?: string;
+  nightlyDowntime?: NightlyDowntimeConfig;
 }): Promise<FleetSiteTelemetry> {
   const normalizedUrl = normalizeFleetUrl(params.url);
   const cleanHost = normalizedUrl.replace(/^https?:\/\//, "").split("/")[0];
   const name = params.name?.trim() || cleanHost;
   const category = params.category?.trim() || "Custom Sites";
-  const slug = encodeCustomSlug(name, category, cleanHost);
+  const slug = encodeCustomSlug(
+    name,
+    category,
+    cleanHost,
+    params.nightlyDowntime,
+  );
 
   const siteConfig: FleetSiteConfig = {
     name,
@@ -679,6 +883,7 @@ export async function addCustomFleetSite(params: {
     slug,
     category,
     isCustom: true,
+    nightlyDowntime: params.nightlyDowntime,
   };
 
   MEMORY_CUSTOM_SITES.set(normalizedUrl, siteConfig);
@@ -893,14 +1098,26 @@ export async function getFleetTelemetry(): Promise<FleetOverviewData> {
             live.uptimePercentage30d =
               Math.round((up30d / checkRows.length) * 10000) / 100;
 
-            live.dailyAvailability30d = generate30DayAvailability(checkRows);
+            live.dailyAvailability30d = generate30DayAvailability(
+              checkRows,
+              site.nightlyDowntime,
+            );
 
             // Generate 24 hour-by-hour slots with check counts & error summaries
             live.hourlySlots24h = generate24HourlySlots(
               checks24h,
               live.currentResponseTimeMs,
               live.status,
+              site.nightlyDowntime,
             );
+
+            const totalSlotUptime = live.hourlySlots24h.reduce(
+              (acc, s) => acc + s.uptimePercent,
+              0,
+            );
+            live.uptimePercentage24h =
+              Math.round((totalSlotUptime / live.hourlySlots24h.length) * 100) /
+              100;
 
             const rawSeries = checks24h.map((c) => ({
               timestamp: c.checked_at,
@@ -912,13 +1129,22 @@ export async function getFleetTelemetry(): Promise<FleetOverviewData> {
               rawSeries,
               live.currentResponseTimeMs,
               live.status !== "down",
+              site.nightlyDowntime,
             );
           } else {
             live.hourlySlots24h = generate24HourlySlots(
               [],
               live.currentResponseTimeMs,
               live.status,
+              site.nightlyDowntime,
             );
+            const totalSlotUptime = live.hourlySlots24h.reduce(
+              (acc, s) => acc + s.uptimePercent,
+              0,
+            );
+            live.uptimePercentage24h =
+              Math.round((totalSlotUptime / live.hourlySlots24h.length) * 100) /
+              100;
           }
         }
 

@@ -27,6 +27,15 @@ export async function POST(request: NextRequest) {
       url?: string;
       category?: string;
       slug?: string;
+      nightlyDowntime?: {
+        enabled: boolean;
+        startHour: number;
+        startMinute?: number;
+        endHour: number;
+        endMinute?: number;
+        timezoneOffsetHours?: number;
+        label: string;
+      };
     } = {};
 
     try {
@@ -46,6 +55,7 @@ export async function POST(request: NextRequest) {
         name: body.name,
         url: body.url,
         category: body.category,
+        nightlyDowntime: body.nightlyDowntime,
       });
       const updated = await getFleetTelemetry();
       return NextResponse.json(updated);

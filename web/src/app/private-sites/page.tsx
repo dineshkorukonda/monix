@@ -16,36 +16,48 @@ import {
   Plus,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
   Trash2,
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
-import type {
-  DailyAvailabilityTile,
-  FleetOverviewData,
-  FleetSiteTelemetry,
-  HourlyUptimeSlot,
+import {
+  type DailyAvailabilityTile,
+  type FleetOverviewData,
+  type FleetSiteTelemetry,
+  type HourlyUptimeSlot,
+  isTimestampInNightlyDowntime,
 } from "@/server/fleet/private-sites-service";
 
 /* -------------------------------------------------------------------------- */
-/*                 Enhanced Multi-Point Latency Waveform Graph                */
+/*                     Standard Clean Latency Line Graph                     */
 /* -------------------------------------------------------------------------- */
-function EnhancedLatencyGraph({
+function StandardLatencyGraph({
   history,
   status,
   currentLatency,
   timeRange = "24h",
+  nightlyDowntime,
+  isModal = false,
 }: {
   history: FleetSiteTelemetry["responseTimeHistory24h"];
   status: FleetSiteTelemetry["status"];
   currentLatency: number | null;
   timeRange?: "24h" | "7d" | "30d";
+  nightlyDowntime?: FleetSiteTelemetry["nightlyDowntime"];
+  isModal?: boolean;
 }) {
   const gradientId = useId();
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const points = useMemo(() => {
     const valid = (history || []).filter(
@@ -53,172 +65,366 @@ function EnhancedLatencyGraph({
         p,
       ): p is {
         timestamp: string;
-        responseTimeMs: number;
+        responseTimeMs: number | null;
         status: "up" | "down";
-      } => typeof p.responseTimeMs === "number" && p.responseTimeMs >= 0,
+      } => p && typeof p.timestamp === "string",
     );
 
     if (valid.length >= 2) return valid;
 
-    const base = currentLatency ?? 180;
+    const base = currentLatency ?? 150;
     const now = Date.now();
-    return Array.from({ length: 10 }, (_, i) => ({
-      timestamp: new Date(now - (9 - i) * 15 * 60 * 1000).toISOString(),
-      responseTimeMs:
-        status === "down"
-          ? 0
-          : Math.max(20, Math.round(base * (1 + Math.sin(i * 1.8) * 0.06))),
-      status: (status === "down" ? "down" : "up") as "up" | "down",
-    }));
-  }, [history, currentLatency, status]);
+    return Array.from({ length: 24 }, (_, i) => {
+      const ts = new Date(now - (23 - i) * 60 * 60 * 1000).toISOString();
+      const inNight = isTimestampInNightlyDowntime(ts, nightlyDowntime);
+      if (inNight) {
+        return {
+          timestamp: ts,
+          responseTimeMs: null,
+          status: "down" as const,
+        };
+      }
+      return {
+        timestamp: ts,
+        responseTimeMs:
+          status === "down"
+            ? null
+            : Math.max(20, Math.round(base * (1 + Math.sin(i * 1.5) * 0.08))),
+        status: (status === "down" ? "down" : "up") as "up" | "down",
+      };
+    });
+  }, [history, currentLatency, status, nightlyDowntime]);
 
-  const values = points.map((p) => p.responseTimeMs);
-  const maxVal = Math.max(...values, 100);
+  const validLatencies = points
+    .map((p) => p.responseTimeMs)
+    .filter((v): v is number => typeof v === "number" && v > 0);
+
+  const maxVal =
+    validLatencies.length > 0 ? Math.max(...validLatencies, 100) : 250;
   const minVal = 0;
-  const height = 68;
-  const width = 380;
-  const paddingX = 8;
-  const paddingY = 8;
+  const avgLatency =
+    validLatencies.length > 0
+      ? Math.round(
+          validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length,
+        )
+      : null;
+  const peakLatency =
+    validLatencies.length > 0 ? Math.max(...validLatencies) : null;
+  const minLatency =
+    validLatencies.length > 0 ? Math.min(...validLatencies) : null;
+
+  const width = isModal ? 640 : 420;
+  const height = isModal ? 130 : 88;
+  const paddingLeft = 40;
+  const paddingRight = 14;
+  const paddingTop = 12;
+  const paddingBottom = 20;
+
+  const innerWidth = width - paddingLeft - paddingRight;
+  const innerHeight = height - paddingTop - paddingBottom;
 
   const pointsCoordinates = points.map((p, idx) => {
     const x =
       points.length > 1
-        ? paddingX + (idx / (points.length - 1)) * (width - paddingX * 2)
-        : width / 2;
+        ? paddingLeft + (idx / (points.length - 1)) * innerWidth
+        : paddingLeft + innerWidth / 2;
+    const yVal =
+      p.responseTimeMs !== null && p.status !== "down"
+        ? p.responseTimeMs
+        : null;
     const y =
-      height -
-      paddingY -
-      ((p.responseTimeMs - minVal) / (maxVal - minVal || 1)) *
-        (height - paddingY * 2);
-    return { x, y, val: p.responseTimeMs };
+      yVal !== null
+        ? height -
+          paddingBottom -
+          ((yVal - minVal) / (maxVal - minVal || 1)) * innerHeight
+        : height - paddingBottom;
+    return {
+      x,
+      y,
+      val: p.responseTimeMs,
+      status: p.status,
+      timestamp: p.timestamp,
+    };
   });
 
   const pointsStr = pointsCoordinates
     .map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`)
     .join(" ");
 
-  const firstX = pointsCoordinates[0]?.x ?? paddingX;
-  const lastX =
-    pointsCoordinates[pointsCoordinates.length - 1]?.x ?? width - paddingX;
-  const bottomY = height - paddingY;
+  const firstX = paddingLeft;
+  const lastX = width - paddingRight;
+  const bottomY = height - paddingBottom;
   const areaPolygonStr = `${firstX},${bottomY} ${pointsStr} ${lastX},${bottomY}`;
 
-  const lastPoint = pointsCoordinates[pointsCoordinates.length - 1];
+  const hoveredPoint =
+    hoverIndex !== null ? pointsCoordinates[hoverIndex] : null;
 
-  const strokeColor =
-    status === "up" ? "#00ff66" : status === "degraded" ? "#facc15" : "#ef4444";
-  const fillColor =
-    status === "up"
-      ? "rgba(0, 255, 102, 0.15)"
-      : status === "degraded"
-        ? "rgba(250, 204, 21, 0.15)"
-        : "rgba(239, 68, 68, 0.15)";
+  const yTicks = [
+    { label: `${maxVal}ms`, y: paddingTop },
+    { label: `${Math.round(maxVal / 2)}ms`, y: paddingTop + innerHeight / 2 },
+    { label: "0ms", y: bottomY },
+  ];
 
-  const avgLatency = Math.round(
-    values.reduce((a, b) => a + b, 0) / (values.length || 1),
-  );
+  const xTicks = [
+    { label: "-24h", x: paddingLeft },
+    { label: "-18h", x: paddingLeft + innerWidth * 0.25 },
+    { label: "-12h", x: paddingLeft + innerWidth * 0.5 },
+    { label: "-6h", x: paddingLeft + innerWidth * 0.75 },
+    { label: "Now", x: width - paddingRight },
+  ];
 
   return (
-    <div className="w-full bg-[#08080b] border border-zinc-800/80 rounded p-3 space-y-2">
-      <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#00ff66] animate-ping" />
-          <span className="text-zinc-400 font-semibold uppercase tracking-wider">
-            Live Latency Stream ({timeRange})
-          </span>
-        </div>
+    <div className="w-full bg-[#0a0a0e] border border-zinc-800/80 rounded-lg p-3 space-y-2 font-mono">
+      {/* Chart Header Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] border-b border-zinc-850 pb-1.5">
         <div className="flex items-center gap-2">
-          <span className="text-zinc-500">
-            Peak: <b className="text-zinc-300">{maxVal}ms</b>
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                status === "up"
+                  ? "bg-[#00ff66]"
+                  : status === "degraded"
+                    ? "bg-yellow-400"
+                    : "bg-red-500"
+              }`}
+            />
+            <span className="text-zinc-200 font-semibold text-xs">
+              Response Time ({timeRange})
+            </span>
+          </div>
+          {nightlyDowntime?.enabled && (
+            <span className="px-1.5 py-0.2 rounded bg-zinc-850 text-zinc-400 text-[9px] border border-zinc-700/60">
+              Nightly Maint: {nightlyDowntime.startHour}:
+              {(nightlyDowntime.startMinute ?? 0).toString().padStart(2, "0")} -{" "}
+              {nightlyDowntime.endHour}:
+              {(nightlyDowntime.endMinute ?? 0).toString().padStart(2, "0")}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 text-[10px] text-zinc-400">
+          <span>
+            Min:{" "}
+            <b className="text-zinc-300">
+              {minLatency !== null ? `${minLatency}ms` : "--"}
+            </b>
           </span>
-          <span className="text-zinc-500">|</span>
-          <span className="text-zinc-500">
-            Avg: <b className="text-zinc-300">{avgLatency}ms</b>
+          <span className="text-zinc-600">|</span>
+          <span>
+            Avg:{" "}
+            <b className="text-zinc-300">
+              {avgLatency !== null ? `${avgLatency}ms` : "--"}
+            </b>
+          </span>
+          <span className="text-zinc-600">|</span>
+          <span>
+            Peak:{" "}
+            <b className="text-zinc-300">
+              {peakLatency !== null ? `${peakLatency}ms` : "--"}
+            </b>
           </span>
         </div>
       </div>
 
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-14 overflow-visible"
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={fillColor} />
-            <stop offset="100%" stopColor="transparent" />
-          </linearGradient>
-        </defs>
+      {/* SVG Chart Area */}
+      <div className="relative w-full">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full h-auto overflow-visible select-none cursor-crosshair"
+          onMouseLeave={() => setHoverIndex(null)}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const mouseX = ((e.clientX - rect.left) / rect.width) * width;
+            let closestIdx = 0;
+            let minDiff = Infinity;
+            pointsCoordinates.forEach((pt, idx) => {
+              const diff = Math.abs(pt.x - mouseX);
+              if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = idx;
+              }
+            });
+            setHoverIndex(closestIdx);
+          }}
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#00ff66" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#00ff66" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
 
-        <line
-          x1={paddingX}
-          y1={height - paddingY}
-          x2={width - paddingX}
-          y2={height - paddingY}
-          stroke="#18181b"
-          strokeWidth="1"
-        />
-        <line
-          x1={paddingX}
-          y1={height / 2}
-          x2={width - paddingX}
-          y2={height / 2}
-          stroke="#18181b"
-          strokeDasharray="3,3"
-          strokeWidth="1"
-        />
+          {/* Grid Lines & Y-Axis Labels */}
+          {yTicks.map((tick, i) => (
+            <g key={i}>
+              <line
+                x1={paddingLeft}
+                y1={tick.y}
+                x2={width - paddingRight}
+                y2={tick.y}
+                stroke="#1c1c22"
+                strokeDasharray={i === yTicks.length - 1 ? "none" : "3,3"}
+                strokeWidth="1"
+              />
+              <text
+                x={paddingLeft - 6}
+                y={tick.y + 3}
+                fill="#71717a"
+                fontSize="7.5"
+                textAnchor="end"
+                fontFamily="monospace"
+              >
+                {tick.label}
+              </text>
+            </g>
+          ))}
 
-        <polygon points={areaPolygonStr} fill={`url(#${gradientId})`} />
+          {/* Fill Area Under Curve */}
+          <polygon points={areaPolygonStr} fill={`url(#${gradientId})`} />
 
-        <polyline
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={pointsStr}
-        />
-
-        {pointsCoordinates.map((c, i) => (
-          <circle
-            key={i}
-            cx={c.x}
-            cy={c.y}
-            r="1.75"
-            fill={strokeColor}
-            opacity={0.7}
+          {/* Continuous Baseline Stroke */}
+          <polyline
+            fill="none"
+            stroke="#00ff66"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={pointsStr}
           />
-        ))}
 
-        {lastPoint && (
-          <>
-            <circle
-              cx={lastPoint.x}
-              cy={lastPoint.y}
-              r="4"
-              fill={strokeColor}
-              className="animate-pulse"
-            />
-            <circle
-              cx={lastPoint.x}
-              cy={lastPoint.y}
-              r="8"
-              fill="none"
-              stroke={strokeColor}
-              strokeWidth="1"
-              opacity="0.4"
-              className="animate-ping"
-            />
-          </>
+          {/* Data Points */}
+          {pointsCoordinates.map((c, i) => {
+            const isDown = c.status === "down" || c.val === null;
+            return (
+              <circle
+                key={i}
+                cx={c.x}
+                cy={c.y}
+                r={hoverIndex === i ? "3.5" : isDown ? "2.2" : "1.8"}
+                fill={isDown ? "#ef4444" : "#00ff66"}
+                stroke={isDown ? "#7f1d1d" : "#003814"}
+                strokeWidth="0.8"
+                className="transition-all"
+              />
+            );
+          })}
+
+          {/* Active Hover Crosshair Guideline */}
+          {hoveredPoint && (
+            <g>
+              <line
+                x1={hoveredPoint.x}
+                y1={paddingTop}
+                x2={hoveredPoint.x}
+                y2={bottomY}
+                stroke="#ffffff"
+                strokeWidth="1"
+                strokeDasharray="2,2"
+                opacity="0.6"
+              />
+              <circle
+                cx={hoveredPoint.x}
+                cy={hoveredPoint.y}
+                r="4.5"
+                fill={
+                  hoveredPoint.status === "down" || hoveredPoint.val === null
+                    ? "#ef4444"
+                    : "#00ff66"
+                }
+                stroke="#ffffff"
+                strokeWidth="1.5"
+              />
+            </g>
+          )}
+
+          {/* X-Axis Labels */}
+          {xTicks.map((tick, i) => (
+            <text
+              key={i}
+              x={tick.x}
+              y={height - 4}
+              fill="#71717a"
+              fontSize="7.5"
+              textAnchor={
+                i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"
+              }
+              fontFamily="monospace"
+            >
+              {tick.label}
+            </text>
+          ))}
+        </svg>
+
+        {/* Hover Tooltip Overlay Card */}
+        {hoveredPoint && (
+          <div
+            className="absolute z-20 pointer-events-none bg-[#121218] border border-zinc-700 text-white rounded px-2.5 py-1.5 text-[10px] font-mono shadow-xl flex flex-col gap-0.5"
+            style={{
+              left: `${Math.min(80, Math.max(12, (hoveredPoint.x / width) * 100))}%`,
+              top: "-6px",
+              transform: "translate(-50%, -100%)",
+            }}
+          >
+            <div className="text-zinc-400 text-[9px]">
+              {new Date(hoveredPoint.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}{" "}
+              (
+              {new Date(hoveredPoint.timestamp).toLocaleDateString([], {
+                month: "short",
+                day: "numeric",
+              })}
+              )
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  hoveredPoint.status === "down" || hoveredPoint.val === null
+                    ? "bg-red-500"
+                    : "bg-[#00ff66]"
+                }`}
+              />
+              <span className="font-semibold text-zinc-100">
+                {hoveredPoint.val !== null && hoveredPoint.status !== "down"
+                  ? `${hoveredPoint.val} ms`
+                  : isTimestampInNightlyDowntime(
+                        hoveredPoint.timestamp,
+                        nightlyDowntime,
+                      )
+                    ? "Nightly Offline Window"
+                    : "Outage / Down"}
+              </span>
+            </div>
+          </div>
         )}
-      </svg>
+      </div>
 
+      {/* Chart Footer Info */}
       <div className="flex items-center justify-between text-[9px] font-mono text-zinc-500 pt-0.5 border-t border-zinc-900">
-        <span className="flex items-center gap-1 text-zinc-400">
-          <Sparkles className="w-2.5 h-2.5 text-[#00ff66]" />
-          <span>Real-time Active Probe Stream</span>
+        <span className="text-zinc-400">
+          Current Live Probe:{" "}
+          <b className="text-white">
+            {currentLatency !== null
+              ? `${currentLatency} ms`
+              : status === "down"
+                ? "Down"
+                : "--"}
+          </b>
         </span>
-        <span className="text-white font-semibold">
-          Now: {currentLatency !== null ? `${currentLatency} ms` : "--"}
+        <span className="text-zinc-500">
+          Status:{" "}
+          <b
+            className={
+              status === "up"
+                ? "text-emerald-400"
+                : status === "degraded"
+                  ? "text-yellow-400"
+                  : "text-red-400"
+            }
+          >
+            {status.toUpperCase()}
+          </b>
         </span>
       </div>
     </div>
@@ -464,6 +670,17 @@ function SiteDetailModal({
       ? "text-yellow-400 border-yellow-500/30 bg-yellow-950/20"
       : "text-red-400 border-red-500/30 bg-red-950/20";
 
+  // Handle ESC key to dismiss modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const handleProbe = async () => {
     if (!onProbeSingle) return;
     setProbingThis(true);
@@ -475,8 +692,20 @@ function SiteDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-6 font-mono overflow-y-auto">
-      <div className="bg-[#0b0b0f] border border-zinc-750 rounded-xl max-w-3xl w-full p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 font-mono overflow-y-auto"
+    >
+      {/* Clickable Backdrop Dismiss */}
+      <button
+        type="button"
+        aria-label="Close inspection dialog"
+        onClick={onClose}
+        className="fixed inset-0 bg-black/85 backdrop-blur-md cursor-pointer border-0 w-full h-full p-0 m-0"
+      />
+
+      <div className="bg-[#0b0b0f] border border-zinc-750 rounded-xl max-w-3xl w-full p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto cursor-default relative z-10">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-zinc-800 pb-4">
           <div className="space-y-1.5">
@@ -506,6 +735,22 @@ function SiteDetailModal({
                   <span>{site.loginPortalType || "Auth Protected"}</span>
                 </span>
               )}
+              {site.nightlyDowntime?.enabled && (
+                <span className="px-2 py-0.5 rounded bg-amber-950/60 text-amber-400 border border-amber-600/40 text-[10px] font-semibold flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>
+                    Nightly Maint: {site.nightlyDowntime.startHour}:
+                    {(site.nightlyDowntime.startMinute ?? 0)
+                      .toString()
+                      .padStart(2, "0")}{" "}
+                    - {site.nightlyDowntime.endHour}:
+                    {(site.nightlyDowntime.endMinute ?? 0)
+                      .toString()
+                      .padStart(2, "0")}{" "}
+                    IST
+                  </span>
+                </span>
+              )}
             </div>
 
             <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
@@ -533,9 +778,10 @@ function SiteDetailModal({
           {/* Close & Action Buttons */}
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleProbe}
               disabled={probingThis}
-              className="px-3 py-1.5 bg-[#00ff66] hover:bg-[#00ff66]/90 text-black text-xs font-semibold rounded flex items-center gap-1.5 transition-all disabled:opacity-50"
+              className="px-3 py-1.5 bg-[#00ff66] hover:bg-[#00ff66]/90 text-black text-xs font-semibold rounded flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw
                 className={`w-3 h-3 ${probingThis ? "animate-spin" : ""}`}
@@ -544,8 +790,11 @@ function SiteDetailModal({
             </button>
 
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 text-zinc-400 hover:text-white rounded border border-zinc-800 hover:bg-zinc-800 transition-colors"
+              className="p-1.5 text-zinc-400 hover:text-white rounded border border-zinc-800 hover:bg-zinc-800 transition-colors cursor-pointer"
+              title="Close (Esc)"
+              aria-label="Close modal"
             >
               <X className="w-4 h-4" />
             </button>
@@ -611,6 +860,18 @@ function SiteDetailModal({
               {site.certIssuer || "TLS Verified"}
             </div>
           </div>
+        </div>
+
+        {/* Deep Dive Normal Latency Chart */}
+        <div className="space-y-2 pt-2 border-t border-zinc-800/80">
+          <StandardLatencyGraph
+            history={site.responseTimeHistory24h}
+            status={site.status}
+            currentLatency={site.currentResponseTimeMs}
+            timeRange="24h"
+            nightlyDowntime={site.nightlyDowntime}
+            isModal={true}
+          />
         </div>
 
         {/* 24-Hour Hour-by-Hour Timeline Matrix */}
@@ -756,6 +1017,21 @@ function SiteDetailModal({
             </div>
           )}
         </div>
+
+        {/* Modal Bottom Footer Actions */}
+        <div className="flex items-center justify-between pt-4 border-t border-zinc-800">
+          <div className="text-[10px] text-zinc-500 font-mono">
+            {site.slug} &bull; Monix Fleet Radar
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Close (Esc)</span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -779,6 +1055,8 @@ export default function PrivateSitesMonitoringPage() {
   const [selectedSite, setSelectedSite] = useState<FleetSiteTelemetry | null>(
     null,
   );
+  const selectedSiteRef = useRef<FleetSiteTelemetry | null>(null);
+  selectedSiteRef.current = selectedSite;
 
   // Add Site Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -788,33 +1066,30 @@ export default function PrivateSitesMonitoringPage() {
   const [addingSite, setAddingSite] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const fetchFleetData = useCallback(
-    async (isInitial = false) => {
-      if (isInitial) setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/private-sites", { cache: "no-store" });
-        if (!res.ok) {
-          throw new Error(`Failed to fetch fleet telemetry (${res.status})`);
-        }
-        const json: FleetOverviewData = await res.json();
-        setData(json);
-
-        // If a site is currently inspected in modal, update its live state
-        if (selectedSite) {
-          const fresh = json.sites.find((s) => s.slug === selectedSite.slug);
-          if (fresh) setSelectedSite(fresh);
-        }
-      } catch (err: unknown) {
-        setError(
-          err instanceof Error ? err.message : "Error loading fleet data",
-        );
-      } finally {
-        if (isInitial) setLoading(false);
+  const fetchFleetData = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/private-sites", { cache: "no-store" });
+      if (!res.ok) {
+        throw new Error(`Failed to fetch fleet telemetry (${res.status})`);
       }
-    },
-    [selectedSite],
-  );
+      const json: FleetOverviewData = await res.json();
+      setData(json);
+
+      // If a site is currently inspected in modal, update its live state
+      if (selectedSiteRef.current) {
+        const fresh = json.sites.find(
+          (s) => s.slug === selectedSiteRef.current?.slug,
+        );
+        if (fresh) setSelectedSite(fresh);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error loading fleet data");
+    } finally {
+      if (isInitial) setLoading(false);
+    }
+  }, []);
 
   const handleInstantProbe = async () => {
     setProbing(true);
@@ -1256,6 +1531,22 @@ export default function PrivateSitesMonitoringPage() {
                               </span>
                             </span>
                           )}
+
+                          {site.nightlyDowntime?.enabled && (
+                            <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-amber-950/60 text-amber-400 border border-amber-600/40 inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-amber-400" />
+                              <span>
+                                Nightly Maint: {site.nightlyDowntime.startHour}:
+                                {(site.nightlyDowntime.startMinute ?? 0)
+                                  .toString()
+                                  .padStart(2, "0")}{" "}
+                                - {site.nightlyDowntime.endHour}:
+                                {(site.nightlyDowntime.endMinute ?? 0)
+                                  .toString()
+                                  .padStart(2, "0")}
+                              </span>
+                            </span>
+                          )}
                         </div>
 
                         <button
@@ -1367,11 +1658,12 @@ export default function PrivateSitesMonitoringPage() {
                     </div>
                   </div>
 
-                  <EnhancedLatencyGraph
+                  <StandardLatencyGraph
                     history={site.responseTimeHistory24h}
                     status={site.status}
                     currentLatency={site.currentResponseTimeMs}
                     timeRange={timeRange}
+                    nightlyDowntime={site.nightlyDowntime}
                   />
 
                   <AvailabilityHeatmap tiles={site.dailyAvailability30d} />
@@ -1424,8 +1716,20 @@ export default function PrivateSitesMonitoringPage() {
 
       {/* Add New Site Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-mono">
-          <div className="bg-[#0e0e12] border border-zinc-750 rounded-lg max-w-md w-full p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 font-mono"
+        >
+          {/* Clickable Backdrop Dismiss */}
+          <button
+            type="button"
+            aria-label="Close add site dialog"
+            onClick={() => setShowAddModal(false)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm cursor-pointer border-0 w-full h-full p-0 m-0"
+          />
+
+          <div className="bg-[#0e0e12] border border-zinc-750 rounded-lg max-w-md w-full p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 cursor-default relative z-10">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <Plus className="w-4 h-4 text-[#00ff66]" />

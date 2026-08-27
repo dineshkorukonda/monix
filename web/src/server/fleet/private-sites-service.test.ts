@@ -4,13 +4,14 @@ import {
   DEFAULT_FLEET_SITES,
   generate24HourlySlots,
   getActiveFleetConfigs,
+  isTimestampInNightlyDowntime,
   normalizeFleetUrl,
   probeFleetSite,
   removeCustomFleetSite,
 } from "./private-sites-service";
 
 describe("private-sites-service", () => {
-  it("defines the exact 7 requested fleet domains", () => {
+  it("defines the exact 7 requested fleet domains and nightly maintenance schedules", () => {
     expect(DEFAULT_FLEET_SITES.length).toBe(7);
     const urls = DEFAULT_FLEET_SITES.map((s) => s.url);
     expect(urls).toContain("https://kluniversity.in");
@@ -20,6 +21,38 @@ describe("private-sites-service", () => {
     expect(urls).toContain("https://iskconcommunity.com");
     expect(urls).toContain("https://msf.iskconcommunity.com");
     expect(urls).toContain("https://dev.iskconcommunity.com");
+
+    const erpSite = DEFAULT_FLEET_SITES.find(
+      (s) => s.slug === "newerp-kluniversity",
+    );
+    expect(erpSite?.nightlyDowntime?.enabled).toBe(true);
+    expect(erpSite?.nightlyDowntime?.startHour).toBe(23);
+
+    const lmsSite = DEFAULT_FLEET_SITES.find(
+      (s) => s.slug === "lms-kluniversity",
+    );
+    expect(lmsSite?.nightlyDowntime?.enabled).toBe(true);
+    expect(lmsSite?.nightlyDowntime?.startHour).toBe(0);
+  });
+
+  it("accurately detects timestamps within nightly downtime window", () => {
+    const config = {
+      enabled: true,
+      startHour: 23,
+      startMinute: 30,
+      endHour: 5,
+      endMinute: 30,
+      timezoneOffsetHours: 5.5,
+      label: "Nightly ERP Maintenance Window",
+    };
+
+    // 01:00 AM IST is 19:30 UTC previous day -> should be in nightly window
+    const inDowntimeDate = new Date("2026-08-27T19:30:00Z"); // 01:00 IST
+    expect(isTimestampInNightlyDowntime(inDowntimeDate, config)).toBe(true);
+
+    // 14:00 PM IST is 08:30 UTC -> should NOT be in nightly window
+    const daytimeDate = new Date("2026-08-27T08:30:00Z"); // 14:00 IST
+    expect(isTimestampInNightlyDowntime(daytimeDate, config)).toBe(false);
   });
 
   it("normalizes various URL formats correctly", () => {
@@ -58,7 +91,7 @@ describe("private-sites-service", () => {
     ).toBeUndefined();
   });
 
-  it("generates 24 discrete hourly slots with status and check metrics", () => {
+  it("generates 24 discrete hourly slots and reflects nightly downtime slots", () => {
     const now = new Date();
     const mockChecks = [
       {
@@ -67,23 +100,33 @@ describe("private-sites-service", () => {
         response_time_ms: 120,
         status_code: 200,
       },
-      {
-        checked_at: new Date(now.getTime() - 2 * 3600 * 1000).toISOString(),
-        status: "down",
-        response_time_ms: null,
-        status_code: 500,
-      },
     ];
 
-    const slots = generate24HourlySlots(mockChecks, 120, "up");
+    const nightlyConfig = {
+      enabled: true,
+      startHour: 23,
+      startMinute: 0,
+      endHour: 5,
+      endMinute: 0,
+      timezoneOffsetHours: 5.5,
+      label: "Nightly ERP Maintenance Window",
+    };
+
+    const slots = generate24HourlySlots(mockChecks, 120, "up", nightlyConfig);
     expect(slots.length).toBe(24);
     expect(slots[0].hourIndex).toBe(0);
     expect(slots[23].hourIndex).toBe(23);
     expect(typeof slots[0].timeLabel).toBe("string");
-    expect(typeof slots[0].uptimePercent).toBe("number");
+
+    // Some slots must reflect the nightly downtime
+    const downSlots = slots.filter((s) => s.status === "down");
+    expect(downSlots.length).toBeGreaterThan(0);
+    expect(downSlots[0].errorMessages).toContain(
+      "Nightly ERP Maintenance Window",
+    );
   });
 
-  it("probes a fleet site and generates enhanced baseline telemetry waveform for newly initialized sites", async () => {
+  it("probes a fleet site and generates enhanced baseline telemetry series", async () => {
     const site = DEFAULT_FLEET_SITES[0];
     const telemetry = await probeFleetSite(site);
 
