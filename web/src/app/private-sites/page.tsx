@@ -30,13 +30,38 @@ import {
 } from "react";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
-import {
-  type DailyAvailabilityTile,
-  type FleetOverviewData,
-  type FleetSiteTelemetry,
-  type HourlyUptimeSlot,
-  isTimestampInNightlyDowntime,
+import type {
+  DailyAvailabilityTile,
+  FleetOverviewData,
+  FleetSiteTelemetry,
+  HourlyUptimeSlot,
+  NightlyDowntimeConfig,
 } from "@/server/fleet/private-sites-service";
+
+/* -------------------------------------------------------------------------- */
+/*                     Client-side Nightly Maintenance Helper                 */
+/* -------------------------------------------------------------------------- */
+function isTimestampInNightlyDowntime(
+  timestamp: string | Date,
+  config?: NightlyDowntimeConfig,
+): boolean {
+  if (!config || !config.enabled) return false;
+  const date = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
+  if (Number.isNaN(date.getTime())) return false;
+
+  const offsetMs = (config.timezoneOffsetHours ?? 5.5) * 60 * 60 * 1000;
+  const localDate = new Date(date.getTime() + offsetMs);
+  const currentMinutes =
+    localDate.getUTCHours() * 60 + localDate.getUTCMinutes();
+
+  const startMinutes = config.startHour * 60 + (config.startMinute ?? 0);
+  const endMinutes = config.endHour * 60 + (config.endMinute ?? 0);
+
+  if (startMinutes <= endMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  }
+  return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+}
 
 /* -------------------------------------------------------------------------- */
 /*                     Standard Clean Latency Line Graph                     */

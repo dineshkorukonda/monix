@@ -134,6 +134,7 @@ export interface FleetSiteTelemetry {
   slug: string;
   category: string;
   isCustom?: boolean;
+  nightlyDowntime?: NightlyDowntimeConfig;
   status: "up" | "down" | "degraded" | "unknown";
   isLoginProtected: boolean;
   loginPortalType: string | null;
