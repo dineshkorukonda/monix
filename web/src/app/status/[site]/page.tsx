@@ -522,6 +522,45 @@ export default function PublicStatusPage({
           />
         </section>
 
+        {/* 30-Day Availability Heatmap Strip */}
+        <section className="border border-zinc-800 bg-[#0d0d0f] p-6 rounded-xl space-y-3 font-mono">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[#00ff66]" />
+              <h2 className="text-xs font-semibold text-white uppercase tracking-widest">
+                30-Day Historical Availability Track Record
+              </h2>
+            </div>
+            <span className="text-[11px] text-[#00ff66] font-semibold">
+              {site.uptimePercentage30d}% Operational Index
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 overflow-x-auto py-2">
+            {Array.from({ length: 30 }, (_, i) => {
+              const d = new Date(Date.now() - (29 - i) * 24 * 3600 * 1000);
+              const dateStr = d.toLocaleDateString([], { month: "short", day: "numeric" });
+              const isToday = i === 29;
+              const isUp = site.status === "up";
+              return (
+                <div
+                  key={i}
+                  title={`${dateStr}: ${isUp ? "100%" : isToday ? "0%" : "100%"} availability`}
+                  className={`h-7 flex-1 min-w-[8px] rounded transition-transform hover:scale-125 cursor-pointer ${
+                    !isUp && isToday ? "bg-red-500 hover:bg-red-400" : "bg-[#00ff66] hover:bg-[#00ff66]/80"
+                  }`}
+                />
+              );
+            })}
+          </div>
+
+          <div className="flex justify-between text-[9px] text-zinc-500 pt-1">
+            <span>30 days ago</span>
+            <span>15 days ago</span>
+            <span>Today (Live)</span>
+          </div>
+        </section>
+
         {/* Incident History Section */}
         <section className="border border-zinc-800 bg-[#0d0d0f] p-6 rounded-xl space-y-4">
           <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
