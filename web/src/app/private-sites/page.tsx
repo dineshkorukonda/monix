@@ -6,20 +6,26 @@ import {
   AlertTriangle,
   ArrowUpRight,
   BarChart3,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
   ExternalLink,
   Filter,
+  Globe,
   KeyRound,
   LayoutGrid,
   LineChart,
   Plus,
   RefreshCw,
+  Search,
   ShieldCheck,
+  Table as TableIcon,
   Trash2,
   X,
   Zap,
 } from "lucide-react";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -1099,7 +1105,10 @@ export default function PrivateSitesMonitoringPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d">("24h");
-  const [viewMode, setViewMode] = useState<"cards" | "timeline">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "table" | "timeline">("cards");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [singleProbingSlug, setSingleProbingSlug] = useState<string | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<number>(30);
   const [countdown, setCountdown] = useState<number>(30);
 
@@ -1198,6 +1207,7 @@ export default function PrivateSitesMonitoringPage() {
   };
 
   const handleProbeSingleSite = async (siteToProbe: FleetSiteTelemetry) => {
+    setSingleProbingSlug(siteToProbe.slug);
     const localCustom = getStoredCustomSites();
     try {
       const res = await fetch("/api/private-sites", {
@@ -1210,9 +1220,20 @@ export default function PrivateSitesMonitoringPage() {
       setData(json);
       const updatedSite = json.sites.find((s) => s.slug === siteToProbe.slug);
       if (updatedSite) setSelectedSite(updatedSite);
+      setSuccessMessage(`Live probe refreshed for "${siteToProbe.name}".`);
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Error probing target");
+    } finally {
+      setSingleProbingSlug(null);
     }
+  };
+
+  const handleCopyUrl = (url: string, slug: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(url);
+    setCopiedSlug(slug);
+    setTimeout(() => setCopiedSlug(null), 2000);
   };
 
   const handleAddSite = async (e: React.FormEvent) => {
@@ -1337,71 +1358,76 @@ export default function PrivateSitesMonitoringPage() {
 
   const filteredSites = useMemo(() => {
     if (!data) return [];
-    if (activeCategory === "All") return data.sites;
-    return data.sites.filter((s) => s.category === activeCategory);
-  }, [data, activeCategory]);
+    let list = data.sites;
+    if (activeCategory !== "All") {
+      list = list.filter((s) => s.category === activeCategory);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.url.toLowerCase().includes(q) ||
+          (s.pageTitle && s.pageTitle.toLowerCase().includes(q)) ||
+          s.category.toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [data, activeCategory, searchQuery]);
 
   return (
     <div className="min-h-screen bg-[#060608] text-foreground flex flex-col font-sans selection:bg-[#00ff66] selection:text-black">
       <Navigation />
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 pt-24 pb-20 space-y-8">
-        {/* Header Bar */}
-        <header className="border-b border-zinc-850 pb-6 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1.5">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 pt-24 pb-20 space-y-7">
+        {/* Top Radar HUD Bar */}
+        <header className="border border-zinc-800 bg-[#0d0d0f]/90 backdrop-blur-md rounded-2xl p-6 sm:p-7 space-y-5 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#00ff66]/5 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="flex flex-wrap items-start justify-between gap-4 relative z-10">
+            <div className="space-y-2">
               <div className="flex items-center gap-2.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#00ff66] animate-pulse shadow-[0_0_8px_#00ff66]" />
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#00ff66] animate-pulse shadow-[0_0_10px_#00ff66]" />
                 <span className="font-mono text-xs text-[#00ff66] uppercase tracking-widest font-semibold">
-                  PRIVATE FLEET RADAR :: /PRIVATE-SITES
+                  MONIX FLEET RADAR :: REAL-TIME TELEMETRY
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
-                Fleet Uptime &amp; Latency Stream
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-sans">
+                Private Fleet Monitoring Radar
               </h1>
               <p className="text-zinc-400 text-xs sm:text-sm max-w-2xl font-mono">
                 Continuous health pings, authentication/login detection, 24-hour
-                hour-by-hour timeline matrix, and incident outage summaries.
+                hour-by-hour timeline matrix, SSL certificate validity, and automated incident triage.
               </p>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3">
+            {/* Top Toolbar Actions */}
+            <div className="flex flex-wrap items-center gap-2.5">
               {/* Add Site Button */}
               <button
                 onClick={() => setShowAddModal(true)}
-                className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-mono text-xs rounded flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-zinc-500 text-white font-mono text-xs rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
               >
                 <Plus className="w-3.5 h-3.5 text-[#00ff66]" />
-                <span>Add Site</span>
+                <span>Add Target</span>
               </button>
 
               {/* Auto Refresh Selector */}
-              <div className="flex items-center gap-1.5 border border-zinc-800 bg-[#0d0d0f] rounded px-3 py-1.5 text-xs font-mono text-zinc-300">
+              <div className="flex items-center gap-1.5 border border-zinc-800 bg-[#08080c] rounded-lg px-3 py-2 text-xs font-mono text-zinc-300">
                 <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Refresh:</span>
+                <span className="hidden sm:inline text-zinc-400">Poll:</span>
                 <select
                   value={refreshInterval}
                   onChange={(e) => setRefreshInterval(Number(e.target.value))}
                   className="bg-transparent text-[#00ff66] font-semibold focus:outline-none cursor-pointer"
                 >
-                  <option value={0} className="bg-zinc-900 text-white">
-                    Off
-                  </option>
-                  <option value={15} className="bg-zinc-900 text-white">
-                    15s
-                  </option>
-                  <option value={30} className="bg-zinc-900 text-white">
-                    30s
-                  </option>
-                  <option value={60} className="bg-zinc-900 text-white">
-                    60s
-                  </option>
+                  <option value={0} className="bg-zinc-900 text-white">Off</option>
+                  <option value={15} className="bg-zinc-900 text-white">15s</option>
+                  <option value={30} className="bg-zinc-900 text-white">30s</option>
+                  <option value={60} className="bg-zinc-900 text-white">60s</option>
                 </select>
                 {refreshInterval > 0 && (
-                  <span className="text-zinc-500 text-[10px] pl-1">
-                    ({countdown}s)
-                  </span>
+                  <span className="text-zinc-500 text-[10px] pl-0.5">({countdown}s)</span>
                 )}
               </div>
 
@@ -1409,19 +1435,17 @@ export default function PrivateSitesMonitoringPage() {
               <button
                 onClick={handleInstantProbe}
                 disabled={probing}
-                className="px-4 py-2 bg-[#00ff66] hover:bg-[#00ff66]/90 active:scale-95 text-black font-semibold text-xs font-mono uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2 rounded cursor-pointer shadow-[0_0_12px_rgba(0,255,102,0.2)]"
+                className="px-4 py-2 bg-[#00ff66] hover:bg-[#00ff66]/90 active:scale-95 text-black font-semibold text-xs font-mono uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2 rounded-lg cursor-pointer shadow-[0_0_15px_rgba(0,255,102,0.25)]"
               >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 ${probing ? "animate-spin" : ""}`}
-                />
-                <span>{probing ? "Probing Fleet..." : "Run Health Check"}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${probing ? "animate-spin" : ""}`} />
+                <span>{probing ? "Probing Fleet..." : "Probe Fleet Now"}</span>
               </button>
             </div>
           </div>
         </header>
 
         {successMessage && (
-          <div className="p-3.5 border border-[#00ff66]/40 bg-[#00ff66]/10 text-[#00ff66] rounded text-xs font-mono flex items-center justify-between gap-3 animate-in fade-in">
+          <div className="p-3.5 border border-[#00ff66]/40 bg-[#00ff66]/10 text-[#00ff66] rounded-xl text-xs font-mono flex items-center justify-between gap-3 animate-in fade-in">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#00ff66] shrink-0" />
               <span>{successMessage}</span>
@@ -1436,7 +1460,7 @@ export default function PrivateSitesMonitoringPage() {
         )}
 
         {error && (
-          <div className="p-4 border border-red-500/30 bg-red-950/20 text-red-400 rounded text-xs font-mono flex items-center gap-3">
+          <div className="p-4 border border-red-500/30 bg-red-950/20 text-red-400 rounded-xl text-xs font-mono flex items-center gap-3">
             <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
             <span>{error}</span>
           </div>
@@ -1444,8 +1468,8 @@ export default function PrivateSitesMonitoringPage() {
 
         {/* Fleet KPI Banner */}
         {data && (
-          <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="border border-zinc-800 bg-[#0d0d0f] p-4 rounded space-y-1.5">
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="border border-zinc-800 bg-[#0d0d0f] p-4 sm:p-5 rounded-xl space-y-1.5 hover:border-zinc-700 transition-colors">
               <div className="flex items-center justify-between text-zinc-500 text-[11px] font-mono uppercase">
                 <span>Fleet Operational</span>
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#00ff66]" />
@@ -1463,7 +1487,7 @@ export default function PrivateSitesMonitoringPage() {
               </p>
             </div>
 
-            <div className="border border-zinc-800 bg-[#0d0d0f] p-4 rounded space-y-1.5">
+            <div className="border border-zinc-800 bg-[#0d0d0f] p-4 sm:p-5 rounded-xl space-y-1.5 hover:border-zinc-700 transition-colors">
               <div className="flex items-center justify-between text-zinc-500 text-[11px] font-mono uppercase">
                 <span>Avg 24h Availability</span>
                 <Activity className="w-3.5 h-3.5 text-emerald-400" />
@@ -1476,7 +1500,7 @@ export default function PrivateSitesMonitoringPage() {
               </p>
             </div>
 
-            <div className="border border-zinc-800 bg-[#0d0d0f] p-4 rounded space-y-1.5">
+            <div className="border border-zinc-800 bg-[#0d0d0f] p-4 sm:p-5 rounded-xl space-y-1.5 hover:border-zinc-700 transition-colors">
               <div className="flex items-center justify-between text-zinc-500 text-[11px] font-mono uppercase">
                 <span>Fleet Latency</span>
                 <Zap className="w-3.5 h-3.5 text-amber-400" />
@@ -1491,7 +1515,7 @@ export default function PrivateSitesMonitoringPage() {
               </p>
             </div>
 
-            <div className="border border-zinc-800 bg-[#0d0d0f] p-4 rounded space-y-1.5">
+            <div className="border border-zinc-800 bg-[#0d0d0f] p-4 sm:p-5 rounded-xl space-y-1.5 hover:border-zinc-700 transition-colors">
               <div className="flex items-center justify-between text-zinc-500 text-[11px] font-mono uppercase">
                 <span>Active Disruptions</span>
                 <AlertOctagon
@@ -1520,77 +1544,307 @@ export default function PrivateSitesMonitoringPage() {
           </section>
         )}
 
-        {/* View Switcher & Category Toolbar */}
-        <section className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-850 pb-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-zinc-500 mr-1" />
-            {data?.categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
-                  activeCategory === cat
-                    ? "bg-[#00ff66] text-black font-semibold"
-                    : "text-zinc-400 hover:text-white bg-zinc-900/60 border border-zinc-800"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center border border-zinc-800 bg-[#0d0d0f] rounded p-0.5 text-xs font-mono">
-              {(["24h", "7d", "30d"] as const).map((r) => (
+        {/* Filter, Search & View Switcher Toolbar */}
+        <section className="space-y-3.5">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            {/* Realtime Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search targets by name, domain, title, or category..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#0d0d0f] border border-zinc-800 focus:border-[#00ff66] rounded-xl pl-9 pr-8 py-2 text-xs font-mono text-white placeholder-zinc-500 focus:outline-none transition-colors"
+              />
+              {searchQuery && (
                 <button
-                  key={r}
-                  onClick={() => setTimeRange(r)}
-                  className={`px-2.5 py-1 rounded transition-colors ${
-                    timeRange === r
-                      ? "bg-zinc-800 text-white font-semibold"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Time Range & View Mode Switcher */}
+            <div className="flex items-center gap-2.5 flex-wrap justify-between md:justify-end">
+              <div className="flex items-center border border-zinc-800 bg-[#0d0d0f] rounded-xl p-1 text-xs font-mono">
+                {(["24h", "7d", "30d"] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setTimeRange(r)}
+                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+                      timeRange === r
+                        ? "bg-zinc-800 text-white font-semibold shadow-sm"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    {r.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center border border-zinc-800 bg-[#0d0d0f] rounded-xl p-1 text-xs font-mono">
+                <button
+                  onClick={() => setViewMode("cards")}
+                  title="Cards Grid View"
+                  className={`px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
+                    viewMode === "cards"
+                      ? "bg-zinc-800 text-[#00ff66] font-semibold"
                       : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  {r.toUpperCase()}
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-[11px]">Cards</span>
                 </button>
-              ))}
-            </div>
 
-            <div className="flex items-center border border-zinc-800 bg-[#0d0d0f] rounded p-0.5 text-xs font-mono">
-              <button
-                onClick={() => setViewMode("cards")}
-                title="Cards View"
-                className={`p-1.5 rounded transition-colors ${
-                  viewMode === "cards"
-                    ? "bg-zinc-800 text-[#00ff66]"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setViewMode("timeline")}
-                title="Fleet Latency Comparison"
-                className={`p-1.5 rounded transition-colors ${
-                  viewMode === "timeline"
-                    ? "bg-zinc-800 text-[#00ff66]"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-              </button>
+                <button
+                  onClick={() => setViewMode("table")}
+                  title="DevOps Table View"
+                  className={`px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
+                    viewMode === "table"
+                      ? "bg-zinc-800 text-[#00ff66] font-semibold"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <TableIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-[11px]">Table</span>
+                </button>
+
+                <button
+                  onClick={() => setViewMode("timeline")}
+                  title="Latency Comparison Timeline"
+                  className={`px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
+                    viewMode === "timeline"
+                      ? "bg-zinc-800 text-[#00ff66] font-semibold"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-[11px]">Timeline</span>
+                </button>
+              </div>
             </div>
+          </div>
+
+          {/* Category Chips Bar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+            <Filter className="w-3.5 h-3.5 text-zinc-500 shrink-0 mr-1" />
+            {data?.categories.map((cat) => {
+              const count =
+                cat === "All"
+                  ? data.sites.length
+                  : data.sites.filter((s) => s.category === cat).length;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-3 py-1 text-xs font-mono rounded-lg whitespace-nowrap transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    activeCategory === cat
+                      ? "bg-[#00ff66] text-black font-semibold shadow-sm"
+                      : "text-zinc-400 hover:text-white bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700"
+                  }`}
+                >
+                  <span>{cat}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      activeCategory === cat
+                        ? "bg-black/20 text-black font-bold"
+                        : "bg-zinc-800 text-zinc-400"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
         {/* Content Display */}
         {loading ? (
-          <div className="py-20 text-center space-y-3 font-mono">
-            <RefreshCw className="w-6 h-6 text-[#00ff66] animate-spin mx-auto" />
+          <div className="py-24 text-center space-y-3 font-mono">
+            <RefreshCw className="w-8 h-8 text-[#00ff66] animate-spin mx-auto" />
             <p className="text-zinc-400 text-xs">
-              Pinging fleet targets &amp; analyzing portal authentication
-              headers...
+              Pinging fleet targets &amp; analyzing portal authentication headers...
             </p>
+          </div>
+        ) : filteredSites.length === 0 ? (
+          <div className="py-20 border border-dashed border-zinc-800 bg-[#0d0d0f]/50 rounded-2xl text-center space-y-3 font-mono">
+            <Globe className="w-8 h-8 text-zinc-600 mx-auto" />
+            <p className="text-zinc-300 text-sm font-semibold">No Monitored Sites Found</p>
+            <p className="text-zinc-500 text-xs max-w-sm mx-auto">
+              No targets match the filter criteria &ldquo;{searchQuery}&rdquo;.
+            </p>
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setActiveCategory("All");
+              }}
+              className="px-3 py-1.5 bg-zinc-900 border border-zinc-700 text-xs text-[#00ff66] rounded hover:bg-zinc-800 cursor-pointer"
+            >
+              Reset Filters
+            </button>
+          </div>
+        ) : viewMode === "table" ? (
+          /* High-Density DevOps Table View */
+          <div className="overflow-x-auto border border-zinc-800 bg-[#0d0d0f] rounded-2xl font-mono text-xs shadow-2xl">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-zinc-900/60 text-zinc-400 text-[10px] uppercase tracking-wider">
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4">Target Portal &amp; Title</th>
+                  <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">Current Ping</th>
+                  <th className="py-3.5 px-4">HTTP</th>
+                  <th className="py-3.5 px-4">{timeRange.toUpperCase()} Uptime</th>
+                  <th className="py-3.5 px-4">SSL Cert</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60">
+                {filteredSites.map((site) => {
+                  const isUp = site.status === "up";
+                  const isDegraded = site.status === "degraded";
+                  const statusBadge = isUp ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#00ff66]/10 text-[#00ff66] border border-[#00ff66]/30 text-[10px] font-semibold uppercase">
+                      <span className="w-2 h-2 rounded-full bg-[#00ff66] animate-pulse" />
+                      Operational
+                    </span>
+                  ) : isDegraded ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-yellow-950/30 text-yellow-400 border border-yellow-500/30 text-[10px] font-semibold uppercase">
+                      <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                      Degraded
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-950/30 text-red-400 border border-red-500/30 text-[10px] font-semibold uppercase">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                      Outage
+                    </span>
+                  );
+
+                  const latencyColor =
+                    site.currentResponseTimeMs === null
+                      ? "text-zinc-500"
+                      : site.currentResponseTimeMs < 250
+                        ? "text-[#00ff66]"
+                        : site.currentResponseTimeMs < 600
+                          ? "text-yellow-400"
+                          : "text-orange-400";
+
+                  const uptimeVal =
+                    timeRange === "24h"
+                      ? site.uptimePercentage24h
+                      : timeRange === "7d"
+                        ? site.uptimePercentage7d
+                        : site.uptimePercentage30d;
+
+                  return (
+                    <tr
+                      key={site.slug}
+                      onClick={() => setSelectedSite(site)}
+                      className="hover:bg-zinc-850/40 transition-colors cursor-pointer group"
+                    >
+                      <td className="py-3.5 px-4 whitespace-nowrap">{statusBadge}</td>
+                      <td className="py-3.5 px-4 max-w-xs">
+                        <div className="font-semibold text-white group-hover:text-[#00ff66] transition-colors truncate">
+                          {site.name}
+                        </div>
+                        {site.pageTitle && (
+                          <div className="text-[10px] text-zinc-400 truncate">
+                            &ldquo;{site.pageTitle}&rdquo;
+                          </div>
+                        )}
+                        <div className="text-[10px] text-zinc-500 truncate flex items-center gap-1">
+                          <span>{site.url}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded bg-zinc-800 text-[10px] text-zinc-400 border border-zinc-700">
+                          {site.category}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className={`font-bold ${latencyColor}`}>
+                          {site.currentResponseTimeMs !== null
+                            ? `${site.currentResponseTimeMs} ms`
+                            : "--"}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className="font-semibold text-zinc-300">
+                          {site.statusCode ?? "--"}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span
+                          className={`font-semibold ${
+                            uptimeVal >= 99
+                              ? "text-[#00ff66]"
+                              : uptimeVal >= 80
+                                ? "text-yellow-400"
+                                : "text-red-400"
+                          }`}
+                        >
+                          {uptimeVal}%
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] ${
+                            site.certWarning ? "text-yellow-400" : "text-emerald-400"
+                          }`}
+                        >
+                          <ShieldCheck className="w-3 h-3" />
+                          <span>{site.certDaysRemaining != null ? `${site.certDaysRemaining}d` : "OK"}</span>
+                        </span>
+                      </td>
+                      <td
+                        className="py-3.5 px-4 whitespace-nowrap text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/status/${site.slug}`}
+                            title="View Scoped Public Status Page"
+                            className="p-1.5 text-zinc-400 hover:text-[#00ff66] bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Link>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleProbeSingleSite(site);
+                            }}
+                            disabled={singleProbingSlug === site.slug}
+                            title="Run Live Health Probe"
+                            className="p-1.5 text-zinc-400 hover:text-[#00ff66] bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors cursor-pointer"
+                          >
+                            <RefreshCw
+                              className={`w-3.5 h-3.5 ${
+                                singleProbingSlug === site.slug ? "animate-spin text-[#00ff66]" : ""
+                              }`}
+                            />
+                          </button>
+
+                          {site.isCustom && (
+                            <button
+                              onClick={(e) => handleDeleteSite(e, site.slug, site.url)}
+                              title="Delete site"
+                              className="p-1.5 text-zinc-500 hover:text-red-400 bg-zinc-900 border border-zinc-800 rounded hover:border-red-500/40 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : viewMode === "timeline" ? (
           <FleetComparisonTimeline
@@ -1598,6 +1852,7 @@ export default function PrivateSitesMonitoringPage() {
             onSelectSite={setSelectedSite}
           />
         ) : (
+          /* Cards Grid View */
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {filteredSites.map((site) => {
               const isUp = site.status === "up";
@@ -1620,37 +1875,31 @@ export default function PrivateSitesMonitoringPage() {
               return (
                 <article
                   key={site.slug}
-                  className="border border-zinc-800/90 bg-[#0d0d0f] hover:border-[#00ff66]/60 transition-all rounded-lg p-5 space-y-4 flex flex-col justify-between group"
+                  className="border border-zinc-800/90 bg-[#0d0d0f] hover:border-[#00ff66]/60 transition-all rounded-2xl p-5 sm:p-6 space-y-4 flex flex-col justify-between group shadow-xl"
                 >
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          <span className="px-2 py-0.5 text-[10px] font-mono font-medium rounded bg-zinc-800/80 text-zinc-400 border border-zinc-700/50">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="px-2 py-0.5 text-[10px] font-mono font-medium rounded-md bg-zinc-800/90 text-zinc-300 border border-zinc-700/60">
                             {site.category}
                           </span>
 
                           {site.isLoginProtected && (
-                            <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-sky-950/60 text-sky-400 border border-sky-600/40 inline-flex items-center gap-1">
+                            <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded-md bg-sky-950/60 text-sky-400 border border-sky-600/40 inline-flex items-center gap-1">
                               <KeyRound className="w-3 h-3 text-sky-400" />
-                              <span>
-                                {site.loginPortalType || "Auth / Login Portal"}
-                              </span>
+                              <span>{site.loginPortalType || "Auth / Login Portal"}</span>
                             </span>
                           )}
 
                           {site.nightlyDowntime?.enabled && (
-                            <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-amber-950/60 text-amber-400 border border-amber-600/40 inline-flex items-center gap-1">
+                            <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded-md bg-amber-950/60 text-amber-400 border border-amber-600/40 inline-flex items-center gap-1">
                               <Clock className="w-3 h-3 text-amber-400" />
                               <span>
                                 Nightly Maint: {site.nightlyDowntime.startHour}:
-                                {(site.nightlyDowntime.startMinute ?? 0)
-                                  .toString()
-                                  .padStart(2, "0")}{" "}
+                                {(site.nightlyDowntime.startMinute ?? 0).toString().padStart(2, "0")}{" "}
                                 - {site.nightlyDowntime.endHour}:
-                                {(site.nightlyDowntime.endMinute ?? 0)
-                                  .toString()
-                                  .padStart(2, "0")}
+                                {(site.nightlyDowntime.endMinute ?? 0).toString().padStart(2, "0")}
                               </span>
                             </span>
                           )}
@@ -1659,7 +1908,7 @@ export default function PrivateSitesMonitoringPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedSite(site)}
-                          className="text-left text-base font-semibold text-white tracking-tight flex items-center gap-2 hover:text-[#00ff66] transition-colors cursor-pointer"
+                          className="text-left text-lg font-bold text-white tracking-tight flex items-center gap-2 hover:text-[#00ff66] transition-colors cursor-pointer"
                         >
                           <span>{site.name}</span>
                         </button>
@@ -1670,23 +1919,34 @@ export default function PrivateSitesMonitoringPage() {
                           </div>
                         )}
 
-                        <div className="flex items-center gap-2 pt-1 flex-wrap">
-                          <span className="text-xs font-mono text-zinc-400 inline-flex items-center gap-1">
+                        <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                          <a
+                            href={site.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-mono text-zinc-400 hover:text-[#00ff66] transition-colors inline-flex items-center gap-1"
+                          >
                             <span>{site.url}</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </span>
+                            <ExternalLink className="w-3 h-3 text-zinc-500" />
+                          </a>
 
-                          {site.finalUrl && site.finalUrl !== site.url && (
-                            <span className="text-[10px] font-mono text-zinc-500 truncate max-w-xs">
-                              &rarr; {site.finalUrl}
-                            </span>
-                          )}
+                          <button
+                            onClick={(e) => handleCopyUrl(site.url, site.slug, e)}
+                            title="Copy target URL"
+                            className="text-zinc-500 hover:text-zinc-300 transition-colors p-0.5"
+                          >
+                            {copiedSlug === site.slug ? (
+                              <Check className="w-3 h-3 text-[#00ff66]" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
                         </div>
                       </div>
 
                       <div className="flex flex-col items-end gap-2 shrink-0">
                         <div
-                          className={`px-2.5 py-1 rounded border text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1.5 ${statusColor}`}
+                          className={`px-3 py-1.5 rounded-lg border text-[11px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1.5 ${statusColor}`}
                         >
                           <span
                             className={`w-2 h-2 rounded-full ${
@@ -1698,19 +1958,13 @@ export default function PrivateSitesMonitoringPage() {
                             }`}
                           />
                           <span>
-                            {isUp
-                              ? "Operational"
-                              : isDegraded
-                                ? "Degraded"
-                                : "Outage"}
+                            {isUp ? "Operational" : isDegraded ? "Degraded" : "Outage"}
                           </span>
                         </div>
 
                         {site.isCustom && (
                           <button
-                            onClick={(e) =>
-                              handleDeleteSite(e, site.slug, site.url)
-                            }
+                            onClick={(e) => handleDeleteSite(e, site.slug, site.url)}
                             title="Remove site from monitoring"
                             className="text-zinc-600 hover:text-red-400 p-1 transition-colors"
                           >
@@ -1721,7 +1975,7 @@ export default function PrivateSitesMonitoringPage() {
                     </div>
 
                     {site.latestIncident && (
-                      <div className="p-2.5 bg-red-950/30 border border-red-500/40 rounded text-red-400 text-xs font-mono flex items-center gap-2">
+                      <div className="p-2.5 bg-red-950/30 border border-red-500/40 rounded-lg text-red-400 text-xs font-mono flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 shrink-0" />
                         <span>Incident: {site.latestIncident.cause}</span>
                       </div>
@@ -1733,12 +1987,8 @@ export default function PrivateSitesMonitoringPage() {
                       <div className="text-[10px] font-mono text-zinc-500 uppercase">
                         Current Ping
                       </div>
-                      <div
-                        className={`text-sm sm:text-base font-mono font-bold ${latencyColor}`}
-                      >
-                        {site.currentResponseTimeMs !== null
-                          ? `${site.currentResponseTimeMs} ms`
-                          : "--"}
+                      <div className={`text-sm sm:text-base font-mono font-bold ${latencyColor}`}>
+                        {site.currentResponseTimeMs !== null ? `${site.currentResponseTimeMs} ms` : "--"}
                       </div>
                     </div>
 
@@ -1776,34 +2026,64 @@ export default function PrivateSitesMonitoringPage() {
                   <AvailabilityHeatmap tiles={site.dailyAvailability30d} />
 
                   <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 pt-2 border-t border-zinc-850">
-                    <div className="flex items-center gap-1.5">
-                      <ShieldCheck
-                        className={`w-3.5 h-3.5 ${
-                          site.certWarning
-                            ? "text-yellow-400"
-                            : site.certDaysRemaining !== null
-                              ? "text-emerald-400"
-                              : "text-zinc-500"
-                        }`}
-                      />
-                      <span>
-                        {site.certDaysRemaining !== null
-                          ? `SSL: ${site.certDaysRemaining}d valid`
-                          : "SSL: Active"}
-                      </span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck
+                          className={`w-3.5 h-3.5 ${
+                            site.certWarning
+                              ? "text-yellow-400"
+                              : site.certDaysRemaining !== null
+                                ? "text-emerald-400"
+                                : "text-zinc-500"
+                          }`}
+                        />
+                        <span>
+                          {site.certDaysRemaining !== null
+                            ? `SSL: ${site.certDaysRemaining}d valid`
+                            : "SSL: Active"}
+                        </span>
+                      </div>
+
+                      <Link
+                        href={`/status/${site.slug}`}
+                        className="text-zinc-500 hover:text-[#00ff66] transition-colors ml-2 hidden sm:inline-flex items-center gap-1 text-[10px]"
+                        title="Open Scoped Public Status Page"
+                      >
+                        <span>Status Page</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedSite(site);
-                      }}
-                      className="inline-flex items-center gap-1 text-[#00ff66] hover:underline"
-                    >
-                      <span>Hour-by-Hour Deep Dive</span>
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleProbeSingleSite(site);
+                        }}
+                        disabled={singleProbingSlug === site.slug}
+                        className="text-zinc-400 hover:text-[#00ff66] p-1 rounded transition-colors cursor-pointer"
+                        title="Re-probe site"
+                      >
+                        <RefreshCw
+                          className={`w-3.5 h-3.5 ${
+                            singleProbingSlug === site.slug ? "animate-spin text-[#00ff66]" : ""
+                          }`}
+                        />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedSite(site);
+                        }}
+                        className="inline-flex items-center gap-1 text-[#00ff66] hover:underline cursor-pointer"
+                      >
+                        <span>Deep Dive Matrix</span>
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </article>
               );

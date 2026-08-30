@@ -117,7 +117,7 @@ export const DEFAULT_FLEET_SITES: FleetSiteConfig[] = [
   },
   {
     name: "CARD Dashboard Indevs",
-    url: "https://dashboard.card.indevs.in",
+    url: "https://dashboard.carf.indevs.in",
     slug: "dashboard-card-indevs",
     category: "Indevs / CARF",
   },
@@ -624,6 +624,8 @@ export function generate30DayAvailability(
   return tiles;
 }
 
+import { robustProbeSite } from "./probe-helper";
+
 /**
  * Probes a website and performs deep HTTP/HTML analysis.
  */
@@ -631,96 +633,16 @@ export async function probeFleetSite(
   site: FleetSiteConfig,
   timeoutMs = 9000,
 ): Promise<FleetSiteTelemetry> {
-  const start = Date.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const probe = await robustProbeSite(site.url, timeoutMs);
 
-  let isUp = false;
-  let statusCode: number | null = null;
-  let responseTimeMs: number | null = null;
-  let errorMsg: string | null = null;
-  let finalUrl: string | null = null;
-  let pageTitle: string | null = null;
-  let isLoginProtected = false;
-  let loginPortalType: string | null = null;
-
-  try {
-    const res = await fetch(site.url, {
-      method: "GET",
-      signal: controller.signal,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 MonixFleetBot/2.0",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      },
-      redirect: "follow",
-    });
-
-    clearTimeout(timer);
-    responseTimeMs = Date.now() - start;
-    statusCode = res.status;
-    finalUrl = res.url;
-
-    let bodyText = "";
-    try {
-      const fullText = await res.text();
-      bodyText = fullText.slice(0, 100000);
-      const titleMatch = bodyText.match(/<title[^>]*>([^<]*)<\/title>/i);
-      if (titleMatch?.[1]) {
-        pageTitle = titleMatch[1].trim();
-      }
-    } catch {
-      // ignore
-    }
-
-    const hasLoginForm = /<form[^>]*>|<input[^>]*type=["']password["']/i.test(
-      bodyText,
-    );
-    const hasAuthKeywords =
-      /login|sign in|sign-in|sso|cas|erp|auth|authentication|username|credentials|forbidden|access denied/i.test(
-        bodyText,
-      ) || /login|auth|sso|erp/i.test(finalUrl || "");
-
-    if (
-      hasLoginForm ||
-      hasAuthKeywords ||
-      statusCode === 401 ||
-      statusCode === 403
-    ) {
-      isLoginProtected = true;
-      if (statusCode === 403 || statusCode === 401) {
-        loginPortalType = "Protected Gateway (403/401)";
-      } else if (pageTitle && /erp/i.test(pageTitle)) {
-        loginPortalType = `ERP Portal (${pageTitle})`;
-      } else if (pageTitle && /lms/i.test(pageTitle)) {
-        loginPortalType = `LMS Portal (${pageTitle})`;
-      } else if (pageTitle) {
-        loginPortalType = `Auth Portal: ${pageTitle.slice(0, 24)}`;
-      } else {
-        loginPortalType = "Login / Auth Gateway";
-      }
-    }
-
-    if (statusCode >= 200 && statusCode < 400) {
-      isUp = true;
-    } else if (statusCode === 401 || statusCode === 403) {
-      isUp = true;
-    } else {
-      isUp = false;
-      errorMsg = `HTTP ${statusCode}`;
-    }
-  } catch (err: unknown) {
-    clearTimeout(timer);
-    responseTimeMs = Date.now() - start;
-    isUp = false;
-    errorMsg =
-      err instanceof Error
-        ? err.name === "AbortError"
-          ? `Timeout (> ${timeoutMs}ms)`
-          : err.message
-        : "Network connectivity failed";
-  }
+  const isUp = probe.isUp;
+  const statusCode = probe.statusCode;
+  const responseTimeMs = probe.responseTimeMs;
+  const errorMsg = probe.error;
+  const finalUrl = probe.finalUrl;
+  const pageTitle = probe.pageTitle;
+  const isLoginProtected = probe.isLoginProtected;
+  const loginPortalType = probe.loginPortalType;
 
   // Check SSL certificate
   let certDays: number | null = null;

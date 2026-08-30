@@ -117,24 +117,8 @@ export async function getStatusPageData(
         .split("/")[0]
         ?.trim();
       try {
-        const start = Date.now();
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        const res = await fetch(probeTargetUrl, {
-          method: "GET",
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 MonixFleetBot/2.0",
-          },
-          signal: controller.signal,
-          redirect: "follow",
-        });
-        clearTimeout(timeout);
-        const latency = Date.now() - start;
-        const isUp =
-          (res.status >= 200 && res.status < 400) ||
-          res.status === 401 ||
-          res.status === 403;
+        const { robustProbeSite } = await import("@/server/fleet/probe-helper");
+        const probe = await robustProbeSite(probeTargetUrl, 9000);
 
         let certDays: number | null = null;
         let certIssuer: string | null = null;
@@ -152,14 +136,14 @@ export async function getStatusPageData(
         return {
           site: {
             id: `ad-hoc-${cleanHost}`,
-            name: targetDisplayName,
-            url: probeTargetUrl,
-            status: isUp ? "up" : "down",
-            currentResponseTimeMs: latency,
-            currentStatusCode: res.status,
+            name: probe.pageTitle || targetDisplayName,
+            url: probe.finalUrl || probeTargetUrl,
+            status: probe.isUp ? "up" : "down",
+            currentResponseTimeMs: probe.responseTimeMs,
+            currentStatusCode: probe.statusCode,
             lastCheckedAt: new Date().toISOString(),
-            uptimePercentage24h: isUp ? 100 : 0,
-            uptimePercentage30d: isUp ? 100 : 0,
+            uptimePercentage24h: probe.isUp ? 100 : 0,
+            uptimePercentage30d: probe.isUp ? 100 : 0,
             certificateExpiryAt: null,
             certIssuer,
             certDaysRemaining: certDays,
@@ -168,11 +152,11 @@ export async function getStatusPageData(
           responseTimeHistory24h: [
             {
               timestamp: new Date().toISOString(),
-              responseTimeMs: latency,
-              status: isUp ? "up" : "down",
+              responseTimeMs: probe.responseTimeMs,
+              status: probe.isUp ? "up" : "down",
             },
           ],
-          incidents: isUp
+          incidents: probe.isUp
             ? []
             : [
                 {
@@ -180,7 +164,7 @@ export async function getStatusPageData(
                   startedAt: new Date().toISOString(),
                   endedAt: null,
                   durationSeconds: null,
-                  cause: `HTTP ${res.status} error detected on live health probe`,
+                  cause: probe.error || `HTTP ${probe.statusCode || "Error"} error detected on live health probe`,
                   status: "ongoing",
                 },
               ],

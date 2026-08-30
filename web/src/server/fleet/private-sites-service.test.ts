@@ -26,7 +26,7 @@ describe("private-sites-service", () => {
     expect(urls).toContain("https://dineshkorukonda.in");
     expect(urls).toContain("https://versiongate.tech");
     expect(urls).toContain("https://carf.indevs.in");
-    expect(urls).toContain("https://dashboard.card.indevs.in");
+    expect(urls).toContain("https://dashboard.carf.indevs.in");
     expect(urls).toContain("https://iskconcommunity.com");
     expect(urls).toContain("https://msf.iskconcommunity.com");
     expect(urls).toContain("https://dev.iskconcommunity.com");

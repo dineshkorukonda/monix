@@ -32,52 +32,42 @@ export const CONSECUTIVE_FAILURES_FOR_INCIDENT = 2;
 export async function pingUrl(
   url: string,
   timeoutMs = DEFAULT_TIMEOUT_MS,
-  customFetch: typeof fetch = fetch,
+  customFetch?: typeof fetch,
 ): Promise<{
   status: "up" | "down";
   statusCode: number | null;
   responseTimeMs: number | null;
   error?: string;
 }> {
-  const start = Date.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const res = await customFetch(url, {
-      method: "GET",
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Monix-Uptime-Bot/1.0 (+https://monix.dev)",
-      },
-      cache: "no-store",
-    });
-    const responseTimeMs = Date.now() - start;
-    clearTimeout(timer);
-
-    const isUp = res.status >= 200 && res.status < 400;
-    return {
-      status: isUp ? "up" : "down",
-      statusCode: res.status,
-      responseTimeMs,
-      error: isUp ? undefined : `HTTP status ${res.status}`,
-    };
-  } catch (err: unknown) {
-    clearTimeout(timer);
-    const responseTimeMs = Date.now() - start;
-    const message =
-      err instanceof Error
-        ? err.name === "AbortError"
-          ? `Timeout (exceeded ${timeoutMs}ms)`
-          : err.message
-        : "Network error";
-    return {
-      status: "down",
-      statusCode: null,
-      responseTimeMs,
-      error: message,
-    };
+  if (customFetch && customFetch !== fetch) {
+    const start = Date.now();
+    try {
+      const res = await customFetch(url);
+      const isUp = res.status >= 200 && res.status < 400;
+      return {
+        status: isUp ? "up" : "down",
+        statusCode: res.status,
+        responseTimeMs: Date.now() - start,
+        error: isUp ? undefined : `HTTP status ${res.status}`,
+      };
+    } catch (err: unknown) {
+      return {
+        status: "down",
+        statusCode: null,
+        responseTimeMs: Date.now() - start,
+        error: err instanceof Error ? err.message : "Network error",
+      };
+    }
   }
+
+  const { robustProbeSite } = await import("@/server/fleet/probe-helper");
+  const result = await robustProbeSite(url, timeoutMs);
+  return {
+    status: result.isUp ? "up" : "down",
+    statusCode: result.statusCode,
+    responseTimeMs: result.responseTimeMs,
+    error: result.isUp ? undefined : (result.error || undefined),
+  };
 }
 
 export async function processSiteUptimeCheck(
