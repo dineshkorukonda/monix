@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
   addCustomFleetSite,
+  type FleetSiteConfig,
   getFleetTelemetry,
   probeAndRecordAllFleetSites,
   removeCustomFleetSite,
@@ -10,9 +11,33 @@ import { handleRouteError } from "@/server/transport/http";
 export const dynamic = "force-dynamic";
 export const maxDuration = 45;
 
-export async function GET(_request: NextRequest) {
+function parseCustomSitesFromRequest(request: NextRequest): FleetSiteConfig[] {
   try {
-    const data = await getFleetTelemetry();
+    const customHeader = request.headers.get("x-custom-sites");
+    if (customHeader) {
+      return JSON.parse(decodeURIComponent(customHeader));
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const customParam = searchParams.get("custom");
+    if (customParam) {
+      return JSON.parse(decodeURIComponent(customParam));
+    }
+  } catch {
+    // ignore
+  }
+
+  return [];
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const clientCustomSites = parseCustomSitesFromRequest(request);
+    const data = await getFleetTelemetry(clientCustomSites);
     return NextResponse.json(data);
   } catch (error) {
     return handleRouteError(error);
@@ -22,11 +47,12 @@ export async function GET(_request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     let body: {
-      action?: "add_site" | "delete_site" | "probe_all";
+      action?: "add_site" | "delete_site" | "probe_all" | "sync";
       name?: string;
       url?: string;
       category?: string;
       slug?: string;
+      customSites?: FleetSiteConfig[];
       nightlyDowntime?: {
         enabled: boolean;
         startHour: number;
@@ -44,6 +70,11 @@ export async function POST(request: NextRequest) {
       // Empty body defaults to probe_all
     }
 
+    const headerCustomSites = parseCustomSitesFromRequest(request);
+    const customSites = Array.isArray(body.customSites)
+      ? body.customSites
+      : headerCustomSites;
+
     if (body.action === "add_site") {
       if (!body.url) {
         return NextResponse.json(
@@ -57,7 +88,7 @@ export async function POST(request: NextRequest) {
         category: body.category,
         nightlyDowntime: body.nightlyDowntime,
       });
-      const updated = await getFleetTelemetry();
+      const updated = await getFleetTelemetry(customSites);
       return NextResponse.json(updated);
     }
 
@@ -69,12 +100,19 @@ export async function POST(request: NextRequest) {
         );
       }
       await removeCustomFleetSite(body.slug || body.url || "");
-      const updated = await getFleetTelemetry();
+      const remainingCustomSites = (customSites || []).filter(
+        (s) =>
+          s.url !== body.url &&
+          s.slug !== body.slug &&
+          s.slug !== body.url &&
+          s.url !== body.slug,
+      );
+      const updated = await getFleetTelemetry(remainingCustomSites);
       return NextResponse.json(updated);
     }
 
     // Default action: Probe all sites concurrently
-    const data = await probeAndRecordAllFleetSites();
+    const data = await probeAndRecordAllFleetSites(customSites);
     return NextResponse.json(data);
   } catch (error) {
     return handleRouteError(error);

@@ -68,6 +68,60 @@ export const DEFAULT_FLEET_SITES: FleetSiteConfig[] = [
     category: "KL University",
   },
   {
+    name: "KLU SAC Portal",
+    url: "https://sac.kluniversity.in",
+    slug: "sac-kluniversity",
+    category: "KL University",
+  },
+  {
+    name: "KLU SVR Portal",
+    url: "https://svr.kluniversity.in",
+    slug: "svr-kluniversity",
+    category: "KL University",
+  },
+  {
+    name: "KLU SAC Activities",
+    url: "https://sacactivities.kluniversity.in",
+    slug: "sacactivities-kluniversity",
+    category: "KL University",
+  },
+  {
+    name: "KLU Social Internship",
+    url: "https://socialinternship.kluniversity.in",
+    slug: "socialinternship-kluniversity",
+    category: "KL University",
+  },
+  {
+    name: "SBI Site Tracker",
+    url: "https://sbi-sitetracker.vercel.app",
+    slug: "sbi-sitetracker",
+    category: "Projects",
+  },
+  {
+    name: "Dinesh Korukonda Portfolio",
+    url: "https://dineshkorukonda.in",
+    slug: "dineshkorukonda",
+    category: "Projects",
+  },
+  {
+    name: "VersionGate Tech",
+    url: "https://versiongate.tech",
+    slug: "versiongate",
+    category: "VersionGate",
+  },
+  {
+    name: "CARF Indevs",
+    url: "https://carf.indevs.in",
+    slug: "carf-indevs",
+    category: "Indevs / CARF",
+  },
+  {
+    name: "CARD Dashboard Indevs",
+    url: "https://dashboard.card.indevs.in",
+    slug: "dashboard-card-indevs",
+    category: "Indevs / CARF",
+  },
+  {
     name: "ISKCON Community Main",
     url: "https://iskconcommunity.com",
     slug: "iskconcommunity",
@@ -792,7 +846,9 @@ export async function probeFleetSite(
 /**
  * Ensures default fleet targets exist in database and fetches all active fleet targets (defaults + custom).
  */
-export async function getActiveFleetConfigs(): Promise<FleetSiteConfig[]> {
+export async function getActiveFleetConfigs(
+  extraCustomSites: FleetSiteConfig[] = [],
+): Promise<FleetSiteConfig[]> {
   const fleetMap = new Map<string, FleetSiteConfig>();
 
   for (const site of DEFAULT_FLEET_SITES) {
@@ -801,6 +857,31 @@ export async function getActiveFleetConfigs(): Promise<FleetSiteConfig[]> {
 
   for (const [url, site] of MEMORY_CUSTOM_SITES.entries()) {
     fleetMap.set(url, { ...site });
+  }
+
+  if (Array.isArray(extraCustomSites)) {
+    for (const site of extraCustomSites) {
+      if (site && site.url) {
+        const normalizedUrl = normalizeFleetUrl(site.url);
+        const cleanHost = normalizedUrl.replace(/^https?:\/\//, "").split("/")[0];
+        const name = site.name?.trim() || cleanHost;
+        const category = site.category?.trim() || "Custom Sites";
+        const slug =
+          site.slug ||
+          encodeCustomSlug(name, category, cleanHost, site.nightlyDowntime);
+        const config: FleetSiteConfig = {
+          id: site.id,
+          name,
+          url: normalizedUrl,
+          slug,
+          category,
+          isCustom: true,
+          nightlyDowntime: site.nightlyDowntime,
+        };
+        fleetMap.set(normalizedUrl, config);
+        MEMORY_CUSTOM_SITES.set(normalizedUrl, config);
+      }
+    }
   }
 
   try {
@@ -975,8 +1056,10 @@ export async function removeCustomFleetSite(
 /**
  * Compiles comprehensive telemetry, timeline comparison, 24h hourly slots, and incident history.
  */
-export async function getFleetTelemetry(): Promise<FleetOverviewData> {
-  const fleetConfigs = await getActiveFleetConfigs();
+export async function getFleetTelemetry(
+  extraCustomSites: FleetSiteConfig[] = [],
+): Promise<FleetOverviewData> {
+  const fleetConfigs = await getActiveFleetConfigs(extraCustomSites);
   const siteResults: FleetSiteTelemetry[] = [];
 
   const probedSites = await Promise.all(
@@ -1226,8 +1309,10 @@ export async function getFleetTelemetry(): Promise<FleetOverviewData> {
 /**
  * Concurrently triggers live check and records into DB.
  */
-export async function probeAndRecordAllFleetSites(): Promise<FleetOverviewData> {
-  const fleetConfigs = await getActiveFleetConfigs();
+export async function probeAndRecordAllFleetSites(
+  extraCustomSites: FleetSiteConfig[] = [],
+): Promise<FleetOverviewData> {
+  const fleetConfigs = await getActiveFleetConfigs(extraCustomSites);
 
   await Promise.allSettled(
     fleetConfigs.map(async (site) => {
@@ -1240,5 +1325,5 @@ export async function probeAndRecordAllFleetSites(): Promise<FleetOverviewData> 
     }),
   );
 
-  return getFleetTelemetry();
+  return getFleetTelemetry(extraCustomSites);
 }

@@ -11,13 +11,22 @@ import {
 } from "./private-sites-service";
 
 describe("private-sites-service", () => {
-  it("defines the exact 7 requested fleet domains and nightly maintenance schedules", () => {
-    expect(DEFAULT_FLEET_SITES.length).toBe(7);
+  it("defines the requested fleet domains and nightly maintenance schedules", () => {
+    expect(DEFAULT_FLEET_SITES.length).toBe(16);
     const urls = DEFAULT_FLEET_SITES.map((s) => s.url);
     expect(urls).toContain("https://kluniversity.in");
     expect(urls).toContain("https://newerp.kluniversity.in");
     expect(urls).toContain("https://lms.kluniversity.in");
     expect(urls).toContain("https://klef.in");
+    expect(urls).toContain("https://sac.kluniversity.in");
+    expect(urls).toContain("https://svr.kluniversity.in");
+    expect(urls).toContain("https://sacactivities.kluniversity.in");
+    expect(urls).toContain("https://socialinternship.kluniversity.in");
+    expect(urls).toContain("https://sbi-sitetracker.vercel.app");
+    expect(urls).toContain("https://dineshkorukonda.in");
+    expect(urls).toContain("https://versiongate.tech");
+    expect(urls).toContain("https://carf.indevs.in");
+    expect(urls).toContain("https://dashboard.card.indevs.in");
     expect(urls).toContain("https://iskconcommunity.com");
     expect(urls).toContain("https://msf.iskconcommunity.com");
     expect(urls).toContain("https://dev.iskconcommunity.com");

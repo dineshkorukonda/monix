@@ -1062,6 +1062,33 @@ function SiteDetailModal({
   );
 }
 
+const LOCAL_STORAGE_CUSTOM_SITES_KEY = "monix_private_custom_sites";
+
+interface StoredCustomSite {
+  name: string;
+  url: string;
+  category: string;
+  slug?: string;
+  nightlyDowntime?: NightlyDowntimeConfig;
+}
+
+function getStoredCustomSites(): StoredCustomSite[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_CUSTOM_SITES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredCustomSites(sites: StoredCustomSite[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LOCAL_STORAGE_CUSTOM_SITES_KEY, JSON.stringify(sites));
+  } catch {}
+}
+
 /* -------------------------------------------------------------------------- */
 /*                               Main Page Component                          */
 /* -------------------------------------------------------------------------- */
@@ -1094,13 +1121,42 @@ export default function PrivateSitesMonitoringPage() {
   const fetchFleetData = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
     setError(null);
+    const localCustom = getStoredCustomSites();
     try {
-      const res = await fetch("/api/private-sites", { cache: "no-store" });
+      const customHeaderVal =
+        localCustom.length > 0
+          ? encodeURIComponent(JSON.stringify(localCustom))
+          : "";
+      const res = await fetch(
+        `/api/private-sites${customHeaderVal ? `?custom=${customHeaderVal}` : ""}`,
+        {
+          cache: "no-store",
+          headers: customHeaderVal ? { "x-custom-sites": customHeaderVal } : {},
+        },
+      );
       if (!res.ok) {
         throw new Error(`Failed to fetch fleet telemetry (${res.status})`);
       }
       const json: FleetOverviewData = await res.json();
       setData(json);
+
+      // Sync any custom sites discovered from server back into localStorage
+      const serverCustom = json.sites
+        .filter((s) => s.isCustom)
+        .map((s) => ({
+          name: s.name,
+          url: s.url,
+          category: s.category,
+          slug: s.slug,
+          nightlyDowntime: s.nightlyDowntime,
+        }));
+      const combinedCustom = [...localCustom];
+      for (const sc of serverCustom) {
+        if (!combinedCustom.some((c) => c.url === sc.url || c.slug === sc.slug)) {
+          combinedCustom.push(sc);
+        }
+      }
+      saveStoredCustomSites(combinedCustom);
 
       // If a site is currently inspected in modal, update its live state
       if (selectedSiteRef.current) {
@@ -1119,11 +1175,12 @@ export default function PrivateSitesMonitoringPage() {
   const handleInstantProbe = async () => {
     setProbing(true);
     setError(null);
+    const localCustom = getStoredCustomSites();
     try {
       const res = await fetch("/api/private-sites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "probe_all" }),
+        body: JSON.stringify({ action: "probe_all", customSites: localCustom }),
       });
       if (!res.ok) {
         throw new Error(`Failed to run live probe (${res.status})`);
@@ -1141,11 +1198,12 @@ export default function PrivateSitesMonitoringPage() {
   };
 
   const handleProbeSingleSite = async (siteToProbe: FleetSiteTelemetry) => {
+    const localCustom = getStoredCustomSites();
     try {
       const res = await fetch("/api/private-sites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "probe_all" }),
+        body: JSON.stringify({ action: "probe_all", customSites: localCustom }),
       });
       if (!res.ok) throw new Error("Failed to probe site");
       const json: FleetOverviewData = await res.json();
@@ -1167,6 +1225,18 @@ export default function PrivateSitesMonitoringPage() {
     const targetName = newSiteName.trim();
     const targetCat = newSiteCategory.trim() || "Custom Sites";
 
+    const localCustom = getStoredCustomSites();
+    const newCustomItem: StoredCustomSite = {
+      name: targetName || targetUrl.replace(/^https?:\/\//, "").split("/")[0],
+      url: targetUrl,
+      category: targetCat,
+    };
+    const updatedLocal = [
+      ...localCustom.filter((s) => s.url !== targetUrl),
+      newCustomItem,
+    ];
+    saveStoredCustomSites(updatedLocal);
+
     try {
       const res = await fetch("/api/private-sites", {
         method: "POST",
@@ -1176,6 +1246,7 @@ export default function PrivateSitesMonitoringPage() {
           name: targetName || undefined,
           url: targetUrl,
           category: targetCat,
+          customSites: updatedLocal,
         }),
       });
 
@@ -1210,6 +1281,16 @@ export default function PrivateSitesMonitoringPage() {
     if (!confirm(`Are you sure you want to remove ${url} from monitoring?`))
       return;
 
+    const localCustom = getStoredCustomSites();
+    const updatedLocal = localCustom.filter(
+      (s) =>
+        s.url !== url &&
+        s.slug !== slug &&
+        s.slug !== url &&
+        s.url !== slug,
+    );
+    saveStoredCustomSites(updatedLocal);
+
     try {
       const res = await fetch("/api/private-sites", {
         method: "POST",
@@ -1218,6 +1299,7 @@ export default function PrivateSitesMonitoringPage() {
           action: "delete_site",
           slug,
           url,
+          customSites: updatedLocal,
         }),
       });
 
