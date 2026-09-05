@@ -63,14 +63,16 @@ All migrations use `IF NOT EXISTS` guards and are safe to re-run.
 
 ## Cron Jobs
 
-Uptime monitoring and certificate tracking require two background workers. Configure these in **Vercel → Settings → Cron Jobs**:
+Background workers use two schedulers:
 
-| Route | Schedule | Description |
-|---|---|---|
-| `/api/cron/uptime` | `*/5 * * * *` | Ping all targets every 5 minutes |
-| `/api/cron/certificates` | `0 2 * * *` | Inspect TLS certificates nightly |
+| Route | Scheduler | Schedule | Description |
+|---|---|---|---|
+| `/api/cron/uptime` | GitHub Actions (`.github/workflows/uptime-cron.yml`) | `*/5 * * * *` | Ping all registered targets every 5 minutes |
+| `/api/cron/certificates` | Vercel Cron (`vercel.json`) | `0 2 * * *` | Inspect TLS certificates nightly |
 
-You can also trigger them manually or via any external cron service (Upstash, GitHub Actions, cron-job.org).
+Set the repository variable `MONIX_SITE_URL` to your production origin (default: `https://monix.dineshkorukonda.online`). If `CRON_SECRET` is set in Vercel, add the same value as a GitHub Actions secret so the workflow can authenticate.
+
+You can also trigger `/api/cron/uptime` manually via **Actions → Uptime Ping Cron → Run workflow**, or with any external cron service.
 
 ---
 
@@ -79,11 +81,17 @@ You can also trigger them manually or via any external cron service (Upstash, Gi
 Copy `web/.env.example` to `web/.env.local`:
 
 ```ini
-# PostgreSQL connection string
+# PostgreSQL connection string (required in production for uptime/incidents)
 DATABASE_URL="postgresql://postgres:password@localhost:5432/monix"
 
 # App base URL
 NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+
+# Production origin for GitHub Actions uptime cron (repo variable MONIX_SITE_URL)
+# MONIX_SITE_URL="https://monix.dineshkorukonda.online"
+
+# Protect /api/cron/* routes (set same value in GitHub Actions secrets)
+# CRON_SECRET=""
 
 # Supabase JWT secret (for authenticated API routes)
 SUPABASE_JWT_SECRET=""
@@ -98,16 +106,16 @@ PAGESPEED_API_KEY=""
 
 ```bash
 # Run an anonymous scan
-curl -s -X POST https://monix.dineshkorukonda.in/api/scan \
+curl -s -X POST https://monix.dineshkorukonda.online/api/scan \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com"}'
 
 # Trigger a subdomain scan (requires auth)
-curl -s -X POST https://monix.dineshkorukonda.in/api/targets/<target-id>/subdomains \
+curl -s -X POST https://monix.dineshkorukonda.online/api/targets/<target-id>/subdomains \
   -H "Authorization: Bearer <token>"
 
 # List discovered subdomains
-curl -s https://monix.dineshkorukonda.in/api/targets/<target-id>/subdomains \
+curl -s https://monix.dineshkorukonda.online/api/targets/<target-id>/subdomains \
   -H "Authorization: Bearer <token>"
 ```
 
@@ -123,6 +131,7 @@ curl -s https://monix.dineshkorukonda.in/api/targets/<target-id>/subdomains \
 | `/docs` | Public | Technical documentation |
 | `/docs/webhooks` | Public | Webhook payload reference |
 | `/inspector` | Public | Advanced inspector tool |
+| `/private-sites` | Public | Fleet radar: live probes for configured targets |
 
 ---
 

@@ -46,8 +46,8 @@ export default function StatusDirectoryPage() {
             Uptime Monitoring &amp; Status Pages
           </h1>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl">
-            Real-time heartbeat diagnostics, automated incident detection,
-            24-hour latency tracking, and TLS certificate expiry tracking.
+            Uptime percentages, incident history, latency charts, and TLS
+            certificate expiry for targets with public status pages enabled.
           </p>
         </header>
 
@@ -96,12 +96,13 @@ export default function StatusDirectoryPage() {
             <div className="border border-border bg-[#0d0d0f] p-5 rounded space-y-2.5">
               <div className="flex items-center gap-2 text-white font-semibold text-sm">
                 <Activity className="w-4 h-4 text-[#00ff66]" />
-                <span>5-Minute Heartbeat Pings</span>
+                <span>5-Minute Uptime Checks</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Automated workers ping registered targets every 5 minutes via
-                cron, logging response latency, HTTP response codes, and status
-                telemetry.
+                A GitHub Actions workflow POSTs to{" "}
+                <code className="text-[#00ff66]">/api/cron/uptime</code> every 5
+                minutes, recording response latency, HTTP status codes, and
+                check results in Postgres.
               </p>
             </div>
 

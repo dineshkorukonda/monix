@@ -33,6 +33,14 @@ function getPool(): Pool {
       connectionString: url,
       ssl: shouldUseSsl(rawUrl) ? { rejectUnauthorized: true } : false,
       max: Number(process.env.DB_POOL_MAX) || 20,
+      connectionTimeoutMillis:
+        Number(process.env.DB_CONNECTION_TIMEOUT_MS) || 5000,
+      idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS) || 10000,
+    });
+    pool.on("connect", (client) => {
+      const statementTimeoutMs =
+        Number(process.env.DB_STATEMENT_TIMEOUT_MS) || 10000;
+      void client.query(`SET statement_timeout = ${statementTimeoutMs}`);
     });
   }
   return pool;

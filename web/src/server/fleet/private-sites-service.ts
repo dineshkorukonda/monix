@@ -783,9 +783,11 @@ export async function getActiveFleetConfigs(
 
   if (Array.isArray(extraCustomSites)) {
     for (const site of extraCustomSites) {
-      if (site && site.url) {
+      if (site?.url) {
         const normalizedUrl = normalizeFleetUrl(site.url);
-        const cleanHost = normalizedUrl.replace(/^https?:\/\//, "").split("/")[0];
+        const cleanHost = normalizedUrl
+          .replace(/^https?:\/\//, "")
+          .split("/")[0];
         const name = site.name?.trim() || cleanHost;
         const category = site.category?.trim() || "Custom Sites";
         const slug =

@@ -164,7 +164,9 @@ export async function getStatusPageData(
                   startedAt: new Date().toISOString(),
                   endedAt: null,
                   durationSeconds: null,
-                  cause: probe.error || `HTTP ${probe.statusCode || "Error"} error detected on live health probe`,
+                  cause:
+                    probe.error ||
+                    `HTTP ${probe.statusCode || "Error"} error detected on live health probe`,
                   status: "ongoing",
                 },
               ],

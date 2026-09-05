@@ -30,8 +30,9 @@ export default function Home() {
           </h1>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl">
             Instant security header audits, TLS verification, SEO crawl
-            directive analysis, subdomain discovery, automated 5-minute uptime
-            pings, and real-time webhook alerting.
+            directive analysis, subdomain discovery, scheduled 5-minute uptime
+            checks (GitHub Actions), and webhook alerting for registered
+            targets.
           </p>
           <div className="pt-3 flex flex-wrap items-center gap-3">
             <Link
@@ -88,9 +89,11 @@ export default function Home() {
                 <span>Continuous Uptime Monitoring</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Automated 5-minute heartbeat pings with a 2-failure threshold to
-                prevent false alarms, tracking 24h &amp; 30d uptime
-                availability.
+                Registered targets are pinged every 5 minutes by a GitHub
+                Actions workflow calling{" "}
+                <code className="text-[#00ff66]">/api/cron/uptime</code>.
+                Incidents open after 2 consecutive failures; 24h and 30d uptime
+                come from stored check history.
               </p>
             </div>
 
@@ -197,10 +200,17 @@ export default function Home() {
                 Q: How does the uptime monitoring worker operate?
               </strong>
               <p className="text-muted-foreground leading-relaxed">
-                Uptime checks are triggered automatically via cron every 5
-                minutes. To avoid false positives, an incident is only opened
-                when a target fails 2 consecutive checks. When it recovers, the
-                incident is automatically resolved and logged.
+                Uptime checks run every 5 minutes via the GitHub Actions
+                workflow at{" "}
+                <code className="text-[#00ff66] font-mono text-xs">
+                  .github/workflows/uptime-cron.yml
+                </code>
+                , which POSTs to{" "}
+                <code className="text-[#00ff66] font-mono text-xs">
+                  /api/cron/uptime
+                </code>
+                . An incident opens after 2 consecutive failed checks and closes
+                automatically when the target recovers.
               </p>
             </div>
 

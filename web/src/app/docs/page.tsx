@@ -75,9 +75,10 @@ export default function DocsPage() {
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                 Monix works as a direct inspection and monitoring utility. Scan
                 any public URL instantly — no login wall, no account required.
-                For registered targets, Monix continuously monitors uptime,
-                tracks TLS certificate expiry, discovers subdomains, and fires
-                webhook alerts when incidents occur.
+                For registered targets stored in Postgres, Monix runs scheduled
+                uptime checks, tracks TLS certificate expiry, discovers
+                subdomains (authenticated routes), and sends webhook alerts when
+                configured on a target.
               </p>
             </section>
 
@@ -98,7 +99,7 @@ export default function DocsPage() {
                 parameter:
               </p>
               <div className="border border-border bg-card p-4 font-mono text-xs text-foreground overflow-x-auto">
-                <pre>{`curl -X POST https://monix.dineshkorukonda.in/api/scan \\
+                <pre>{`curl -X POST https://monix.dineshkorukonda.online/api/scan \\
   -H "Content-Type: application/json" \\
   -d '{"url": "https://example.com"}'`}</pre>
               </div>
@@ -232,15 +233,23 @@ export default function DocsPage() {
                 Uptime Monitoring
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                Monix automatically pings all registered targets via{" "}
+                Registered targets are pinged via{" "}
                 <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
                   POST /api/cron/uptime
                 </code>
-                . Configure this as a Vercel Cron Job running{" "}
+                . Production uses the GitHub Actions workflow{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  .github/workflows/uptime-cron.yml
+                </code>{" "}
+                on schedule{" "}
                 <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
                   */5 * * * *
                 </code>{" "}
-                (every 5 minutes).
+                (every 5 minutes). Set the repo variable{" "}
+                <code className="font-mono bg-secondary px-1.5 py-0.5 border border-border text-foreground">
+                  MONIX_SITE_URL
+                </code>{" "}
+                to your deployed origin.
               </p>
               <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed list-disc list-outside ml-5">
                 <li>

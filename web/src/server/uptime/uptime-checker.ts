@@ -66,7 +66,7 @@ export async function pingUrl(
     status: result.isUp ? "up" : "down",
     statusCode: result.statusCode,
     responseTimeMs: result.responseTimeMs,
-    error: result.isUp ? undefined : (result.error || undefined),
+    error: result.isUp ? undefined : result.error || undefined,
   };
 }
 

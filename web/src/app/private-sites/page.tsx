@@ -1095,6 +1095,31 @@ function saveStoredCustomSites(sites: StoredCustomSite[]) {
   } catch {}
 }
 
+const FLEET_FETCH_TIMEOUT_MS = 60_000;
+
+function fleetFetchErrorMessage(err: unknown): string {
+  if (err instanceof DOMException && err.name === "AbortError") {
+    return "request timed out after 60 seconds";
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return "unknown error";
+}
+
+async function parseFleetApiError(res: Response): Promise<string> {
+  let reason = `HTTP ${res.status}`;
+  try {
+    const body = (await res.json()) as { error?: string };
+    if (body.error?.trim()) {
+      reason = body.error.trim();
+    }
+  } catch {
+    // ignore non-JSON error bodies
+  }
+  return reason;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                               Main Page Component                          */
 /* -------------------------------------------------------------------------- */
@@ -1105,10 +1130,14 @@ export default function PrivateSitesMonitoringPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d">("24h");
-  const [viewMode, setViewMode] = useState<"cards" | "table" | "timeline">("cards");
+  const [viewMode, setViewMode] = useState<"cards" | "table" | "timeline">(
+    "cards",
+  );
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
-  const [singleProbingSlug, setSingleProbingSlug] = useState<string | null>(null);
+  const [singleProbingSlug, setSingleProbingSlug] = useState<string | null>(
+    null,
+  );
   const [refreshInterval, setRefreshInterval] = useState<number>(30);
   const [countdown, setCountdown] = useState<number>(30);
 
@@ -1141,10 +1170,11 @@ export default function PrivateSitesMonitoringPage() {
         {
           cache: "no-store",
           headers: customHeaderVal ? { "x-custom-sites": customHeaderVal } : {},
+          signal: AbortSignal.timeout(FLEET_FETCH_TIMEOUT_MS),
         },
       );
       if (!res.ok) {
-        throw new Error(`Failed to fetch fleet telemetry (${res.status})`);
+        throw new Error(await parseFleetApiError(res));
       }
       const json: FleetOverviewData = await res.json();
       setData(json);
@@ -1161,7 +1191,9 @@ export default function PrivateSitesMonitoringPage() {
         }));
       const combinedCustom = [...localCustom];
       for (const sc of serverCustom) {
-        if (!combinedCustom.some((c) => c.url === sc.url || c.slug === sc.slug)) {
+        if (
+          !combinedCustom.some((c) => c.url === sc.url || c.slug === sc.slug)
+        ) {
           combinedCustom.push(sc);
         }
       }
@@ -1175,7 +1207,9 @@ export default function PrivateSitesMonitoringPage() {
         if (fresh) setSelectedSite(fresh);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error loading fleet data");
+      setError(
+        `Failed to load fleet telemetry — ${fleetFetchErrorMessage(err)}`,
+      );
     } finally {
       if (isInitial) setLoading(false);
     }
@@ -1305,10 +1339,7 @@ export default function PrivateSitesMonitoringPage() {
     const localCustom = getStoredCustomSites();
     const updatedLocal = localCustom.filter(
       (s) =>
-        s.url !== url &&
-        s.slug !== slug &&
-        s.slug !== url &&
-        s.url !== slug,
+        s.url !== url && s.slug !== slug && s.slug !== url && s.url !== slug,
     );
     saveStoredCustomSites(updatedLocal);
 
@@ -1368,7 +1399,7 @@ export default function PrivateSitesMonitoringPage() {
         (s) =>
           s.name.toLowerCase().includes(q) ||
           s.url.toLowerCase().includes(q) ||
-          (s.pageTitle && s.pageTitle.toLowerCase().includes(q)) ||
+          s.pageTitle?.toLowerCase().includes(q) ||
           s.category.toLowerCase().includes(q),
       );
     }
@@ -1389,15 +1420,16 @@ export default function PrivateSitesMonitoringPage() {
               <div className="flex items-center gap-2.5">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#00ff66] animate-pulse shadow-[0_0_10px_#00ff66]" />
                 <span className="font-mono text-xs text-[#00ff66] uppercase tracking-widest font-semibold">
-                  MONIX FLEET RADAR :: REAL-TIME TELEMETRY
+                  MONIX FLEET RADAR :: LIVE TELEMETRY
                 </span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-sans">
                 Private Fleet Monitoring Radar
               </h1>
               <p className="text-zinc-400 text-xs sm:text-sm max-w-2xl font-mono">
-                Continuous health pings, authentication/login detection, 24-hour
-                hour-by-hour timeline matrix, SSL certificate validity, and automated incident triage.
+                On-demand live HTTP probes for configured targets, login-portal
+                detection, 24-hour timeline slots, SSL certificate checks, and
+                incident history when Postgres is available.
               </p>
             </div>
 
@@ -1421,13 +1453,23 @@ export default function PrivateSitesMonitoringPage() {
                   onChange={(e) => setRefreshInterval(Number(e.target.value))}
                   className="bg-transparent text-[#00ff66] font-semibold focus:outline-none cursor-pointer"
                 >
-                  <option value={0} className="bg-zinc-900 text-white">Off</option>
-                  <option value={15} className="bg-zinc-900 text-white">15s</option>
-                  <option value={30} className="bg-zinc-900 text-white">30s</option>
-                  <option value={60} className="bg-zinc-900 text-white">60s</option>
+                  <option value={0} className="bg-zinc-900 text-white">
+                    Off
+                  </option>
+                  <option value={15} className="bg-zinc-900 text-white">
+                    15s
+                  </option>
+                  <option value={30} className="bg-zinc-900 text-white">
+                    30s
+                  </option>
+                  <option value={60} className="bg-zinc-900 text-white">
+                    60s
+                  </option>
                 </select>
                 {refreshInterval > 0 && (
-                  <span className="text-zinc-500 text-[10px] pl-0.5">({countdown}s)</span>
+                  <span className="text-zinc-500 text-[10px] pl-0.5">
+                    ({countdown}s)
+                  </span>
                 )}
               </div>
 
@@ -1437,7 +1479,9 @@ export default function PrivateSitesMonitoringPage() {
                 disabled={probing}
                 className="px-4 py-2 bg-[#00ff66] hover:bg-[#00ff66]/90 active:scale-95 text-black font-semibold text-xs font-mono uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2 rounded-lg cursor-pointer shadow-[0_0_15px_rgba(0,255,102,0.25)]"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${probing ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${probing ? "animate-spin" : ""}`}
+                />
                 <span>{probing ? "Probing Fleet..." : "Probe Fleet Now"}</span>
               </button>
             </div>
@@ -1667,13 +1711,32 @@ export default function PrivateSitesMonitoringPage() {
           <div className="py-24 text-center space-y-3 font-mono">
             <RefreshCw className="w-8 h-8 text-[#00ff66] animate-spin mx-auto" />
             <p className="text-zinc-400 text-xs">
-              Pinging fleet targets &amp; analyzing portal authentication headers...
+              Probing fleet targets and loading telemetry (this can take up to a
+              minute)...
             </p>
+          </div>
+        ) : error && !data ? (
+          <div className="py-20 border border-red-500/30 bg-red-950/20 rounded-2xl text-center space-y-4 font-mono px-6">
+            <AlertTriangle className="w-8 h-8 text-red-400 mx-auto" />
+            <p className="text-red-300 text-sm font-semibold">{error}</p>
+            <p className="text-zinc-500 text-xs max-w-md mx-auto">
+              Check that DATABASE_URL is set in production and that
+              /api/private-sites responds. You can retry without reloading the
+              page.
+            </p>
+            <button
+              onClick={() => fetchFleetData(true)}
+              className="px-4 py-2 bg-zinc-900 border border-zinc-700 text-xs text-[#00ff66] rounded hover:bg-zinc-800 cursor-pointer"
+            >
+              Retry Load
+            </button>
           </div>
         ) : filteredSites.length === 0 ? (
           <div className="py-20 border border-dashed border-zinc-800 bg-[#0d0d0f]/50 rounded-2xl text-center space-y-3 font-mono">
             <Globe className="w-8 h-8 text-zinc-600 mx-auto" />
-            <p className="text-zinc-300 text-sm font-semibold">No Monitored Sites Found</p>
+            <p className="text-zinc-300 text-sm font-semibold">
+              No Monitored Sites Found
+            </p>
             <p className="text-zinc-500 text-xs max-w-sm mx-auto">
               No targets match the filter criteria &ldquo;{searchQuery}&rdquo;.
             </p>
@@ -1698,7 +1761,9 @@ export default function PrivateSitesMonitoringPage() {
                   <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4">Current Ping</th>
                   <th className="py-3.5 px-4">HTTP</th>
-                  <th className="py-3.5 px-4">{timeRange.toUpperCase()} Uptime</th>
+                  <th className="py-3.5 px-4">
+                    {timeRange.toUpperCase()} Uptime
+                  </th>
                   <th className="py-3.5 px-4">SSL Cert</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
@@ -1746,7 +1811,9 @@ export default function PrivateSitesMonitoringPage() {
                       onClick={() => setSelectedSite(site)}
                       className="hover:bg-zinc-850/40 transition-colors cursor-pointer group"
                     >
-                      <td className="py-3.5 px-4 whitespace-nowrap">{statusBadge}</td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {statusBadge}
+                      </td>
                       <td className="py-3.5 px-4 max-w-xs">
                         <div className="font-semibold text-white group-hover:text-[#00ff66] transition-colors truncate">
                           {site.name}
@@ -1793,21 +1860,25 @@ export default function PrivateSitesMonitoringPage() {
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span
                           className={`inline-flex items-center gap-1 text-[10px] ${
-                            site.certWarning ? "text-yellow-400" : "text-emerald-400"
+                            site.certWarning
+                              ? "text-yellow-400"
+                              : "text-emerald-400"
                           }`}
                         >
                           <ShieldCheck className="w-3 h-3" />
-                          <span>{site.certDaysRemaining != null ? `${site.certDaysRemaining}d` : "OK"}</span>
+                          <span>
+                            {site.certDaysRemaining != null
+                              ? `${site.certDaysRemaining}d`
+                              : "OK"}
+                          </span>
                         </span>
                       </td>
-                      <td
-                        className="py-3.5 px-4 whitespace-nowrap text-right"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <td className="py-3.5 px-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
                             href={`/status/${site.slug}`}
                             title="View Scoped Public Status Page"
+                            onClick={(e) => e.stopPropagation()}
                             className="p-1.5 text-zinc-400 hover:text-[#00ff66] bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -1824,14 +1895,18 @@ export default function PrivateSitesMonitoringPage() {
                           >
                             <RefreshCw
                               className={`w-3.5 h-3.5 ${
-                                singleProbingSlug === site.slug ? "animate-spin text-[#00ff66]" : ""
+                                singleProbingSlug === site.slug
+                                  ? "animate-spin text-[#00ff66]"
+                                  : ""
                               }`}
                             />
                           </button>
 
                           {site.isCustom && (
                             <button
-                              onClick={(e) => handleDeleteSite(e, site.slug, site.url)}
+                              onClick={(e) =>
+                                handleDeleteSite(e, site.slug, site.url)
+                              }
                               title="Delete site"
                               className="p-1.5 text-zinc-500 hover:text-red-400 bg-zinc-900 border border-zinc-800 rounded hover:border-red-500/40 transition-colors cursor-pointer"
                             >
@@ -1888,7 +1963,9 @@ export default function PrivateSitesMonitoringPage() {
                           {site.isLoginProtected && (
                             <span className="px-2 py-0.5 text-[10px] font-mono font-semibold rounded-md bg-sky-950/60 text-sky-400 border border-sky-600/40 inline-flex items-center gap-1">
                               <KeyRound className="w-3 h-3 text-sky-400" />
-                              <span>{site.loginPortalType || "Auth / Login Portal"}</span>
+                              <span>
+                                {site.loginPortalType || "Auth / Login Portal"}
+                              </span>
                             </span>
                           )}
 
@@ -1897,9 +1974,13 @@ export default function PrivateSitesMonitoringPage() {
                               <Clock className="w-3 h-3 text-amber-400" />
                               <span>
                                 Nightly Maint: {site.nightlyDowntime.startHour}:
-                                {(site.nightlyDowntime.startMinute ?? 0).toString().padStart(2, "0")}{" "}
+                                {(site.nightlyDowntime.startMinute ?? 0)
+                                  .toString()
+                                  .padStart(2, "0")}{" "}
                                 - {site.nightlyDowntime.endHour}:
-                                {(site.nightlyDowntime.endMinute ?? 0).toString().padStart(2, "0")}
+                                {(site.nightlyDowntime.endMinute ?? 0)
+                                  .toString()
+                                  .padStart(2, "0")}
                               </span>
                             </span>
                           )}
@@ -1931,7 +2012,9 @@ export default function PrivateSitesMonitoringPage() {
                           </a>
 
                           <button
-                            onClick={(e) => handleCopyUrl(site.url, site.slug, e)}
+                            onClick={(e) =>
+                              handleCopyUrl(site.url, site.slug, e)
+                            }
                             title="Copy target URL"
                             className="text-zinc-500 hover:text-zinc-300 transition-colors p-0.5"
                           >
@@ -1958,13 +2041,19 @@ export default function PrivateSitesMonitoringPage() {
                             }`}
                           />
                           <span>
-                            {isUp ? "Operational" : isDegraded ? "Degraded" : "Outage"}
+                            {isUp
+                              ? "Operational"
+                              : isDegraded
+                                ? "Degraded"
+                                : "Outage"}
                           </span>
                         </div>
 
                         {site.isCustom && (
                           <button
-                            onClick={(e) => handleDeleteSite(e, site.slug, site.url)}
+                            onClick={(e) =>
+                              handleDeleteSite(e, site.slug, site.url)
+                            }
                             title="Remove site from monitoring"
                             className="text-zinc-600 hover:text-red-400 p-1 transition-colors"
                           >
@@ -1987,8 +2076,12 @@ export default function PrivateSitesMonitoringPage() {
                       <div className="text-[10px] font-mono text-zinc-500 uppercase">
                         Current Ping
                       </div>
-                      <div className={`text-sm sm:text-base font-mono font-bold ${latencyColor}`}>
-                        {site.currentResponseTimeMs !== null ? `${site.currentResponseTimeMs} ms` : "--"}
+                      <div
+                        className={`text-sm sm:text-base font-mono font-bold ${latencyColor}`}
+                      >
+                        {site.currentResponseTimeMs !== null
+                          ? `${site.currentResponseTimeMs} ms`
+                          : "--"}
                       </div>
                     </div>
 
@@ -2067,7 +2160,9 @@ export default function PrivateSitesMonitoringPage() {
                       >
                         <RefreshCw
                           className={`w-3.5 h-3.5 ${
-                            singleProbingSlug === site.slug ? "animate-spin text-[#00ff66]" : ""
+                            singleProbingSlug === site.slug
+                              ? "animate-spin text-[#00ff66]"
+                              : ""
                           }`}
                         />
                       </button>

@@ -12,5 +12,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Uptime Worker
+        env:
+          MONIX_SITE_URL: ${{ vars.MONIX_SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -s -X POST "https://monix.dineshkorukonda.in/api/cron/uptime" || true
+          SITE_URL="${MONIX_SITE_URL:-https://monix.dineshkorukonda.online}"
+          SITE_URL="${SITE_URL%/}"
+          echo "Pinging ${SITE_URL}/api/cron/uptime"
+          if [ -n "${CRON_SECRET}" ]; then
+            curl -fsS -X POST "${SITE_URL}/api/cron/uptime" \
+              -H "Authorization: Bearer ${CRON_SECRET}"
+          else
+            curl -fsS -X POST "${SITE_URL}/api/cron/uptime"
+          fi

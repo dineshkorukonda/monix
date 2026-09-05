@@ -21,7 +21,8 @@ const insecureHttpsAgent = new https.Agent({
 function singleRequest(
   urlStr: string,
   timeoutMs: number,
-  rejectUnauthorized: boolean,): Promise<{
+  rejectUnauthorized: boolean,
+): Promise<{
   statusCode: number;
   headers: http.IncomingHttpHeaders;
   body: string;
@@ -33,7 +34,8 @@ function singleRequest(
       const parsed = new URL(urlStr);
       const isHttps = parsed.protocol === "https:";
       const client = isHttps ? https : http;
-      const agent = isHttps && !rejectUnauthorized ? insecureHttpsAgent : undefined;
+      const agent =
+        isHttps && !rejectUnauthorized ? insecureHttpsAgent : undefined;
 
       const req = client.request(
         urlStr,
@@ -104,17 +106,27 @@ export async function robustProbeSite(
   while (hops < maxHops) {
     hops++;
     const remainingTime = Math.max(2000, timeoutMs - (Date.now() - start));
-    let res: { statusCode: number; headers: http.IncomingHttpHeaders; body: string; durationMs: number } | null = null;
+    let res: {
+      statusCode: number;
+      headers: http.IncomingHttpHeaders;
+      body: string;
+      durationMs: number;
+    } | null = null;
 
     try {
       res = await singleRequest(currentUrl, remainingTime, true);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      if (/certificate|leaf|self-signed|unable to verify|UNABLE_TO_VERIFY|CERT_/i.test(errMsg)) {
+      if (
+        /certificate|leaf|self-signed|unable to verify|UNABLE_TO_VERIFY|CERT_/i.test(
+          errMsg,
+        )
+      ) {
         try {
           res = await singleRequest(currentUrl, remainingTime, false);
         } catch (innerErr: unknown) {
-          lastError = innerErr instanceof Error ? innerErr.message : "Connection failed";
+          lastError =
+            innerErr instanceof Error ? innerErr.message : "Connection failed";
           break;
         }
       } else {
@@ -129,11 +141,13 @@ export async function robustProbeSite(
     finalBody = res.body;
     finalUrl = currentUrl;
 
-    if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+    if (
+      [301, 302, 303, 307, 308].includes(res.statusCode) &&
+      res.headers.location
+    ) {
       try {
         const nextUrl = new URL(res.headers.location, currentUrl).toString();
         currentUrl = nextUrl;
-        continue;
       } catch {
         break;
       }
@@ -164,7 +178,9 @@ export async function robustProbeSite(
     pageTitle = titleMatch[1].replace(/\s+/g, " ").trim();
   }
 
-  const hasLoginForm = /<form[^>]*>|<input[^>]*type=["'\password["']/i.test(finalBody);
+  const hasLoginForm = /<form[^>]*>|<input[^>]*type=["'password["']/i.test(
+    finalBody,
+  );
   const hasAuthKeywords =
     /login|sign in|sign-in|sso|cas|erp|auth|authentication|username|credentials|forbidden|access denied/i.test(
       finalBody,
@@ -195,7 +211,7 @@ export async function robustProbeSite(
     }
   }
 
-  const isUp=
+  const isUp =
     (finalStatusCode >= 200 && finalStatusCode < 400) ||
     finalStatusCode === 401 ||
     finalStatusCode === 403;
