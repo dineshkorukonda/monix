@@ -397,7 +397,7 @@ export default function PublicStatusPage({
           </p>
           <div className="pt-4 flex items-center justify-center gap-3">
             <Link
-              href="/private-sites"
+              href="/radar"
               className="inline-flex items-center gap-2 px-4 py-2 bg-[#00ff66] text-black text-xs font-mono font-semibold rounded hover:bg-[#00ff66]/90 transition-opacity"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Return to Fleet Radar
@@ -427,7 +427,7 @@ export default function PublicStatusPage({
         {/* Navigation Breadcrumb Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-4 text-xs font-mono">
           <Link
-            href="/private-sites"
+            href="/radar"
             className="inline-flex items-center gap-2 text-zinc-400 hover:text-[#00ff66] transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />

@@ -131,7 +131,7 @@ curl -s https://monix.dineshkorukonda.online/api/targets/<target-id>/subdomains 
 | `/docs` | Public | Technical documentation |
 | `/docs/webhooks` | Public | Webhook payload reference |
 | `/inspector` | Public | Advanced inspector tool |
-| `/private-sites` | Public | Fleet radar: live probes for configured targets |
+| `/radar` | Public | Fleet radar: live probes for configured targets |
 
 ---
 

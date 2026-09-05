@@ -7,12 +7,12 @@ export default function DkSitesRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/private-sites");
+    router.replace("/radar");
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center font-mono text-xs text-[#00ff66]">
-      Redirecting to /private-sites...
+    <div className="min-h-screen bg-black flex items-center justify-center font-mono text-xs text-muted-foreground">
+      Redirecting to /radar...
     </div>
   );
 }
