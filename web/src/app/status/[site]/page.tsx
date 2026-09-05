@@ -582,7 +582,7 @@ export default function PublicStatusPage({
                 Zero Outages Detected
               </p>
               <p className="text-zinc-500 text-[11px]">
-                All automated health probes across the last 30 days completed successfully with 100% operational integrity.
+                No incidents recorded in the last 30 days.
               </p>
             </div>
           ) : (

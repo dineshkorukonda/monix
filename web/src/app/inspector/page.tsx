@@ -277,10 +277,11 @@ export default function InspectorPage() {
             </Link>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed font-sans">
-            Instantly view real-time latency, HTTP status, and TLS certificate
-            expiration for any host. Monitored targets receive 5-minute
-            automated heartbeats, 2-failure incident detection, and webhook
-            notifications.
+            View latency, HTTP status, and TLS certificate expiry on public
+            status pages. Registered targets are checked every 5 minutes via
+            GitHub Actions; incidents require 2 consecutive failures. Webhooks
+            fire only when a target has{" "}
+            <code className="text-[#00ff66]">webhook_url</code> configured.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-xs">
             <Link

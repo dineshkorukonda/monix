@@ -45,8 +45,8 @@ export default function Footer() {
             </span>
 
             <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 pl-1 border-l border-zinc-800">
-              <span className="w-2 h-2 rounded-full bg-[#00ff66] animate-pulse" />
-              <span>All Systems Operational</span>
+              <span className="w-2 h-2 rounded-full bg-zinc-600" />
+              <span>Open diagnostic platform</span>
             </div>
           </div>
 

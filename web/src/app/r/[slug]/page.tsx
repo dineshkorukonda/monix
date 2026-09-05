@@ -553,7 +553,7 @@ export default function PublicReportPage({
                 </span>
                 <p className="text-sm font-bold text-white">Every 5 minutes</p>
                 <p className="text-[10px] text-muted-foreground">
-                  Automated Vercel Cron
+                  GitHub Actions → /api/cron/uptime
                 </p>
               </div>
               <div className="border border-border bg-[#18181b] p-3 rounded space-y-1">
@@ -572,10 +572,10 @@ export default function PublicReportPage({
                   WEBHOOK DISPATCH
                 </span>
                 <p className="text-sm font-bold text-[#00ff66]">
-                  Active / 1x Retry
+                  Optional (1x retry)
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  JSON event notifications
+                  When webhook_url is set on the target
                 </p>
               </div>
             </div>
