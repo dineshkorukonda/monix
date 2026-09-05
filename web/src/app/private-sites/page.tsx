@@ -1399,7 +1399,7 @@ export default function PrivateSitesMonitoringPage() {
         (s) =>
           s.name.toLowerCase().includes(q) ||
           s.url.toLowerCase().includes(q) ||
-          (s.pageTitle && s.pageTitle.toLowerCase().includes(q)) ||
+          s.pageTitle?.toLowerCase().includes(q) ||
           s.category.toLowerCase().includes(q),
       );
     }
@@ -1873,14 +1873,12 @@ export default function PrivateSitesMonitoringPage() {
                           </span>
                         </span>
                       </td>
-                      <td
-                        className="py-3.5 px-4 whitespace-nowrap text-right"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <td className="py-3.5 px-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
                             href={`/status/${site.slug}`}
                             title="View Scoped Public Status Page"
+                            onClick={(e) => e.stopPropagation()}
                             className="p-1.5 text-zinc-400 hover:text-[#00ff66] bg-zinc-900 border border-zinc-800 rounded hover:border-zinc-700 transition-colors"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />

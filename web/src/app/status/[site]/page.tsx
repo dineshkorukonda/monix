@@ -5,18 +5,15 @@ import {
   AlertOctagon,
   AlertTriangle,
   ArrowLeft,
-  ArrowUpRight,
   CheckCircle2,
-  Clock,
   ExternalLink,
   Globe,
-  KeyRound,
   RefreshCw,
   ShieldCheck,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import type { StatusPageData } from "@/server/uptime/status-page-data";
@@ -30,7 +27,9 @@ function ResponseTimeChart({
   currentLatency: number | null;
   status: "up" | "down" | "unknown";
 }) {
-  const points = (data || []).filter((p) => p && typeof p.timestamp === "string");
+  const points = (data || []).filter(
+    (p) => p && typeof p.timestamp === "string",
+  );
 
   const synthPoints =
     points.length >= 2
@@ -43,7 +42,10 @@ function ResponseTimeChart({
             responseTimeMs:
               status === "down"
                 ? null
-                : Math.max(20, Math.round(base * (1 + Math.sin(i * 1.3) * 0.08))),
+                : Math.max(
+                    20,
+                    Math.round(base * (1 + Math.sin(i * 1.3) * 0.08)),
+                  ),
             status: (status === "down" ? "down" : "up") as "up" | "down",
           };
         });
@@ -83,7 +85,10 @@ function ResponseTimeChart({
       synthPoints.length > 1
         ? paddingLeft + (idx / (synthPoints.length - 1)) * innerWidth
         : paddingLeft + innerWidth / 2;
-    const yVal = p.responseTimeMs !== null && p.status !== "down" ? p.responseTimeMs : null;
+    const yVal =
+      p.responseTimeMs !== null && p.status !== "down"
+        ? p.responseTimeMs
+        : null;
     const y =
       yVal !== null
         ? height -
@@ -99,10 +104,13 @@ function ResponseTimeChart({
     };
   });
 
-  const pointsStr = pointsCoordinates.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ");
+  const pointsStr = pointsCoordinates
+    .map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`)
+    .join(" ");
   const bottomY = height - paddingBottom;
   const areaPolygonStr = `${paddingLeft},${bottomY} ${pointsStr} ${width - paddingRight},${bottomY}`;
-  const hoveredPoint = hoverIndex !== null ? pointsCoordinates[hoverIndex] : null;
+  const hoveredPoint =
+    hoverIndex !== null ? pointsCoordinates[hoverIndex] : null;
 
   const yTicks = [
     { label: `${maxVal}ms`, y: paddingTop },
@@ -129,11 +137,26 @@ function ResponseTimeChart({
         </div>
 
         <div className="flex items-center gap-3 text-xs text-zinc-400">
-          <span>Min: <b className="text-zinc-200">{minLatency != null ? `${minLatency}ms` : "--"}</b></span>
+          <span>
+            Min:{" "}
+            <b className="text-zinc-200">
+              {minLatency != null ? `${minLatency}ms` : "--"}
+            </b>
+          </span>
           <span className="text-zinc-700">|</span>
-          <span>Avg: <b className="text-zinc-200">{avgLatency != null ? `${avgLatency}ms` : "--"}</b></span>
+          <span>
+            Avg:{" "}
+            <b className="text-zinc-200">
+              {avgLatency != null ? `${avgLatency}ms` : "--"}
+            </b>
+          </span>
           <span className="text-zinc-700">|</span>
-          <span>Peak: <b className="text-zinc-200">{peakLatency != null ? `${peakLatency}ms` : "--"}</b></span>
+          <span>
+            Peak:{" "}
+            <b className="text-zinc-200">
+              {peakLatency != null ? `${peakLatency}ms` : "--"}
+            </b>
+          </span>
         </div>
       </div>
 
@@ -230,7 +253,11 @@ function ResponseTimeChart({
                 cx={hoveredPoint.x}
                 cy={hoveredPoint.y}
                 r="5"
-                fill={hoveredPoint.status === "down" || hoveredPoint.val === null ? "#ef4444" : "#00ff66"}
+                fill={
+                  hoveredPoint.status === "down" || hoveredPoint.val === null
+                    ? "#ef4444"
+                    : "#00ff66"
+                }
                 stroke="#ffffff"
                 strokeWidth="1.5"
               />
@@ -244,7 +271,9 @@ function ResponseTimeChart({
               y={height - 6}
               fill="#71717a"
               fontSize="9"
-              textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"}
+              textAnchor={
+                i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"
+              }
               fontFamily="monospace"
             >
               {tick.label}
@@ -262,13 +291,25 @@ function ResponseTimeChart({
             }}
           >
             <span className="text-zinc-400 text-[10px]">
-              {new Date(hoveredPoint.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{" "}
-              ({new Date(hoveredPoint.timestamp).toLocaleDateString([], { month: "short", day: "numeric" })})
+              {new Date(hoveredPoint.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}{" "}
+              (
+              {new Date(hoveredPoint.timestamp).toLocaleDateString([], {
+                month: "short",
+                day: "numeric",
+              })}
+              )
             </span>
             <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${hoveredPoint.status === "down" || hoveredPoint.val === null ? "bg-red-500" : "bg-[#00ff66]"}`} />
+              <span
+                className={`w-2 h-2 rounded-full ${hoveredPoint.status === "down" || hoveredPoint.val === null ? "bg-red-500" : "bg-[#00ff66]"}`}
+              />
               <span className="font-bold text-zinc-100">
-                {hoveredPoint.val !== null && hoveredPoint.status !== "down" ? `${hoveredPoint.val} ms` : "Outage / Offline"}
+                {hoveredPoint.val !== null && hoveredPoint.status !== "down"
+                  ? `${hoveredPoint.val} ms`
+                  : "Outage / Offline"}
               </span>
             </div>
           </div>
@@ -291,10 +332,13 @@ export default function PublicStatusPage({
   const [probing, setProbing] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       setProbing(true);
-      const res = await fetch(`/api/status/${encodeURIComponent(siteIdentifier)}`, { cache: "no-store" });
+      const res = await fetch(
+        `/api/status/${encodeURIComponent(siteIdentifier)}`,
+        { cache: "no-store" },
+      );
       if (!res.ok) {
         setNotFound(true);
         return;
@@ -308,11 +352,11 @@ export default function PublicStatusPage({
       setLoading(false);
       setProbing(false);
     }
-  };
+  }, [siteIdentifier]);
 
   useEffect(() => {
     fetchStatus();
-  }, [siteIdentifier]);
+  }, [fetchStatus]);
 
   if (loading) {
     return (
@@ -322,7 +366,10 @@ export default function PublicStatusPage({
           <div className="border border-zinc-800 p-8 bg-[#0d0d0f] animate-pulse h-40 rounded-xl" />
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="border border-zinc-800 p-5 bg-[#0d0d0f] animate-pulse h-24 rounded-lg" />
+              <div
+                key={i}
+                className="border border-zinc-800 p-5 bg-[#0d0d0f] animate-pulse h-24 rounded-lg"
+              />
             ))}
           </div>
           <div className="border border-zinc-800 p-6 bg-[#0d0d0f] animate-pulse h-64 rounded-xl" />
@@ -344,7 +391,9 @@ export default function PublicStatusPage({
             Status Scope Not Found
           </h1>
           <p className="text-zinc-400 text-xs leading-relaxed font-mono">
-            Target portal <b className="text-white">&ldquo;{siteIdentifier}&rdquo;</b> was not resolved in monitoring logs.
+            Target portal{" "}
+            <b className="text-white">&ldquo;{siteIdentifier}&rdquo;</b> was not
+            resolved in monitoring logs.
           </p>
           <div className="pt-4 flex items-center justify-center gap-3">
             <Link
@@ -387,14 +436,19 @@ export default function PublicStatusPage({
 
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-zinc-500">
-              Last probe: {site.lastCheckedAt ? new Date(site.lastCheckedAt).toLocaleTimeString() : "Just now"}
+              Last probe:{" "}
+              {site.lastCheckedAt
+                ? new Date(site.lastCheckedAt).toLocaleTimeString()
+                : "Just now"}
             </span>
             <button
               onClick={fetchStatus}
               disabled={probing}
               className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 rounded flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-[#00ff66] ${probing ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`w-3.5 h-3.5 text-[#00ff66] ${probing ? "animate-spin" : ""}`}
+              />
               <span>{probing ? "Testing Probe..." : "Live Probe"}</span>
             </button>
           </div>
@@ -416,7 +470,13 @@ export default function PublicStatusPage({
                 ) : (
                   <span className="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-600/40 text-[10px] font-semibold flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                    <span>SSL Valid ({site.certDaysRemaining != null ? `${site.certDaysRemaining}d` : "Active"})</span>
+                    <span>
+                      SSL Valid (
+                      {site.certDaysRemaining != null
+                        ? `${site.certDaysRemaining}d`
+                        : "Active"}
+                      )
+                    </span>
                   </span>
                 )}
               </div>
@@ -445,11 +505,17 @@ export default function PublicStatusPage({
               >
                 <span
                   className={`w-2.5 h-2.5 rounded-full ${
-                    isUp ? "bg-[#00ff66] animate-pulse shadow-[0_0_8px_#00ff66]" : "bg-red-500 animate-ping"
+                    isUp
+                      ? "bg-[#00ff66] animate-pulse shadow-[0_0_8px_#00ff66]"
+                      : "bg-red-500 animate-ping"
                   }`}
                 />
                 <span className="font-bold">
-                  {isUp ? (isDegraded ? "Degraded Latency" : "System Operational") : "Service Outage"}
+                  {isUp
+                    ? isDegraded
+                      ? "Degraded Latency"
+                      : "System Operational"
+                    : "Service Outage"}
                 </span>
               </div>
             </div>
@@ -463,7 +529,13 @@ export default function PublicStatusPage({
               24H AVAILABILITY
             </span>
             <div className="text-xl font-bold text-white font-mono flex items-baseline gap-1">
-              <span className={site.uptimePercentage24h >= 99 ? "text-[#00ff66]" : "text-yellow-400"}>
+              <span
+                className={
+                  site.uptimePercentage24h >= 99
+                    ? "text-[#00ff66]"
+                    : "text-yellow-400"
+                }
+              >
                 {site.uptimePercentage24h}%
               </span>
             </div>
@@ -486,7 +558,11 @@ export default function PublicStatusPage({
             </span>
             <div className="text-xl font-bold text-white font-mono flex items-center gap-1">
               <Zap className="w-4 h-4 text-amber-400" />
-              <span>{site.currentResponseTimeMs != null ? `${site.currentResponseTimeMs} ms` : "--"}</span>
+              <span>
+                {site.currentResponseTimeMs != null
+                  ? `${site.currentResponseTimeMs} ms`
+                  : "--"}
+              </span>
             </div>
             <p className="text-[9px] text-zinc-500">Instant probe latency</p>
           </div>
@@ -496,7 +572,9 @@ export default function PublicStatusPage({
               HTTP CODE
             </span>
             <div className="text-xl font-bold text-white font-mono flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${site.currentStatusCode && site.currentStatusCode < 400 ? "bg-[#00ff66]" : "bg-red-500"}`} />
+              <span
+                className={`w-2 h-2 rounded-full ${site.currentStatusCode && site.currentStatusCode < 400 ? "bg-[#00ff66]" : "bg-red-500"}`}
+              />
               <span>{site.currentStatusCode ?? "--"}</span>
             </div>
             <p className="text-[9px] text-zinc-500">HTTP/1.1 response status</p>
@@ -506,10 +584,16 @@ export default function PublicStatusPage({
             <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
               SSL STATUS
             </span>
-            <div className={`text-xl font-bold font-mono ${site.certWarning ? "text-yellow-400" : "text-[#00ff66]"}`}>
-              {site.certDaysRemaining != null ? `${site.certDaysRemaining}d left` : "Active"}
+            <div
+              className={`text-xl font-bold font-mono ${site.certWarning ? "text-yellow-400" : "text-[#00ff66]"}`}
+            >
+              {site.certDaysRemaining != null
+                ? `${site.certDaysRemaining}d left`
+                : "Active"}
             </div>
-            <p className="text-[9px] text-zinc-500 truncate">{site.certIssuer || "TLS Handshake OK"}</p>
+            <p className="text-[9px] text-zinc-500 truncate">
+              {site.certIssuer || "TLS Handshake OK"}
+            </p>
           </div>
         </section>
 
@@ -539,7 +623,10 @@ export default function PublicStatusPage({
           <div className="flex items-center gap-1 overflow-x-auto py-2">
             {Array.from({ length: 30 }, (_, i) => {
               const d = new Date(Date.now() - (29 - i) * 24 * 3600 * 1000);
-              const dateStr = d.toLocaleDateString([], { month: "short", day: "numeric" });
+              const dateStr = d.toLocaleDateString([], {
+                month: "short",
+                day: "numeric",
+              });
               const isToday = i === 29;
               const isUp = site.status === "up";
               return (
@@ -547,7 +634,9 @@ export default function PublicStatusPage({
                   key={i}
                   title={`${dateStr}: ${isUp ? "100%" : isToday ? "0%" : "100%"} availability`}
                   className={`h-7 flex-1 min-w-[8px] rounded transition-transform hover:scale-125 cursor-pointer ${
-                    !isUp && isToday ? "bg-red-500 hover:bg-red-400" : "bg-[#00ff66] hover:bg-[#00ff66]/80"
+                    !isUp && isToday
+                      ? "bg-red-500 hover:bg-red-400"
+                      : "bg-[#00ff66] hover:bg-[#00ff66]/80"
                   }`}
                 />
               );
@@ -607,7 +696,9 @@ export default function PublicStatusPage({
                   <div className="flex items-center gap-3">
                     {incident.durationSeconds != null && (
                       <span className="text-[11px] text-zinc-400">
-                        Duration: {Math.max(1, Math.round(incident.durationSeconds / 60))}m
+                        Duration:{" "}
+                        {Math.max(1, Math.round(incident.durationSeconds / 60))}
+                        m
                       </span>
                     )}
                     <span
@@ -617,7 +708,9 @@ export default function PublicStatusPage({
                           : "bg-red-950/40 text-red-400 border border-red-500/40 animate-pulse"
                       }`}
                     >
-                      {incident.status === "resolved" ? "Resolved" : "Ongoing Outage"}
+                      {incident.status === "resolved"
+                        ? "Resolved"
+                        : "Ongoing Outage"}
                     </span>
                   </div>
                 </div>
