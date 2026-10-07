@@ -29,7 +29,7 @@ export default function Navigation() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`transition-colors ${
+                className={`transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00ff66] ${
                   active
                     ? "text-[#00ff66] font-semibold"
                     : "text-muted-foreground hover:text-white"
