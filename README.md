@@ -38,14 +38,37 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Docker
 
-Build and run with Docker Compose from the repository root:
+Install Docker with the Compose plugin, then run these commands from the repository root. Copy the environment template only on first setup, so an existing `.env` is not overwritten:
 
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose up --build -d
 ```
 
-This starts the Next.js app on [http://localhost:3000](http://localhost:3000) using `web/Dockerfile`.
+Before starting, fill in `.env` with the values needed for your database and integrations (see below). Compose loads this file into the running container; it does not provision PostgreSQL or Supabase.
+
+The `web` service builds from `web/Dockerfile` and maps **host port 3100** to **container port 3000** (`3100:3000`). Open [http://localhost:3100](http://localhost:3100).
+
+Check the service and its health endpoint from the host:
+
+```bash
+docker compose ps
+curl --fail --show-error http://localhost:3100/api/health
+```
+
+In Windows PowerShell, use `curl.exe` for the same curl options. A successful health response is HTTP 200 with:
+
+```json
+{"status":"ok","service":"monix-api"}
+```
+
+This endpoint confirms that the API is responding; it does not check database or external integration connectivity. If the app is still starting or the request fails, inspect `docker compose logs --tail=100 web` and retry after startup completes.
+
+To stop and remove the Compose containers and network:
+
+```bash
+docker compose down
+```
 
 ---
 
