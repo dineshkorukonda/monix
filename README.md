@@ -26,6 +26,7 @@ Built with **Next.js 16, TypeScript, Tailwind CSS, and Bun**.
 ## Quick Start
 
 ```bash
+cp .env.example .env
 cd web
 bun install
 bun run dev
@@ -50,10 +51,12 @@ This starts the Next.js app on [http://localhost:3000](http://localhost:3000) us
 
 ## Database Setup
 
-Monix uses PostgreSQL. Run all migrations in order via your Supabase SQL Editor or `psql`:
+Monix uses PostgreSQL. Run migrations via your Supabase SQL Editor or `psql`:
 
 ```bash
 psql $DATABASE_URL -f web/sql/init.sql
+psql $DATABASE_URL -f web/sql/001_phase1_public_slug.sql
+psql $DATABASE_URL -f web/sql/002_rate_limits.sql
 psql $DATABASE_URL -f web/sql/003_uptime_and_incidents.sql
 psql $DATABASE_URL -f web/sql/004_status_page_toggle.sql
 psql $DATABASE_URL -f web/sql/005_certificate_expiry.sql
@@ -64,6 +67,8 @@ psql $DATABASE_URL -f web/sql/007_subdomains.sql
 | Migration file | What it creates |
 |---|---|
 | `init.sql` | Core tables: `monix_scans`, `monix_targets`, `monix_rate_limits` |
+| `001_phase1_public_slug.sql` | Adds `public_slug`, `trigger` to `monix_scans` (legacy-safe) |
+| `002_rate_limits.sql` | Ensures `monix_rate_limits` table/indexes exist (legacy-safe) |
 | `003_uptime_and_incidents.sql` | `uptime_checks`, `incidents` tables |
 | `004_status_page_toggle.sql` | `public_status_page`, `status_slug` columns |
 | `005_certificate_expiry.sql` | `certificate_expiry_at`, `cert_issuer`, `cert_warning_days` columns |
@@ -91,11 +96,23 @@ You can also trigger `/api/cron/uptime` manually via **Actions → Uptime Ping C
 
 ## Environment Variables
 
-Copy `web/.env.example` to `web/.env.local`:
+Copy root `.env.example` to `.env`:
 
 ```ini
-# PostgreSQL connection string (required in production for uptime/incidents)
-DATABASE_URL="postgresql://postgres:password@localhost:5432/monix"
+# Supabase (browser + server)
+NEXT_PUBLIC_SUPABASE_URL="https://<project-ref>.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY=""
+SUPABASE_URL=""
+SUPABASE_SERVICE_ROLE_KEY=""
+
+# JWT verification for authenticated /api/* routes
+SUPABASE_JWKS_URL="https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json"
+SUPABASE_JWT_AUD="authenticated"
+# SUPABASE_JWT_SECRET=""
+# MONIX_VERIFY_SUPABASE_JWT="false"
+
+# PostgreSQL connection string
+DATABASE_URL="******localhost:5432/monix"
 
 # App base URL
 NEXT_PUBLIC_SITE_URL="http://localhost:3000"
@@ -106,8 +123,10 @@ NEXT_PUBLIC_SITE_URL="http://localhost:3000"
 # Protect /api/cron/* routes (set same value in GitHub Actions secrets)
 # CRON_SECRET=""
 
-# Supabase JWT secret (for authenticated API routes)
-SUPABASE_JWT_SECRET=""
+# Optional: Google Search Console OAuth
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+GOOGLE_REDIRECT_URI="http://localhost:3000/api/gsc/callback"
 
 # Optional: Google PageSpeed Insights API Key
 PAGESPEED_API_KEY=""
@@ -140,11 +159,14 @@ curl -s https://monix.dineshkorukonda.online/api/targets/<target-id>/subdomains 
 |---|---|---|
 | `/` | Public | Landing page + instant scan |
 | `/r/[slug]` | Public | Permanent scan report with subdomain section |
+| `/status` | Public | Status page directory |
 | `/status/[slug]` | Public | Per-site public status page |
 | `/docs` | Public | Technical documentation |
 | `/docs/webhooks` | Public | Webhook payload reference |
 | `/inspector` | Public | Advanced inspector tool |
 | `/radar` | Public | Fleet radar: live probes for configured targets |
+| `/dk-sites` | Signed in | Fleet-managed DK sites |
+| `/private-sites` | Signed in | Fleet-managed private sites |
 
 ---
 
