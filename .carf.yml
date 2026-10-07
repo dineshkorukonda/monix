@@ -3,7 +3,7 @@ runtimeAdapter: docker
 mode: standalone
 adapter:
   kind: docker
-  target: monix-web
-  containerName: monix-web
+  target: monix-web-1
+  containerName: monix-web-1
   composeFile: docker-compose.yml
   healthUrl: http://127.0.0.1:3000/api/health
