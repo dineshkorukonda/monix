@@ -35,6 +35,19 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## Docker
+
+Build and run with Docker Compose from the repository root:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+This starts the Next.js app on [http://localhost:3000](http://localhost:3000) using `web/Dockerfile`.
+
+---
+
 ## Database Setup
 
 Monix uses PostgreSQL. Run all migrations in order via your Supabase SQL Editor or `psql`:
