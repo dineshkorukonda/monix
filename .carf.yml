@@ -1,0 +1,9 @@
+deploymentIntegration: github_actions
+runtimeAdapter: docker
+mode: standalone
+adapter:
+  kind: docker
+  target: monix-web
+  containerName: monix-web
+  composeFile: docker-compose.yml
+  healthUrl: http://127.0.0.1:3000/api/health
