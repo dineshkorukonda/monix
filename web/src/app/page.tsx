@@ -1,3 +1,4 @@
+import { HeroScanForm } from "@/components/HeroScanForm";
 import {
   Activity,
   ArrowRight,
@@ -49,6 +50,9 @@ export default function Home() {
             </Link>
           </div>
         </header>
+
+        {/* Instant Hero Scan Input */}
+        <HeroScanForm />
 
         {/* Feature Grid Section */}
         <section className="space-y-4">

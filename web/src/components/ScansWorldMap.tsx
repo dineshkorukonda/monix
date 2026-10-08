@@ -9,6 +9,7 @@ import {
   MarkerPopup,
 } from "@/components/ui/map";
 import { getScanLocations, type ScanLocation } from "@/lib/api";
+import { formatUrlDomain } from "@/lib/format-url";
 
 function scoreDot(score: number) {
   if (score >= 80) return "#34d399";
@@ -66,7 +67,7 @@ export default function ScansWorldMap() {
     >
       {locations.map((loc) => {
         const color = scoreDot(loc.score);
-        const domain = loc.url.replace(/^https?:\/\//, "").split("/")[0];
+        const domain = formatUrlDomain(loc.url);
         return (
           <MapMarker
             key={`${loc.lat}-${loc.lng}-${loc.url}`}

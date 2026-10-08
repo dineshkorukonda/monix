@@ -2,6 +2,8 @@
 
 > Open website diagnostic platform — instant security, SEO & performance inspection, uptime monitoring, status pages, certificate tracking, webhook alerting, and native subdomain enumeration.
 
+Read the [Monix Project Thesis & Architecture Plan](docs/project-plan-and-thesis.md) for detailed architecture specifications, honest telemetry design, and roadmap.
+
 Built with **Next.js 16, TypeScript, Tailwind CSS, and Bun**.
 
 ---

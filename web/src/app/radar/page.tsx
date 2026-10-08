@@ -101,30 +101,8 @@ function StandardLatencyGraph({
       } => p && typeof p.timestamp === "string",
     );
 
-    if (valid.length >= 2) return valid;
-
-    const base = currentLatency ?? 150;
-    const now = Date.now();
-    return Array.from({ length: 24 }, (_, i) => {
-      const ts = new Date(now - (23 - i) * 60 * 60 * 1000).toISOString();
-      const inNight = isTimestampInNightlyDowntime(ts, nightlyDowntime);
-      if (inNight) {
-        return {
-          timestamp: ts,
-          responseTimeMs: null,
-          status: "down" as const,
-        };
-      }
-      return {
-        timestamp: ts,
-        responseTimeMs:
-          status === "down"
-            ? null
-            : Math.max(20, Math.round(base * (1 + Math.sin(i * 1.5) * 0.08))),
-        status: (status === "down" ? "down" : "up") as "up" | "down",
-      };
-    });
-  }, [history, currentLatency, status, nightlyDowntime]);
+    return valid;
+  }, [history]);
 
   const validLatencies = points
     .map((p) => p.responseTimeMs)
@@ -259,7 +237,15 @@ function StandardLatencyGraph({
 
       {/* SVG Chart Area */}
       <div className="relative w-full">
-        <svg
+        {points.length < 2 ? (
+          <div className="flex flex-col items-center justify-center py-6 text-zinc-500 text-xs font-mono">
+            <Clock className="w-4 h-4 mb-1.5 opacity-50 text-zinc-400" />
+            <span className="text-zinc-400 text-[11px]">Collecting baseline telemetry</span>
+            <span className="text-[9px] text-zinc-600">History will render as background checks record</span>
+          </div>
+        ) : (
+          <>
+            <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-auto overflow-visible select-none cursor-crosshair"
           onMouseLeave={() => setHoverIndex(null)}
@@ -428,6 +414,8 @@ function StandardLatencyGraph({
               </span>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
 

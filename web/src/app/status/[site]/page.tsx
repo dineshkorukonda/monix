@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
+  Clock,
   ExternalLink,
   Globe,
   RefreshCw,
@@ -31,24 +32,7 @@ function ResponseTimeChart({
     (p) => p && typeof p.timestamp === "string",
   );
 
-  const synthPoints =
-    points.length >= 2
-      ? points
-      : Array.from({ length: 24 }, (_, i) => {
-          const now = Date.now();
-          const base = currentLatency ?? 150;
-          return {
-            timestamp: new Date(now - (23 - i) * 3600 * 1000).toISOString(),
-            responseTimeMs:
-              status === "down"
-                ? null
-                : Math.max(
-                    20,
-                    Math.round(base * (1 + Math.sin(i * 1.3) * 0.08)),
-                  ),
-            status: (status === "down" ? "down" : "up") as "up" | "down",
-          };
-        });
+  const synthPoints = points;
 
   const validLatencies = synthPoints
     .map((p) => p.responseTimeMs)
@@ -161,7 +145,17 @@ function ResponseTimeChart({
       </div>
 
       <div className="relative w-full overflow-hidden">
-        <svg
+        {points.length < 2 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-zinc-500 text-xs font-mono">
+            <Clock className="w-5 h-5 mb-2 opacity-50 text-zinc-400" />
+            <span className="text-zinc-400 font-medium">Awaiting baseline telemetry</span>
+            <span className="text-[11px] text-zinc-600 mt-0.5">
+              24-hour latency curve populates automatically as 5-minute uptime checks run
+            </span>
+          </div>
+        ) : (
+          <>
+            <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-auto overflow-visible select-none cursor-crosshair"
           onMouseLeave={() => setHoverIndex(null)}
@@ -313,6 +307,8 @@ function ResponseTimeChart({
               </span>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>
