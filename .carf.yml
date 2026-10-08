@@ -7,3 +7,4 @@ adapter:
   containerName: monix-web-1
   composeFile: docker-compose.yml
   healthUrl: http://127.0.0.1:3000/api/health
+analysisTrigger: pull_requests
