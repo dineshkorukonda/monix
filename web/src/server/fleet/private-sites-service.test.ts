@@ -145,11 +145,21 @@ describe("private-sites-service", () => {
     expect(telemetry.category).toBe(site.category);
     expect(["up", "down", "degraded", "unknown"]).toContain(telemetry.status);
     expect(Array.isArray(telemetry.responseTimeHistory24h)).toBe(true);
-    expect(telemetry.responseTimeHistory24h.length).toBeGreaterThanOrEqual(10);
+    expect(telemetry.responseTimeHistory24h.length).toBeGreaterThanOrEqual(1);
     expect(Array.isArray(telemetry.hourlySlots24h)).toBe(true);
     expect(telemetry.hourlySlots24h.length).toBe(24);
     expect(Array.isArray(telemetry.dailyAvailability30d)).toBe(true);
     expect(telemetry.dailyAvailability30d.length).toBe(30);
     expect(typeof telemetry.isLoginProtected).toBe("boolean");
+  });
+  it("honestly marks slots and tiles as no_data when checks are absent instead of faking data", () => {
+    const slots = generate24HourlySlots([], 120, "up");
+    expect(slots.length).toBe(24);
+    expect(slots.every((s) => s.status === "no_data" && s.totalChecks === 0)).toBe(true);
+
+    const { generate30DayAvailability } = require("./private-sites-service");
+    const tiles = generate30DayAvailability([]);
+    expect(tiles.length).toBe(30);
+    expect(tiles.every((t) => t.status === "no_data" && t.checksCount === 0)).toBe(true);
   });
 });

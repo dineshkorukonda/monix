@@ -19,6 +19,7 @@ import {
   type ScanReport,
   type StoredReportResults,
 } from "@/lib/api";
+import { formatUrlDomain } from "@/lib/format-url";
 
 type StatusType = "PASS" | "WARN" | "FAIL";
 
@@ -304,8 +305,7 @@ export default function PublicReportPage({
               </button>
               <Link
                 href={`/status/${encodeURIComponent(
-                  report.url.replace(/^https?:\/\//, "").split("/")[0] ||
-                    report.url,
+                  formatUrlDomain(report.url) || report.url,
                 )}`}
                 className="inline-flex items-center gap-1.5 px-3 py-1 border border-[#00ff66]/40 bg-[#00ff66]/10 text-[#00ff66] hover:bg-[#00ff66] hover:text-black font-semibold text-[11px] rounded transition-colors"
               >
@@ -537,8 +537,7 @@ export default function PublicReportPage({
             </div>
             <Link
               href={`/status/${encodeURIComponent(
-                report.url.replace(/^https?:\/\//, "").split("/")[0] ||
-                  report.url,
+                formatUrlDomain(report.url) || report.url,
               )}`}
               className="text-[#00ff66] hover:underline text-[11px] flex items-center gap-1 font-mono"
             >
@@ -584,7 +583,7 @@ export default function PublicReportPage({
               <span>
                 Target Host:{" "}
                 <strong className="text-white font-mono">
-                  {report.url.replace(/^https?:\/\//, "").split("/")[0]}
+                  {formatUrlDomain(report.url)}
                 </strong>
               </span>
               <div className="flex items-center gap-3">
@@ -596,8 +595,7 @@ export default function PublicReportPage({
                 </Link>
                 <Link
                   href={`/status/${encodeURIComponent(
-                    report.url.replace(/^https?:\/\//, "").split("/")[0] ||
-                      report.url,
+                    formatUrlDomain(report.url) || report.url,
                   )}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#00ff66] text-black font-semibold rounded hover:opacity-90 transition-opacity"
                 >

@@ -339,7 +339,8 @@ export function isTimestampInNightlyDowntime(
 }
 
 /**
- * Synthesizes a baseline telemetry series when history is newly initialized (< 12 points).
+ * Formats genuine telemetry series for the site, filtering out nightly maintenance periods if configured.
+ * Does not synthesize fake historical points when data is absent.
  */
 export function buildEnhancedTelemetrySeries(
   history: Array<{
@@ -355,69 +356,38 @@ export function buildEnhancedTelemetrySeries(
   responseTimeMs: number | null;
   status: "up" | "down";
 }> {
-  if (history.length >= 12) {
-    return history.map((p) => {
-      const inNightDowntime = isTimestampInNightlyDowntime(
-        p.timestamp,
-        nightlyDowntime,
-      );
-      if (inNightDowntime) {
-        return {
-          timestamp: p.timestamp,
-          responseTimeMs: null,
-          status: "down" as const,
-        };
-      }
-      return p;
-    });
-  }
-
-  const now = Date.now();
-  const baseLatency = currentLatency ?? 150;
   const result: Array<{
     timestamp: string;
     responseTimeMs: number | null;
     status: "up" | "down";
-  }> = [];
-
-  for (let i = 23; i >= 1; i--) {
-    const pointTime = new Date(now - i * 60 * 60 * 1000).toISOString();
+  }> = history.map((p) => {
     const inNightDowntime = isTimestampInNightlyDowntime(
-      pointTime,
+      p.timestamp,
       nightlyDowntime,
     );
-
     if (inNightDowntime) {
-      result.push({
-        timestamp: pointTime,
+      return {
+        timestamp: p.timestamp,
         responseTimeMs: null,
-        status: "down",
-      });
-    } else {
-      const jitterFactor = 1 + Math.sin(i * 1.5) * 0.08;
-      const jitteredLatency = isUp
-        ? Math.max(20, Math.round(baseLatency * jitterFactor))
-        : null;
-
-      result.push({
-        timestamp: pointTime,
-        responseTimeMs: jitteredLatency,
-        status: isUp ? "up" : "down",
-      });
+        status: "down" as const,
+      };
     }
-  }
-
-  const nowIso = new Date(now).toISOString();
-  const currentInDowntime = isTimestampInNightlyDowntime(
-    nowIso,
-    nightlyDowntime,
-  );
-
-  result.push({
-    timestamp: nowIso,
-    responseTimeMs: currentInDowntime ? null : currentLatency,
-    status: currentInDowntime ? "down" : isUp ? "up" : "down",
+    return p;
   });
+
+  // If no check history exists yet, include the current probe point if available
+  if (result.length === 0 && currentLatency !== null) {
+    const nowIso = new Date().toISOString();
+    const currentInDowntime = isTimestampInNightlyDowntime(
+      nowIso,
+      nightlyDowntime,
+    );
+    result.push({
+      timestamp: nowIso,
+      responseTimeMs: currentInDowntime ? null : currentLatency,
+      status: currentInDowntime ? "down" : isUp ? "up" : "down",
+    });
+  }
 
   return result;
 }
@@ -526,27 +496,20 @@ export function generate24HourlySlots(
         errorMessages: errors,
       });
     } else {
-      // Baseline synthesis when monitoring has just started
-      const isUp = siteStatus !== "down";
-      const jitterFactor = 1 + Math.sin(i * 1.3) * 0.07;
-      const lat =
-        isUp && currentLatency !== null
-          ? Math.max(20, Math.round(currentLatency * jitterFactor))
-          : currentLatency;
-
+      // No checks recorded during this hour slot
       slots.push({
         hourIndex: 23 - i,
         timeLabel,
         isoTimestamp: startOfSlot.toISOString(),
-        uptimePercent: isUp ? 100 : 0,
-        status: isUp ? "up" : "down",
-        totalChecks: 1,
-        successfulChecks: isUp ? 1 : 0,
-        failedChecks: isUp ? 0 : 1,
-        avgLatencyMs: lat,
-        minLatencyMs: lat,
-        maxLatencyMs: lat,
-        errorMessages: isUp ? [] : ["Site unreachable during probe"],
+        uptimePercent: 0,
+        status: "no_data",
+        totalChecks: 0,
+        successfulChecks: 0,
+        failedChecks: 0,
+        avgLatencyMs: null,
+        minLatencyMs: null,
+        maxLatencyMs: null,
+        errorMessages: ["No checks recorded during this window"],
       });
     }
   }
@@ -586,20 +549,11 @@ export function generate30DayAvailability(
     );
 
     if (dayChecks.length === 0) {
-      const defaultUptime =
-        nightlyDowntimeHours > 0
-          ? Math.round(((24 - nightlyDowntimeHours) / 24) * 100)
-          : 100;
       tiles.push({
         date: dateStr,
-        uptimePercent: defaultUptime,
+        uptimePercent: 0,
         checksCount: 0,
-        status:
-          defaultUptime >= 99
-            ? "up"
-            : defaultUptime >= 70
-              ? "degraded"
-              : "down",
+        status: "no_data",
       });
     } else {
       const upCount = dayChecks.filter((c) => c.status === "up").length;
@@ -686,12 +640,7 @@ export async function probeFleetSite(
     site.nightlyDowntime,
   );
 
-  const totalSlotUptime = hourlySlots.reduce(
-    (acc, s) => acc + s.uptimePercent,
-    0,
-  );
-  const uptime24h =
-    Math.round((totalSlotUptime / hourlySlots.length) * 100) / 100;
+  const uptime24h = isUp ? 100 : 0;
 
   const incidents: FleetIncidentRecord[] = [];
   if (!isUp) {
@@ -1146,13 +1095,17 @@ export async function getFleetTelemetry(
               live.status,
               site.nightlyDowntime,
             );
-            const totalSlotUptime = live.hourlySlots24h.reduce(
-              (acc, s) => acc + s.uptimePercent,
-              0,
+            live.uptimePercentage24h = live.status === "up" ? 100 : 0;
+            live.dailyAvailability30d = generate30DayAvailability(
+              [],
+              site.nightlyDowntime,
             );
-            live.uptimePercentage24h =
-              Math.round((totalSlotUptime / live.hourlySlots24h.length) * 100) /
-              100;
+            live.responseTimeHistory24h = buildEnhancedTelemetrySeries(
+              [],
+              live.currentResponseTimeMs,
+              live.status !== "down",
+              site.nightlyDowntime,
+            );
           }
         }
 
